@@ -1,602 +1,378 @@
-import { useState } from "react";
+import React, { useMemo, useState } from "react";
+import {
+  Shield,
+  Trophy,
+  Sword,
+  User,
+  Users,
+  Home,
+  Settings,
+  Coins,
+  Circle,
+  RefreshCw,
+  ChevronRight,
+  Crown,
+} from "lucide-react";
+import "./Arena.css";
 
-const enemies = [
+const opponents = [
   {
     id: 1,
-    name: "Тіньовий Воїн",
-    player: "DarkLord",
-    level: 8,
-    power: 1240,
-    avatar: "🥷",
-    rank: "Бронза II",
-    reward: 120,
+    name: "Темний Вершник",
+    level: 28,
+    power: 46973,
+    league: "Ліга Тіней",
+    image:
+      "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=900&auto=format&fit=crop",
+    heroes: [
+      { name: "Аріан", level: 30 },
+      { name: "Луна", level: 29 },
+      { name: "Рей", level: 28 },
+    ],
   },
   {
     id: 2,
-    name: "Лицар Світла",
-    player: "LightKing",
-    level: 11,
-    power: 1680,
-    avatar: "🛡️",
-    rank: "Срібло III",
-    reward: 180,
+    name: "Вартовий Пітьми",
+    level: 31,
+    power: 52340,
+    league: "Ліга Тіней",
+    image:
+      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=900&auto=format&fit=crop",
+    heroes: [
+      { name: "Луна", level: 31 },
+      { name: "Аріан", level: 30 },
+      { name: "Рей", level: 30 },
+    ],
   },
   {
     id: 3,
-    name: "Вогняна Відьма",
-    player: "FireQueen",
-    level: 14,
-    power: 2150,
-    avatar: "🧙‍♀️",
-    rank: "Срібло I",
-    reward: 250,
+    name: "Світлоносний",
+    level: 27,
+    power: 43820,
+    league: "Ліга Світла",
+    image:
+      "https://images.unsplash.com/photo-1519074069444-1ba4fff66d16?w=900&auto=format&fit=crop",
+    heroes: [
+      { name: "Рей", level: 29 },
+      { name: "Луна", level: 28 },
+      { name: "Аріан", level: 27 },
+    ],
   },
 ];
 
-const ranking = [
-  { place: 1, name: "DarkLord", power: 5420, avatar: "👑" },
-  { place: 2, name: "LightKing", power: 5180, avatar: "⚔️" },
-  { place: 3, name: "FireQueen", power: 4960, avatar: "🔥" },
-  { place: 4, name: "ShadowFox", power: 4720, avatar: "🦊" },
-  { place: 5, name: "Roma", power: 4210, avatar: "🧙" },
-];
+export default function Arena({
+  username = "Рома",
+  playerPower = 64192,
+  playerLevel = 30,
+  rating = 1250,
+  gold = 8338,
+  silver = 2100000,
+  arenaTickets = 5,
+  onAttack,
+  onHome,
+  onHeroes,
+  onClan,
+  onSettings,
+}) {
+  const [opponentIndex, setOpponentIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-export default function Arena() {
-  const [selectedEnemy, setSelectedEnemy] = useState(enemies[0]);
-  const [energy, setEnergy] = useState(10);
-  const [message, setMessage] = useState("");
+  const opponent = useMemo(
+    () => opponents[opponentIndex],
+    [opponentIndex]
+  );
 
-  const startBattle = () => {
-    if (energy <= 0) {
-      setMessage("⚡ Недостатньо енергії");
-      return;
+  const changeOpponent = () => {
+    setLoading(true);
+
+    setTimeout(() => {
+      setOpponentIndex((current) => (current + 1) % opponents.length);
+      setLoading(false);
+    }, 250);
+  };
+
+  const attack = () => {
+    if (onAttack) {
+      onAttack({
+        mode: "arena",
+        opponent,
+      });
     }
-
-    setEnergy((value) => value - 1);
-    setMessage(`⚔️ Виклик прийнято! Бій проти ${selectedEnemy.name}`);
   };
 
   return (
-    <div className="page arena-page">
-      <header className="page-header">
-        <div>
-          <h1>🏟️ Арена</h1>
-          <p>Змагайся з іншими героями Eldara</p>
-        </div>
+    <div className="arena-page">
+      <main className="arena-container">
 
-        <div className="arena-energy">
-          ⚡ {energy}/10
-        </div>
-      </header>
-
-      {/* Player rank */}
-      <section className="arena-rank-card">
-        <div className="rank-avatar">🧙</div>
-
-        <div className="rank-info">
-          <span>Твій рейтинг</span>
-          <strong>4210 🏆</strong>
-          <small>Срібло II</small>
-        </div>
-
-        <div className="rank-place">
-          <span>Місце</span>
-          <strong>#5</strong>
-        </div>
-      </section>
-
-      {/* Selected opponent */}
-      <section className="arena-section">
-        <div className="section-title">
-          <h2>⚔️ Суперник</h2>
-          <span>Обери противника</span>
-        </div>
-
-        <div className="opponent-main">
-          <div className="opponent-avatar">
-            {selectedEnemy.avatar}
+        {/* HEADER */}
+        <header className="arena-header">
+          <div className="arena-title">
+            Арена
           </div>
 
-          <div className="opponent-info">
-            <h3>{selectedEnemy.name}</h3>
-            <p>👤 {selectedEnemy.player}</p>
-            <p>
-              Рівень {selectedEnemy.level} · ⚔️ {selectedEnemy.power}
-            </p>
-            <span className="opponent-rank">
-              🏆 {selectedEnemy.rank}
+          <div className="arena-header-resources">
+            <span>
+              <Trophy size={13} />
+              {rating.toLocaleString("uk-UA")}
+            </span>
+
+            <span>
+              <Sword size={13} />
+              {arenaTickets}
+            </span>
+          </div>
+        </header>
+
+        {/* LEAGUE */}
+        <section className="arena-league">
+          <div className="league-left">
+            <Shield size={15} />
+            <span>Ліга Світла</span>
+          </div>
+
+          <div className="league-right">
+            <Trophy size={14} />
+            <span>970 місце</span>
+          </div>
+        </section>
+
+        {/* DESCRIPTION */}
+        <div className="arena-subtitle">
+          Перемагай суперників та отримуй нагороди!
+        </div>
+
+        {/* OPPONENT */}
+        <section className="opponent-section">
+
+          <div className="opponent-header">
+            <div className="opponent-name">
+              <span className="enemy-dot">●</span>
+              {opponent.name}
+            </div>
+
+            <div className="opponent-power">
+              Міць: <Sword size={13} />
+              {opponent.power.toLocaleString("uk-UA")}
+            </div>
+          </div>
+
+          {/* IMAGE */}
+          <div className="opponent-image-wrapper">
+            <img
+              src={opponent.image}
+              alt={opponent.name}
+              className="opponent-image"
+            />
+
+            <div className="image-overlay">
+              <div className="opponent-level">
+                Рівень {opponent.level}
+              </div>
+            </div>
+          </div>
+
+          {/* THREE HEROES */}
+          <div className="arena-team">
+            {opponent.heroes.map((hero, index) => (
+              <div className="arena-hero" key={`${hero.name}-${index}`}>
+                <div className="hero-avatar">
+                  <User size={19} />
+                </div>
+
+                <div className="hero-name">
+                  {hero.name}
+                </div>
+
+                <div className="hero-level">
+                  Ур. {hero.level}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ATTACK */}
+          <div className="attack-wrapper">
+            <button
+              className="attack-button"
+              onClick={attack}
+            >
+              <Sword size={15} />
+              Атакувати
+            </button>
+          </div>
+
+          {/* CHANGE OPPONENT */}
+          <button
+            className="change-opponent"
+            onClick={changeOpponent}
+            disabled={loading}
+          >
+            <RefreshCw
+              size={12}
+              className={loading ? "rotate-icon" : ""}
+            />
+
+            {loading
+              ? "Пошук..."
+              : "Змінити суперника"}
+          </button>
+        </section>
+
+        {/* MY POWER */}
+        <section className="my-power">
+          <div className="my-power-title">
+            Моя міць:
+            <Sword size={14} />
+            {playerPower.toLocaleString("uk-UA")}
+          </div>
+
+          <div className="my-power-hint">
+            • Чим сильніший суперник, тим більша
+            нагорода за перемогу!
+          </div>
+        </section>
+
+        {/* NAVIGATION */}
+        <nav className="arena-navigation">
+
+          <button onClick={onHeroes}>
+            <span>
+              <User size={15} />
+              Мої герої
+            </span>
+
+            <ChevronRight size={14} />
+          </button>
+
+          <button onClick={onClan}>
+            <span>
+              <Users size={15} />
+              Мій клан
+            </span>
+
+            <span className="plus">
+              +
+            </span>
+          </button>
+
+          <button onClick={onHome}>
+            <span>
+              <Home size={15} />
+              На головну
+            </span>
+
+            <ChevronRight size={14} />
+          </button>
+
+        </nav>
+
+        {/* PROFILE */}
+        <section className="arena-profile">
+
+          <div className="profile-top">
+            <div className="profile-name">
+              <User size={14} />
+              {username}
+            </div>
+
+            <button
+              className="settings-button"
+              onClick={onSettings}
+            >
+              <Settings size={13} />
+              Налаштування
+            </button>
+          </div>
+
+          <div className="profile-resources">
+
+            <span>
+              <Circle size={11} fill="currentColor" />
+              {playerLevel}
+            </span>
+
+            <span>
+              <Coins size={12} />
+              {gold.toLocaleString("uk-UA")}
+            </span>
+
+            <span>
+              ⚪
+              {formatNumber(silver)}
+            </span>
+
+          </div>
+
+        </section>
+
+        {/* PROMOTIONS */}
+        <section className="arena-promotions">
+
+          <div className="promo-title">
+            АКЦІЇ
+          </div>
+
+          <div className="promo-item">
+            <span className="promo-icon">◆</span>
+
+            <span>
+              <strong>Особлива пропозиція</strong>
+              <br />
+              Знижка 50% на кільця!
+              <span className="promo-time">
+                {" "}Залишилось: 12 годин
+              </span>
             </span>
           </div>
 
-          <div className="arena-reward">
-            <span>Нагорода</span>
-            <strong>+{selectedEnemy.reward}</strong>
-            <small>🏆 рейтинг</small>
+          <div className="promo-item">
+            <span className="promo-icon">◆</span>
+
+            <span>
+              <strong>Персональна акція</strong>
+              <br />
+              До кінця: 2 дні
+            </span>
           </div>
-        </div>
 
-        <button
-          className="arena-battle-button"
-          onClick={startBattle}
-          disabled={energy <= 0}
-        >
-          ⚔️ ПОЧАТИ БІЙ
-        </button>
+        </section>
 
-        {message && (
-          <div className="arena-message">
-            {message}
+        {/* FOOTER */}
+        <footer className="arena-footer">
+
+          <div className="footer-links">
+            <button>Чат</button>
+            <span>|</span>
+            <button>Рейтинг</button>
+            <span>|</span>
+            <button>Коментарі</button>
+            <span>|</span>
+            <button>Інше</button>
           </div>
-        )}
-      </section>
 
-      {/* Opponents */}
-      <section className="arena-section">
-        <div className="section-title">
-          <h2>🎯 Суперники</h2>
-          <span>Доступні гравці</span>
-        </div>
+          <div className="online">
+            Онлайн: 2 054
+          </div>
 
-        <div className="opponents-list">
-          {enemies.map((enemy) => (
-            <button
-              key={enemy.id}
-              className={`opponent-card ${
-                selectedEnemy.id === enemy.id ? "selected" : ""
-              }`}
-              onClick={() => {
-                setSelectedEnemy(enemy);
-                setMessage("");
-              }}
-            >
-              <div className="opponent-card-avatar">
-                {enemy.avatar}
-              </div>
+          <div className="copyright">
+            © 2026 «Хроніки Згаслого Світанку»
+          </div>
 
-              <div className="opponent-card-info">
-                <strong>{enemy.name}</strong>
-                <span>👤 {enemy.player}</span>
-                <span>
-                  Lv.{enemy.level} · ⚔️ {enemy.power}
-                </span>
-              </div>
+        </footer>
 
-              <div className="opponent-card-reward">
-                +{enemy.reward} 🏆
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* Ranking */}
-      <section className="arena-section">
-        <div className="section-title">
-          <h2>🏆 Рейтинг арени</h2>
-          <span>Топ гравців</span>
-        </div>
-
-        <div className="ranking-list">
-          {ranking.map((player) => (
-            <div
-              key={player.place}
-              className={`ranking-row ${
-                player.name === "Roma" ? "current-player" : ""
-              }`}
-            >
-              <div className="ranking-place">
-                {player.place === 1
-                  ? "🥇"
-                  : player.place === 2
-                  ? "🥈"
-                  : player.place === 3
-                  ? "🥉"
-                  : `#${player.place}`}
-              </div>
-
-              <div className="ranking-avatar">
-                {player.avatar}
-              </div>
-
-              <div className="ranking-name">
-                <strong>{player.name}</strong>
-                {player.name === "Roma" && (
-                  <span>Це ти</span>
-                )}
-              </div>
-
-              <div className="ranking-power">
-                ⚔️ {player.power}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Arena rules */}
-      <section className="arena-rules">
-        <h3>📜 Правила арени</h3>
-
-        <div className="rule">
-          <span>⚡</span>
-          <p>Один бій витрачає 1 одиницю енергії.</p>
-        </div>
-
-        <div className="rule">
-          <span>🏆</span>
-          <p>Перемога підвищує твій рейтинг.</p>
-        </div>
-
-        <div className="rule">
-          <span>💀</span>
-          <p>Поразка знижує рейтинг.</p>
-        </div>
-
-        <div className="rule">
-          <span>🎁</span>
-          <p>За перемоги можна отримувати нагороди.</p>
-        </div>
-      </section>
-
-      <style>{`
-        .arena-page {
-          padding-bottom: 90px;
-        }
-
-        .page-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 15px;
-          margin-bottom: 20px;
-        }
-
-        .page-header h1 {
-          margin: 0 0 5px;
-        }
-
-        .page-header p {
-          margin: 0;
-          opacity: .65;
-        }
-
-        .arena-energy {
-          padding: 10px 14px;
-          border-radius: 14px;
-          background: rgba(255,255,255,.08);
-          font-weight: 700;
-          white-space: nowrap;
-        }
-
-        .arena-rank-card {
-          display: flex;
-          align-items: center;
-          gap: 15px;
-          padding: 18px;
-          margin-bottom: 22px;
-          border-radius: 22px;
-          background: linear-gradient(
-            135deg,
-            rgba(100,70,180,.35),
-            rgba(30,30,60,.8)
-          );
-          border: 1px solid rgba(255,255,255,.1);
-        }
-
-        .rank-avatar {
-          width: 64px;
-          height: 64px;
-          display: grid;
-          place-items: center;
-          font-size: 34px;
-          border-radius: 18px;
-          background: rgba(255,255,255,.1);
-        }
-
-        .rank-info {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-        }
-
-        .rank-info span,
-        .rank-info small,
-        .rank-place span {
-          opacity: .65;
-          font-size: 13px;
-        }
-
-        .rank-info strong {
-          font-size: 22px;
-        }
-
-        .rank-place {
-          text-align: right;
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-        }
-
-        .rank-place strong {
-          font-size: 22px;
-        }
-
-        .arena-section {
-          margin-bottom: 24px;
-        }
-
-        .section-title {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 12px;
-        }
-
-        .section-title h2 {
-          margin: 0;
-          font-size: 18px;
-        }
-
-        .section-title span {
-          font-size: 12px;
-          opacity: .55;
-        }
-
-        .opponent-main {
-          display: flex;
-          align-items: center;
-          gap: 15px;
-          padding: 18px;
-          border-radius: 22px;
-          background: rgba(255,255,255,.06);
-          border: 1px solid rgba(255,255,255,.1);
-        }
-
-        .opponent-avatar {
-          width: 72px;
-          height: 72px;
-          display: grid;
-          place-items: center;
-          flex-shrink: 0;
-          border-radius: 20px;
-          background: rgba(255,255,255,.08);
-          font-size: 38px;
-        }
-
-        .opponent-info {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .opponent-info h3 {
-          margin: 0 0 5px;
-        }
-
-        .opponent-info p {
-          margin: 3px 0;
-          font-size: 13px;
-          opacity: .65;
-        }
-
-        .opponent-rank {
-          display: inline-block;
-          margin-top: 7px;
-          padding: 4px 8px;
-          border-radius: 8px;
-          background: rgba(255,255,255,.08);
-          font-size: 11px;
-        }
-
-        .arena-reward {
-          text-align: right;
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-        }
-
-        .arena-reward span,
-        .arena-reward small {
-          font-size: 11px;
-          opacity: .55;
-        }
-
-        .arena-reward strong {
-          font-size: 18px;
-        }
-
-        .arena-battle-button {
-          width: 100%;
-          margin-top: 12px;
-          padding: 15px;
-          border: 0;
-          border-radius: 16px;
-          background: linear-gradient(135deg, #8f3cff, #ff3c9e);
-          color: white;
-          font-size: 15px;
-          font-weight: 800;
-          cursor: pointer;
-        }
-
-        .arena-battle-button:disabled {
-          opacity: .4;
-          cursor: not-allowed;
-        }
-
-        .arena-message {
-          margin-top: 10px;
-          padding: 12px;
-          border-radius: 12px;
-          background: rgba(255,255,255,.06);
-          text-align: center;
-          font-size: 13px;
-        }
-
-        .opponents-list,
-        .ranking-list {
-          display: flex;
-          flex-direction: column;
-          gap: 9px;
-        }
-
-        .opponent-card {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 17px;
-          background: rgba(255,255,255,.04);
-          color: inherit;
-          text-align: left;
-          cursor: pointer;
-        }
-
-        .opponent-card.selected {
-          border-color: rgba(170,90,255,.7);
-          background: rgba(120,60,220,.12);
-        }
-
-        .opponent-card-avatar {
-          width: 48px;
-          height: 48px;
-          display: grid;
-          place-items: center;
-          border-radius: 14px;
-          background: rgba(255,255,255,.07);
-          font-size: 25px;
-        }
-
-        .opponent-card-info {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          min-width: 0;
-        }
-
-        .opponent-card-info strong {
-          font-size: 14px;
-        }
-
-        .opponent-card-info span {
-          font-size: 11px;
-          opacity: .6;
-        }
-
-        .opponent-card-reward {
-          font-size: 11px;
-          font-weight: 700;
-          white-space: nowrap;
-        }
-
-        .ranking-row {
-          display: flex;
-          align-items: center;
-          gap: 11px;
-          padding: 12px;
-          border-radius: 15px;
-          background: rgba(255,255,255,.04);
-        }
-
-        .ranking-row.current-player {
-          background: rgba(120,60,220,.15);
-          border: 1px solid rgba(150,90,255,.3);
-        }
-
-        .ranking-place {
-          width: 30px;
-          text-align: center;
-          font-weight: 700;
-        }
-
-        .ranking-avatar {
-          width: 40px;
-          height: 40px;
-          display: grid;
-          place-items: center;
-          border-radius: 12px;
-          background: rgba(255,255,255,.07);
-          font-size: 21px;
-        }
-
-        .ranking-name {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .ranking-name strong {
-          font-size: 14px;
-        }
-
-        .ranking-name span {
-          font-size: 10px;
-          opacity: .55;
-        }
-
-        .ranking-power {
-          font-size: 12px;
-          font-weight: 700;
-        }
-
-        .arena-rules {
-          padding: 17px;
-          border-radius: 20px;
-          background: rgba(255,255,255,.04);
-          border: 1px solid rgba(255,255,255,.08);
-        }
-
-        .arena-rules h3 {
-          margin: 0 0 13px;
-        }
-
-        .rule {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin: 10px 0;
-        }
-
-        .rule span {
-          width: 30px;
-          text-align: center;
-        }
-
-        .rule p {
-          margin: 0;
-          font-size: 12px;
-          opacity: .7;
-        }
-
-        @media (max-width: 600px) {
-          .page-header {
-            align-items: flex-start;
-          }
-
-          .page-header h1 {
-            font-size: 22px;
-          }
-
-          .opponent-main {
-            flex-wrap: wrap;
-          }
-
-          .opponent-info {
-            min-width: calc(100% - 90px);
-          }
-
-          .arena-reward {
-            width: 100%;
-            flex-direction: row;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 7px;
-          }
-        }
-      `}</style>
+      </main>
     </div>
   );
+}
+
+function formatNumber(number) {
+  if (number >= 1000000) {
+    return `${(number / 1000000).toFixed(1)}M`;
+  }
+
+  if (number >= 1000) {
+    return `${Math.floor(number / 1000)}k`;
+  }
+
+  return number.toLocaleString("uk-UA");
     }
