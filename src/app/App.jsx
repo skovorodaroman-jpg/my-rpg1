@@ -27,7 +27,7 @@ export default function App() {
         </p>
 
         <p style={{ marginTop: "20px", color: "#e84c82" }}>
-          React працює ✅
+          React працює! ⚔️
         </p>
       </main>
     </div>
