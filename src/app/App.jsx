@@ -1,80 +1,34 @@
-import { useEffect, useState } from "react";
-import { supabase } from "./lib/supabase";
-
 export default function App() {
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadSession() {
-      const { data, error } = await supabase.auth.getSession();
-
-      if (!mounted) return;
-
-      if (error) {
-        console.error("Failed to load session:", error);
-      }
-
-      setSession(data?.session ?? null);
-      setLoading(false);
-    }
-
-    loadSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (mounted) {
-        setSession(newSession);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="app-loading">
-        <div className="app-loading__logo">⚔️</div>
-        <h1>Хроніки Згаслого Світанку</h1>
-        <p>Завантаження...</p>
-      </div>
-    );
-  }
-
-  if (!session) {
-    return (
-      <div className="app">
-        <main className="auth-screen">
-          <div className="auth-screen__card">
-            <div className="auth-screen__icon">⚔️</div>
-
-            <h1>Хроніки Згаслого Світанку</h1>
-
-            <p>Світ героїв, битв та пригод.</p>
-
-            <button type="button">
-              Увійти в гру
-            </button>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <div className="app">
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#160812",
+        color: "#ffffff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        padding: "24px",
+        fontFamily: "Arial, sans-serif",
+      }}
+    >
       <main>
-        <h1>Хроніки Згаслого Світанку</h1>
+        <div style={{ fontSize: "64px", marginBottom: "20px" }}>
+          ⚔️
+        </div>
 
-        <p>Вітаємо у грі!</p>
+        <h1 style={{ fontSize: "28px", marginBottom: "12px" }}>
+          Хроніки Згаслого Світанку
+        </h1>
 
-        <p>ID користувача: {session.user.id}</p>
+        <p style={{ opacity: 0.8 }}>
+          Гра успішно запущена!
+        </p>
+
+        <p style={{ marginTop: "20px", color: "#e84c82" }}>
+          React працює ✅
+        </p>
       </main>
     </div>
   );
