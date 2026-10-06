@@ -1,275 +1,273 @@
-import { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 
-export default function Home({ profile, navigateTo }) {
-  const [selectedRing, setSelectedRing] = useState("fury");
+const MENU_ITEMS = [
+  {
+    id: "arena",
+    icon: "🛡️",
+    title: "Арена",
+    route: "arena",
+    arrow: true,
+  },
+  {
+    id: "career",
+    icon: "⚔️",
+    title: "Кар'єра",
+    route: "adventures",
+    plus: true,
+  },
+  {
+    id: "cave",
+    icon: "🏰",
+    title: "Печера",
+    route: "mine",
+    plus: true,
+  },
+  {
+    id: "sage",
+    icon: "🛖",
+    title: "Хатина мудреця",
+    unavailable: true,
+    plus: true,
+  },
+  {
+    id: "immortal",
+    icon: "🦁",
+    title: "Король Безсмертних",
+    timer: true,
+  },
+  {
+    id: "battles",
+    icon: "⚔️",
+    title: "Сраження",
+    route: "battle",
+    plus: true,
+  },
+  {
+    id: "colosseum",
+    icon: "📜",
+    title: "Колізей",
+    unavailable: true,
+    plus: true,
+  },
+  {
+    id: "campaign",
+    icon: "🏰",
+    title: "Похід",
+    route: "adventures",
+    plus: true,
+  },
+  {
+    id: "gold",
+    icon: "🪙",
+    title: "Отримати золото",
+    unavailable: true,
+    plus: true,
+  },
+  {
+    id: "equipment-shop",
+    icon: "🛡️",
+    title: "Магазин спорядження",
+    route: "shop",
+    arrow: true,
+  },
+  {
+    id: "forge",
+    icon: "⚒️",
+    title: "Кузня",
+    route: "forge",
+    subtitle: "Руни • заточка • бонус • зірки",
+    arrow: true,
+  },
+  {
+    id: "laboratory",
+    icon: "🧪",
+    title: "Лабораторія",
+    route: "laboratory",
+    subtitle: "Посилення • еліксири • камінь • трава",
+    arrow: true,
+  },
+  {
+    id: "ranking",
+    icon: "📜",
+    title: "Рейтинг",
+    route: "ranking",
+    arrow: true,
+  },
+  {
+    id: "personal-records",
+    icon: "🏆",
+    title: "Найкращі особисті рекорди",
+    unavailable: true,
+    arrow: true,
+  },
+  {
+    id: "clan-records",
+    icon: "🛡️",
+    title: "Найкращі рекорди кланів",
+    unavailable: true,
+    arrow: true,
+  },
+  {
+    id: "hero",
+    icon: "🧙",
+    title: "Мій герой",
+    route: "hero",
+    arrow: true,
+  },
+  {
+    id: "clan",
+    icon: "🧙",
+    title: "Мій клан",
+    route: "clan",
+    plus: true,
+  },
+];
 
-  const player = {
-    name:
-      profile?.display_name ||
-      profile?.username ||
-      "Світлоносець",
+export default function Home({ profile, player, onNavigate }) {
+  const currentPlayer = profile || player || {};
 
-    level: profile?.level ?? 1,
+  const [immortalTime, setImmortalTime] = useState(41 * 60 + 29);
 
-    experience: profile?.experience ?? 0,
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setImmortalTime((value) => {
+        if (value <= 0) return 41 * 60 + 29;
+        return value - 1;
+      });
+    }, 1000);
 
-    gold: profile?.gold ?? 0,
+    return () => clearInterval(timer);
+  }, []);
 
-    crystals: profile?.crystals ?? 0,
+  const formatTimer = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
 
-    energy: profile?.energy ?? 0,
-
-    maxEnergy: profile?.max_energy ?? 100,
-
-    avatar: profile?.avatar_url || null,
+    return [
+      hours,
+      minutes,
+      secs,
+    ]
+      .map((value) => String(value).padStart(2, "0"))
+      .join(":");
   };
 
-  /*
-   * Пізніше ці характеристики будемо брати
-   * безпосередньо з player_heroes / heroes.
-   */
-  const hero = {
-    name: player.name,
-    level: player.level,
-    type: "Воїн",
-    power: 1250,
+  const handleMenuClick = (item) => {
+    if (item.route && onNavigate) {
+      onNavigate(item.route);
+      return;
+    }
 
-    hp: 860,
-    maxHp: 1000,
-
-    energy: player.energy,
-    maxEnergy: player.maxEnergy,
-
-    strength: 120,
-    life: 180,
-    armor: 95,
-    luck: 40,
+    // Тимчасово показуємо повідомлення для розділів,
+    // механіку яких додамо пізніше.
+    if (item.unavailable) {
+      window.alert(
+        `${item.title}\n\nЦей розділ буде доступний після додавання його механіки.`
+      );
+    }
   };
 
-  /*
-   * Тимчасова XP-система.
-   * Пізніше замінимо на реальні параметри героя.
-   */
-  const xpPercent = useMemo(() => {
-    const levelXp = 1000;
-    return Math.min(
-      100,
-      Math.max(
-        0,
-        ((player.experience % levelXp) / levelXp) * 100
-      )
-    );
-  }, [player.experience]);
+  const level = currentPlayer.level ?? 1;
+  const experience = currentPlayer.experience ?? 0;
 
-  const hpPercent = Math.min(
+  // Тимчасова система XP:
+  // кожні 1000 XP — наступний рівень.
+  const xpInLevel = experience % 1000;
+  const xpPercent = Math.min(100, (xpInLevel / 1000) * 100);
+
+  const health = currentPlayer.health ?? 100;
+  const maxHealth = currentPlayer.max_health ?? 100;
+
+  const energy = currentPlayer.energy ?? 100;
+  const maxEnergy = currentPlayer.max_energy ?? 100;
+
+  const healthPercent = Math.min(
     100,
-    Math.max(0, (hero.hp / hero.maxHp) * 100)
+    Math.max(0, (health / Math.max(maxHealth, 1)) * 100)
   );
 
   const energyPercent = Math.min(
     100,
-    Math.max(0, (hero.energy / hero.maxEnergy) * 100)
+    Math.max(0, (energy / Math.max(maxEnergy, 1)) * 100)
   );
-
-  const rings = [
-    {
-      id: "fury",
-      name: "Кільце Ярості",
-      icon: "🔥",
-      bonus: "+10% атаки",
-    },
-    {
-      id: "defense",
-      name: "Кільце Захисту",
-      icon: "🛡️",
-      bonus: "+10% броні",
-    },
-    {
-      id: "resurrection",
-      name: "Кільце Відродження",
-      icon: "💠",
-      bonus: "Шанс воскресіння",
-    },
-  ];
-
-  const panels = [
-    {
-      id: "trophies",
-      icon: "🏆",
-      title: "Трофеї",
-      value: "12",
-      description: "Особисті трофеї",
-    },
-    {
-      id: "achievements",
-      icon: "🏅",
-      title: "Досягнення",
-      value: "8/50",
-      description: "Виконані досягнення",
-    },
-    {
-      id: "collection",
-      icon: "📚",
-      title: "Колекція",
-      value: "24",
-      description: "Зібрані предмети",
-    },
-    {
-      id: "equipment",
-      icon: "⚔️",
-      title: "Спорядження",
-      value: "8/8",
-      description: "Руни • Заточки • Бонус • Амулет",
-    },
-    {
-      id: "pet",
-      icon: "🐺",
-      title: "Пет",
-      value: "Lv. 3",
-      description: "+85 до мощі",
-      action: "pets",
-    },
-    {
-      id: "skills",
-      icon: "🔥",
-      title: "Навички",
-      value: "6/6",
-      description: "Купівля та покращення навичок",
-    },
-    {
-      id: "bag",
-      icon: "🎒",
-      title: "Сумка",
-      value: "18/40",
-      description: "Спорядження • Продаж",
-      action: "inventory",
-    },
-    {
-      id: "chest",
-      icon: "📦",
-      title: "Скриня",
-      value: "14",
-      description: "Зілля • Ресурси",
-    },
-    {
-      id: "training",
-      icon: "💪",
-      title: "Тренування",
-      value: "Майстерність 4",
-      description: "Сила • Життя • Броня • Удача • Енергія",
-    },
-    {
-      id: "boosts",
-      icon: "✨",
-      title: "Посилення",
-      value: "3 активні",
-      description: "Благословення • Еліксири • Бонуси",
-    },
-    {
-      id: "xp",
-      icon: "⭐",
-      title: "Рівень",
-      value: `Рівень ${hero.level}`,
-      description: "Досвід героя",
-    },
-    {
-      id: "colosseum",
-      icon: "🏟️",
-      title: "Колізей",
-      value: "1250",
-      description: "Рейтинг Колізею",
-      action: "arena",
-    },
-    {
-      id: "league",
-      icon: "🏆",
-      title: "Ліга",
-      value: "Бронза III",
-      description: "Поточна ліга",
-    },
-    {
-      id: "tournaments",
-      icon: "⚡",
-      title: "Турніри",
-      value: "2",
-      description: "Доступні події",
-      action: "arena",
-    },
-  ];
-
-  function handlePanelClick(panel) {
-    if (panel.action) {
-      navigateTo?.(panel.action);
-      return;
-    }
-
-    /*
-     * Поки окремі сторінки ще не готові,
-     * показуємо невелике повідомлення.
-     */
-    alert(`${panel.title}: розділ буде відкрито після його створення.`);
-  }
 
   return (
     <div style={styles.page}>
-      {/* ================= TOP HERO STATUS ================= */}
+      {/* =====================================================
+          ВЕРХНЯ ПАНЕЛЬ
+      ===================================================== */}
 
-      <section style={styles.topStatus}>
-        <div style={styles.statusHero}>
-          <div style={styles.miniAvatar}>
-            {player.avatar ? (
-              <img
-                src={player.avatar}
-                alt={player.name}
-                style={styles.avatarImage}
-              />
-            ) : (
-              "⚔️"
-            )}
+      <header style={styles.header}>
+        <div style={styles.headerLeft}>
+          <div style={styles.homeIcon}>⌂</div>
+
+          <div>
+            <div style={styles.headerTitle}>Головна</div>
+            <div style={styles.levelText}>
+              Рівень {level}
+            </div>
           </div>
+        </div>
 
-          <div style={styles.statusBars}>
-            <div style={styles.statusRow}>
-              <span>❤️</span>
+        <div style={styles.headerStats}>
+          <div style={styles.resource}>
+            <span style={styles.resourceIcon}>❤️</span>
 
-              <div style={styles.bar}>
+            <div style={styles.resourceInfo}>
+              <span style={styles.resourceLabel}>Здоров'я</span>
+
+              <div style={styles.miniBar}>
                 <div
                   style={{
-                    ...styles.hpBar,
-                    width: `${hpPercent}%`,
+                    ...styles.healthFill,
+                    width: `${healthPercent}%`,
                   }}
                 />
               </div>
 
-              <span style={styles.statusNumber}>
-                {hero.hp}/{hero.maxHp}
+              <span style={styles.resourceValue}>
+                {health}/{maxHealth}
               </span>
             </div>
+          </div>
 
-            <div style={styles.statusRow}>
-              <span>⚡</span>
+          <div style={styles.resource}>
+            <span style={styles.resourceIcon}>⚡</span>
 
-              <div style={styles.bar}>
+            <div style={styles.resourceInfo}>
+              <span style={styles.resourceLabel}>Енергія</span>
+
+              <div style={styles.miniBar}>
                 <div
                   style={{
-                    ...styles.energyBar,
+                    ...styles.energyFill,
                     width: `${energyPercent}%`,
                   }}
                 />
               </div>
 
-              <span style={styles.statusNumber}>
-                {hero.energy}/{hero.maxEnergy}
+              <span style={styles.resourceValue}>
+                {energy}/{maxEnergy}
               </span>
             </div>
           </div>
         </div>
-      </section>
+      </header>
 
-      {/* ================= XP ================= */}
+      {/* =====================================================
+          XP
+      ===================================================== */}
 
-      <div style={styles.xpWrapper}>
-        <div style={styles.xpBar}>
+      <section style={styles.xpSection}>
+        <div style={styles.xpTop}>
+          <span>Досвід</span>
+          <span>
+            {xpInLevel} / 1000
+          </span>
+        </div>
+
+        <div style={styles.xpTrack}>
           <div
             style={{
               ...styles.xpFill,
@@ -277,773 +275,491 @@ export default function Home({ profile, navigateTo }) {
             }}
           />
         </div>
-      </div>
-
-      {/* ================= HERO HEADER ================= */}
-
-      <section style={styles.heroHeader}>
-        <h1 style={styles.heroName}>{hero.name}</h1>
-
-        <div style={styles.heroMeta}>
-          Рівень {hero.level} • {hero.type}
-        </div>
-
-        <div style={styles.powerBox}>
-          <span style={styles.powerIcon}>⚔️</span>
-          <span>Мощь героя</span>
-          <strong>{hero.power.toLocaleString("uk-UA")}</strong>
-        </div>
       </section>
 
-      {/* ================= HERO EQUIPMENT ================= */}
+      {/* =====================================================
+          АКЦІЯ
+      ===================================================== */}
 
-      <section style={styles.heroStage}>
-        <div style={styles.equipmentLayout}>
-          {/* LEFT */}
+      <button
+        type="button"
+        style={styles.promo}
+        onClick={() => {
+          window.alert(
+            "Персональна акція\n\nЗнижка 50% на кільця!"
+          );
+        }}
+      >
+        <div style={styles.promoIcon}>💍</div>
 
-          <div style={styles.equipmentColumn}>
-            <EquipmentSlot icon="🪖" label="Шолом" />
-            <EquipmentSlot icon="⚔️" label="Права рука" />
-            <EquipmentSlot icon="🛡️" label="Броня" />
-            <EquipmentSlot icon="👖" label="Штани" />
+        <div style={styles.promoText}>
+          <div style={styles.promoTitle}>
+            Знижка 50% на кільця!
           </div>
 
-          {/* CENTER HERO */}
+          <div style={styles.promoSubtitle}>
+            Персональна акція
+          </div>
+        </div>
 
-          <div style={styles.heroImageWrapper}>
-            <div style={styles.heroGlow} />
+        <div style={styles.promoArrow}>›</div>
+      </button>
 
-            <div style={styles.heroImage}>
-              {player.avatar ? (
-                <img
-                  src={player.avatar}
-                  alt={hero.name}
-                  style={styles.heroAvatarImage}
-                />
-              ) : (
-                <div style={styles.heroPlaceholder}>
-                  ⚔️
+      {/* =====================================================
+          ОСНОВНЕ МЕНЮ
+      ===================================================== */}
+
+      <section style={styles.menuSection}>
+        {MENU_ITEMS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => handleMenuClick(item)}
+            style={styles.menuItem}
+          >
+            <div style={styles.menuIcon}>
+              {item.icon}
+            </div>
+
+            <div style={styles.menuContent}>
+              <div style={styles.menuTitle}>
+                {item.title}
+
+                {item.plus && (
+                  <span style={styles.plus}>
+                    +
+                  </span>
+                )}
+              </div>
+
+              {item.subtitle && (
+                <div style={styles.menuSubtitle}>
+                  {item.subtitle}
+                </div>
+              )}
+
+              {item.timer && (
+                <div style={styles.timer}>
+                  {formatTimer(immortalTime)}
                 </div>
               )}
             </div>
 
-            <div style={styles.heroBadge}>
-              {hero.type}
+            <div style={styles.menuArrow}>
+              {item.arrow
+                ? "›"
+                : item.plus
+                  ? "+"
+                  : item.timer
+                    ? "›"
+                    : ""}
+            </div>
+          </button>
+        ))}
+
+        {/* НА ГОЛОВНУ */}
+        <button
+          type="button"
+          onClick={() => onNavigate?.("home")}
+          style={{
+            ...styles.menuItem,
+            ...styles.homeMenuItem,
+          }}
+        >
+          <div style={styles.menuIcon}>❯</div>
+
+          <div style={styles.menuContent}>
+            <div style={styles.menuTitle}>
+              На головну
             </div>
           </div>
 
-          {/* RIGHT */}
-
-          <div style={styles.equipmentColumn}>
-            <EquipmentSlot icon="🛡️" label="Наплічники" />
-            <EquipmentSlot icon="⚔️" label="Ліва рука" />
-            <EquipmentSlot icon="🧤" label="Рукавички" />
-            <EquipmentSlot icon="🥾" label="Чоботи" />
+          <div style={styles.menuArrow}>
+            ›
           </div>
-        </div>
-
-        {/* RINGS */}
-
-        <div style={styles.ringsTitle}>
-          КІЛЬЦЯ
-        </div>
-
-        <div style={styles.ringsRow}>
-          {rings.map((ring) => {
-            const active = selectedRing === ring.id;
-
-            return (
-              <button
-                key={ring.id}
-                onClick={() => setSelectedRing(ring.id)}
-                style={{
-                  ...styles.ring,
-                  ...(active ? styles.ringActive : {}),
-                }}
-              >
-                <span style={styles.ringIcon}>
-                  {ring.icon}
-                </span>
-
-                <span style={styles.ringName}>
-                  {ring.name.replace("Кільце ", "")}
-                </span>
-
-                {active && (
-                  <span style={styles.ringSelected}>
-                    ✓
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={styles.ringInfo}>
-          <strong>
-            {rings.find(
-              (ring) => ring.id === selectedRing
-            )?.name}
-          </strong>
-
-          <span>
-            {
-              rings.find(
-                (ring) => ring.id === selectedRing
-              )?.bonus
-            }
-          </span>
-        </div>
+        </button>
       </section>
 
-      {/* ================= QUICK STATS ================= */}
+      {/* =====================================================
+          НИЖНЯ ПАНЕЛЬ
+      ===================================================== */}
 
-      <section style={styles.statsCard}>
-        <div style={styles.stat}>
-          <span>💪</span>
-          <small>Сила</small>
-          <strong>{hero.strength}</strong>
-        </div>
-
-        <div style={styles.stat}>
-          <span>❤️</span>
-          <small>Життя</small>
-          <strong>{hero.life}</strong>
-        </div>
-
-        <div style={styles.stat}>
-          <span>🛡️</span>
-          <small>Броня</small>
-          <strong>{hero.armor}</strong>
-        </div>
-
-        <div style={styles.stat}>
-          <span>🍀</span>
-          <small>Удача</small>
-          <strong>{hero.luck}</strong>
-        </div>
-      </section>
-
-      {/* ================= PET ================= */}
-
-      <section style={styles.petCard}>
-        <div style={styles.petImage}>
-          🐺
-        </div>
-
-        <div style={styles.petInfo}>
-          <div style={styles.petTitle}>
-            Вірний супутник
-          </div>
-
-          <strong>Тіньовий вовк</strong>
-
-          <div style={styles.petMeta}>
-            Рівень 3 • +85 мощі
-          </div>
-        </div>
+      <footer style={styles.bottomBar}>
+        <button
+          type="button"
+          style={{
+            ...styles.bottomButton,
+            ...styles.bottomActive,
+          }}
+          onClick={() => onNavigate?.("home")}
+        >
+          <span style={styles.bottomIcon}>⌂</span>
+          <span>Головна</span>
+        </button>
 
         <button
-          style={styles.smallButton}
-          onClick={() => navigateTo?.("pets")}
+          type="button"
+          style={styles.bottomButton}
+          onClick={() => onNavigate?.("hero")}
         >
-          Пети
-        </button>
-      </section>
-
-      {/* ================= PANELS ================= */}
-
-      <section style={styles.panelsSection}>
-        <div style={styles.sectionTitle}>
-          МОЇ СИСТЕМИ
-        </div>
-
-        <div style={styles.panelGrid}>
-          {panels.map((panel) => (
-            <button
-              key={panel.id}
-              style={styles.panel}
-              onClick={() => handlePanelClick(panel)}
-            >
-              <div style={styles.panelIcon}>
-                {panel.icon}
-              </div>
-
-              <div style={styles.panelContent}>
-                <div style={styles.panelTitle}>
-                  {panel.title}
-                </div>
-
-                <strong style={styles.panelValue}>
-                  {panel.value}
-                </strong>
-
-                <span style={styles.panelDescription}>
-                  {panel.description}
-                </span>
-              </div>
-
-              <span style={styles.panelArrow}>
-                ›
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* ================= RESOURCES ================= */}
-
-      <section style={styles.resourcesCard}>
-        <div style={styles.resource}>
-          <span>🪙</span>
-          <small>Золото</small>
-          <strong>
-            {player.gold.toLocaleString("uk-UA")}
-          </strong>
-        </div>
-
-        <div style={styles.resource}>
-          <span>💎</span>
-          <small>Кристали</small>
-          <strong>
-            {player.crystals.toLocaleString("uk-UA")}
-          </strong>
-        </div>
-
-        <div style={styles.resource}>
-          <span>⭐</span>
-          <small>Рівень</small>
-          <strong>{player.level}</strong>
-        </div>
-      </section>
-
-      {/* ================= BOTTOM GAME LINKS ================= */}
-
-      <section style={styles.linksCard}>
-        <button onClick={() => alert("Форум буде додано.")}>
-          💬 Форум
+          <span style={styles.bottomIcon}>🧙</span>
+          <span>Герой</span>
         </button>
 
-        <button onClick={() => alert("Чат буде додано.")}>
-          🗨️ Чат
+        <button
+          type="button"
+          style={styles.bottomButton}
+          onClick={() => onNavigate?.("clan")}
+        >
+          <span style={styles.bottomIcon}>🛡️</span>
+          <span>Клан</span>
         </button>
-
-        <button onClick={() => navigateTo?.("ranking")}>
-          🏆 Рейтинг
-        </button>
-      </section>
+      </footer>
     </div>
   );
 }
 
-/* ============================================================
-   EQUIPMENT SLOT
-============================================================ */
-
-function EquipmentSlot({ icon, label }) {
-  return (
-    <button
-      style={styles.equipmentSlot}
-      onClick={() =>
-        alert(`${label}: слот спорядження`)
-      }
-    >
-      <span style={styles.equipmentIcon}>
-        {icon}
-      </span>
-
-      <span style={styles.equipmentLabel}>
-        {label}
-      </span>
-    </button>
-  );
-}
-
-/* ============================================================
-   STYLES
-============================================================ */
-
 const styles = {
   page: {
     width: "100%",
-    maxWidth: "900px",
-    margin: "0 auto",
-    paddingBottom: "25px",
+    minHeight: "100vh",
+    boxSizing: "border-box",
+    color: "#f4ead7",
+    background:
+      "radial-gradient(circle at 50% -20%, #28313c 0%, #10151c 35%, #070b10 100%)",
+    fontFamily:
+      "Georgia, 'Times New Roman', serif",
+    overflowX: "hidden",
   },
 
-  topStatus: {
-    background: "#170d1a",
-    border: "1px solid #42243e",
-    borderRadius: "12px",
-    padding: "8px",
-  },
-
-  statusHero: {
+  header: {
+    position: "sticky",
+    top: 0,
+    zIndex: 20,
     display: "flex",
     alignItems: "center",
-    gap: "9px",
-  },
-
-  miniAvatar: {
-    width: "38px",
-    height: "38px",
-    borderRadius: "8px",
-    background: "#28101f",
-    border: "1px solid #6e3155",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    flexShrink: 0,
-    fontSize: "20px",
-  },
-
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  },
-
-  statusBars: {
-    flex: 1,
-  },
-
-  statusRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "5px",
-    margin: "3px 0",
-    fontSize: "11px",
-  },
-
-  bar: {
-    flex: 1,
-    height: "6px",
-    background: "#271923",
-    borderRadius: "20px",
-    overflow: "hidden",
-    border: "1px solid #42243e",
-  },
-
-  hpBar: {
-    height: "100%",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "10px 12px",
+    borderBottom: "1px solid #8c6b32",
     background:
-      "linear-gradient(90deg, #8d1e45, #e84c82)",
-    borderRadius: "20px",
-    transition: "width .3s",
-  },
-
-  energyBar: {
-    height: "100%",
-    background:
-      "linear-gradient(90deg, #246b9b, #56c7ff)",
-    borderRadius: "20px",
-    transition: "width .3s",
-  },
-
-  statusNumber: {
-    width: "65px",
-    textAlign: "right",
-    fontSize: "9px",
-    opacity: 0.7,
-  },
-
-  xpWrapper: {
-    padding: "5px 2px",
-  },
-
-  xpBar: {
-    width: "100%",
-    height: "3px",
-    background: "#2c1928",
-    borderRadius: "10px",
-    overflow: "hidden",
-  },
-
-  xpFill: {
-    height: "100%",
-    background:
-      "linear-gradient(90deg, #9b2c68, #e84c82)",
-    borderRadius: "10px",
-  },
-
-  heroHeader: {
-    textAlign: "center",
-    padding: "8px 0 12px",
-  },
-
-  heroName: {
-    margin: 0,
-    fontSize: "24px",
-    fontWeight: 900,
-    letterSpacing: ".3px",
-  },
-
-  heroMeta: {
-    marginTop: "3px",
-    fontSize: "11px",
-    opacity: 0.55,
-  },
-
-  powerBox: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "7px",
-    marginTop: "8px",
-    padding: "6px 12px",
-    borderRadius: "20px",
-    background: "#26111e",
-    border: "1px solid #5a2848",
-    fontSize: "11px",
-  },
-
-  powerIcon: {
-    fontSize: "14px",
-  },
-
-  heroStage: {
-    background:
-      "radial-gradient(circle at center, #3a162c 0%, #1b0c18 48%, #120811 100%)",
-    border: "1px solid #42243e",
-    borderRadius: "15px",
-    padding: "12px",
+      "linear-gradient(180deg, #1b222b 0%, #0c1117 100%)",
     boxShadow:
-      "inset 0 0 50px rgba(232,76,130,.05)",
+      "0 3px 15px rgba(0,0,0,0.55)",
   },
 
-  equipmentLayout: {
-    display: "grid",
-    gridTemplateColumns: "72px 1fr 72px",
-    gap: "8px",
-    alignItems: "center",
-  },
-
-  equipmentColumn: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
-
-  equipmentSlot: {
-    minHeight: "58px",
-    borderRadius: "10px",
-    border: "1px solid #513047",
-    background: "#21101d",
-    color: "#fff",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    padding: "4px",
-  },
-
-  equipmentIcon: {
-    fontSize: "24px",
-    lineHeight: 1,
-  },
-
-  equipmentLabel: {
-    fontSize: "7px",
-    opacity: 0.6,
-    marginTop: "4px",
-    textAlign: "center",
-  },
-
-  heroImageWrapper: {
-    position: "relative",
-    height: "310px",
+  headerLeft: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
-  },
-
-  heroGlow: {
-    position: "absolute",
-    width: "210px",
-    height: "260px",
-    borderRadius: "50%",
-    background:
-      "radial-gradient(circle, rgba(232,76,130,.20), transparent 70%)",
-    filter: "blur(10px)",
-  },
-
-  heroImage: {
-    position: "relative",
-    width: "190px",
-    height: "270px",
-    borderRadius: "18px",
-    border: "1px solid #713558",
-    background:
-      "linear-gradient(180deg, #35162b, #170b15)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    boxShadow:
-      "0 15px 40px rgba(0,0,0,.45)",
-  },
-
-  heroAvatarImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  },
-
-  heroPlaceholder: {
-    fontSize: "100px",
-    filter: "drop-shadow(0 10px 15px rgba(0,0,0,.5))",
-  },
-
-  heroBadge: {
-    position: "absolute",
-    bottom: "12px",
-    left: "50%",
-    transform: "translateX(-50%)",
-    background: "rgba(10,5,10,.85)",
-    border: "1px solid #6e3155",
-    borderRadius: "20px",
-    padding: "5px 12px",
-    fontSize: "9px",
-    fontWeight: 800,
-  },
-
-  ringsTitle: {
-    textAlign: "center",
-    fontSize: "9px",
-    letterSpacing: "2px",
-    opacity: 0.5,
-    marginTop: "8px",
-  },
-
-  ringsRow: {
-    display: "flex",
-    justifyContent: "center",
-    gap: "10px",
-    marginTop: "6px",
-  },
-
-  ring: {
-    position: "relative",
-    width: "76px",
-    height: "65px",
-    borderRadius: "10px",
-    border: "1px solid #4a2a43",
-    background: "#1d0d19",
-    color: "#fff",
-    cursor: "pointer",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  ringActive: {
-    border: "1px solid #e84c82",
-    background: "rgba(232,76,130,.13)",
-    boxShadow:
-      "0 0 15px rgba(232,76,130,.15)",
-  },
-
-  ringIcon: {
-    fontSize: "23px",
-  },
-
-  ringName: {
-    fontSize: "8px",
-    opacity: 0.75,
-    marginTop: "3px",
-  },
-
-  ringSelected: {
-    position: "absolute",
-    right: "4px",
-    top: "3px",
-    color: "#e84c82",
-    fontWeight: 900,
-  },
-
-  ringInfo: {
-    marginTop: "8px",
-    display: "flex",
-    justifyContent: "center",
-    gap: "8px",
-    fontSize: "10px",
-    opacity: 0.8,
-  },
-
-  statsCard: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: "5px",
-    marginTop: "10px",
-    padding: "8px",
-    borderRadius: "12px",
-    background: "#170d1a",
-    border: "1px solid #42243e",
-  },
-
-  stat: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "2px",
-    padding: "5px 2px",
-  },
-
-  petCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    marginTop: "10px",
-    padding: "10px",
-    borderRadius: "12px",
-    background: "#170d1a",
-    border: "1px solid #42243e",
-  },
-
-  petImage: {
-    width: "52px",
-    height: "52px",
-    borderRadius: "10px",
-    background: "#291321",
-    border: "1px solid #61304d",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "28px",
-  },
-
-  petInfo: {
-    flex: 1,
+    gap: 9,
     minWidth: 0,
   },
 
-  petTitle: {
-    fontSize: "9px",
-    opacity: 0.5,
-  },
-
-  petMeta: {
-    fontSize: "9px",
-    opacity: 0.6,
-    marginTop: "3px",
-  },
-
-    smallButton: {
-    border: "1px solid #6d3155",
-    background: "#291321",
-    color: "#fff",
-    borderRadius: "8px",
-    padding: "8px 10px",
-    fontSize: "10px",
-    cursor: "pointer",
-  },
-
-  panelsSection: {
-    marginTop: "14px",
-  },
-
-  sectionTitle: {
-    fontSize: "10px",
-    fontWeight: 900,
-    letterSpacing: "1.5px",
-    opacity: 0.5,
-    marginBottom: "7px",
-  },
-
-  panelGrid: {
+  homeIcon: {
+    width: 42,
+    height: 42,
     display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: "7px",
-  },
-
-  panel: {
-    minHeight: "72px",
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "8px",
-    borderRadius: "11px",
-    border: "1px solid #42243e",
-    background: "#170d1a",
-    color: "#fff",
-    textAlign: "left",
-    cursor: "pointer",
-  },
-
-  panelIcon: {
-    width: "36px",
-    height: "36px",
+    placeItems: "center",
     flexShrink: 0,
-    borderRadius: "9px",
-    background: "#28101f",
+    border: "1px solid #9d7937",
+    borderRadius: 8,
+    background:
+      "linear-gradient(145deg, #4a3920, #171c22)",
+    color: "#e8b84e",
+    fontSize: 28,
+    boxShadow:
+      "inset 0 0 12px rgba(0,0,0,0.6)",
+  },
+
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: "#f2d58e",
+  },
+
+  levelText: {
+    marginTop: 2,
+    fontSize: 11,
+    color: "#a9aeb6",
+  },
+
+  headerStats: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
-    fontSize: "20px",
-  },
-
-  panelContent: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  panelTitle: {
-    fontSize: "10px",
-    fontWeight: 800,
-  },
-
-  panelValue: {
-    display: "block",
-    fontSize: "11px",
-    color: "#e84c82",
-    marginTop: "2px",
-  },
-
-  panelDescription: {
-    display: "block",
-    fontSize: "7px",
-    opacity: 0.45,
-    marginTop: "2px",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-
-  panelArrow: {
-    fontSize: "20px",
-    opacity: 0.3,
-  },
-
-  resourcesCard: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
-    marginTop: "10px",
-    borderRadius: "12px",
-    background: "#170d1a",
-    border: "1px solid #42243e",
-    overflow: "hidden",
+    justifyContent: "flex-end",
+    gap: 10,
   },
 
   resource: {
     display: "flex",
-    flexDirection: "column",
     alignItems: "center",
-    padding: "10px 5px",
-    borderRight: "1px solid #42243e",
-    gap: "2px",
+    gap: 5,
+    minWidth: 88,
   },
 
-  linksCard: {
+  resourceIcon: {
+    fontSize: 20,
+  },
+
+  resourceInfo: {
+    minWidth: 0,
+  },
+
+  resourceLabel: {
+    display: "block",
+    fontSize: 9,
+    color: "#aeb4bd",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+
+  resourceValue: {
+    display: "block",
+    marginTop: 2,
+    fontSize: 9,
+    color: "#eee2c9",
+    textAlign: "right",
+  },
+
+  miniBar: {
+    width: 58,
+    height: 5,
+    marginTop: 2,
+    overflow: "hidden",
+    borderRadius: 4,
+    background: "#222832",
+    border: "1px solid #11151b",
+  },
+
+  healthFill: {
+    height: "100%",
+    background:
+      "linear-gradient(90deg, #8d141c, #e13c42)",
+  },
+
+  energyFill: {
+    height: "100%",
+    background:
+      "linear-gradient(90deg, #a76b0b, #f0bd35)",
+  },
+
+  xpSection: {
+    padding: "7px 12px 9px",
+    background: "#090e14",
+    borderBottom: "1px solid #2e3640",
+  },
+
+  xpTop: {
     display: "flex",
     justifyContent: "space-between",
+    marginBottom: 4,
+    fontSize: 9,
+    color: "#858c96",
+  },
+
+  xpTrack: {
+    width: "100%",
+    height: 4,
+    overflow: "hidden",
+    borderRadius: 4,
+    background: "#252b34",
+  },
+
+  xpFill: {
+    height: "100%",
+    borderRadius: 4,
+    background:
+      "linear-gradient(90deg, #8d6420, #e4b64d)",
+    boxShadow:
+      "0 0 7px rgba(228,182,77,0.45)",
+    transition: "width 0.3s ease",
+  },
+
+  promo: {
+    width: "calc(100% - 20px)",
+    minHeight: 72,
+    margin: "12px 10px",
+    padding: "10px 12px",
+    boxSizing: "border-box",
+    display: "flex",
     alignItems: "center",
-    gap: "10px",
-    padding: "14px",
-    marginTop: "10px",
-    borderTop: "1px solid #42243e",
-    background: "#170d1a",
-    borderRadius: "10px",
+    gap: 12,
+    border: "1px solid #a06f25",
+    borderRadius: 8,
+    background:
+      "linear-gradient(100deg, #35130f 0%, #721a19 48%, #31120f 100%)",
+    color: "#fff",
+    textAlign: "left",
+    cursor: "pointer",
+    boxShadow:
+      "inset 0 0 25px rgba(255,130,30,0.08), 0 3px 10px rgba(0,0,0,0.4)",
+  },
+
+  promoIcon: {
+    width: 44,
+    height: 44,
+    display: "grid",
+    placeItems: "center",
+    flexShrink: 0,
+    borderRadius: "50%",
+    background:
+      "radial-gradient(circle, #d89b35, #57210e)",
+    border: "1px solid #d9a34a",
+    fontSize: 24,
+  },
+
+  promoText: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  promoTitle: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: "#f8d888",
+  },
+
+  promoSubtitle: {
+    marginTop: 4,
+    fontSize: 11,
+    color: "#d9b6a0",
+  },
+
+  promoArrow: {
+    fontSize: 30,
+    color: "#e9bd55",
+  },
+
+  menuSection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    padding: "2px 10px 16px",
+  },
+
+  menuItem: {
+    width: "100%",
+    minHeight: 58,
+    boxSizing: "border-box",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "7px 9px",
+    border: "1px solid #3c424a",
+    borderRadius: 7,
+    background:
+      "linear-gradient(180deg, #1a2028 0%, #0f141b 100%)",
+    color: "#eee8db",
+    textAlign: "left",
+    cursor: "pointer",
+    boxShadow:
+      "inset 0 1px 0 rgba(255,255,255,0.03), 0 2px 5px rgba(0,0,0,0.35)",
+    transition:
+      "transform 0.12s ease, border-color 0.12s ease",
+  },
+
+  menuIcon: {
+    width: 42,
+    height: 42,
+    display: "grid",
+    placeItems: "center",
+    flexShrink: 0,
+    border: "1px solid #66502d",
+    borderRadius: 7,
+    background:
+      "radial-gradient(circle at 50% 35%, #3b3c39, #141a21)",
+    fontSize: 24,
+  },
+
+  menuContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  menuTitle: {
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    fontSize: 15,
+    fontWeight: 700,
+    lineHeight: 1.2,
+    color: "#eee7d8",
+  },
+
+  menuSubtitle: {
+    marginTop: 4,
+    fontSize: 10,
+    lineHeight: 1.25,
+    color: "#8f969f",
+  },
+
+  plus: {
+    color: "#e4b34e",
+    fontSize: 20,
+    lineHeight: 1,
+  },
+
+  timer: {
+    marginTop: 4,
+    fontSize: 13,
+    fontWeight: 700,
+    color: "#e8b542",
+    letterSpacing: 1,
+  },
+
+  menuArrow: {
+    width: 24,
+    flexShrink: 0,
+    textAlign: "center",
+    color: "#c99b43",
+    fontSize: 25,
+    fontFamily: "Arial, sans-serif",
+  },
+
+  homeMenuItem: {
+    marginTop: 2,
+    borderColor: "#6b542e",
+    background:
+      "linear-gradient(180deg, #24272a 0%, #11151a 100%)",
+  },
+
+  bottomBar: {
+    position: "sticky",
+    bottom: 0,
+    zIndex: 20,
+    display: "flex",
+    justifyContent: "space-around",
+    alignItems: "center",
+    minHeight: 62,
+    borderTop: "1px solid #80612e",
+    background:
+      "linear-gradient(180deg, #171d24, #090d12)",
+    boxShadow:
+      "0 -5px 15px rgba(0,0,0,0.5)",
+  },
+
+  bottomButton: {
+    flex: 1,
+    maxWidth: 130,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    padding: "7px 4px",
+    border: 0,
+    background: "transparent",
+    color: "#7e858e",
+    fontFamily: "Georgia, 'Times New Roman', serif",
+    fontSize: 10,
+    cursor: "pointer",
+  },
+
+  bottomActive: {
+    color: "#e5b94e",
+  },
+
+  bottomIcon: {
+    fontSize: 22,
   },
 };
