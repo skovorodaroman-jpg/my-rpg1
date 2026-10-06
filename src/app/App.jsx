@@ -3,7 +3,10 @@ import { supabase } from "./lib/supabase";
 
 export default function App() {
   const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const [mode, setMode] = useState("login");
 
@@ -14,6 +17,10 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // ============================================================
+  // SESSION
+  // ============================================================
 
   useEffect(() => {
     let mounted = true;
@@ -50,17 +57,84 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (mounted) {
-        setSession(newSession);
+    } = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        if (mounted) {
+          setSession(newSession);
+        }
       }
-    });
+    );
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
   }, []);
+
+  // ============================================================
+  // LOAD PROFILE
+  // ============================================================
+
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setProfile(null);
+      return;
+    }
+
+    loadProfile(session.user.id);
+  }, [session]);
+
+  async function loadProfile(userId) {
+    setProfileLoading(true);
+    setError("");
+
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(
+          `
+          id,
+          username,
+          display_name,
+          avatar_url,
+          role,
+          level,
+          experience,
+          gold,
+          crystals,
+          energy,
+          max_energy,
+          last_energy_update,
+          is_banned,
+          ban_reason,
+          last_seen_at,
+          created_at,
+          updated_at
+          `
+        )
+        .eq("id", userId)
+        .single();
+
+      if (error) {
+        console.error("Profile load error:", error);
+        throw error;
+      }
+
+      setProfile(data);
+    } catch (err) {
+      console.error("Failed to load profile:", err);
+
+      setError(
+        "Не вдалося завантажити профіль гравця."
+      );
+    } finally {
+      setProfileLoading(false);
+    }
+  }
+
+  // ============================================================
+  // LOGIN / REGISTER
+  // ============================================================
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -79,11 +153,16 @@ export default function App() {
     }
 
     if (password.length < 6) {
-      setError("Пароль має містити щонайменше 6 символів.");
+      setError(
+        "Пароль має містити щонайменше 6 символів."
+      );
       return;
     }
 
-    if (mode === "register" && !displayName.trim()) {
+    if (
+      mode === "register" &&
+      !displayName.trim()
+    ) {
       setError("Введи ім'я героя.");
       return;
     }
@@ -105,15 +184,17 @@ export default function App() {
         setSession(data.session);
         setMessage("Вхід виконано успішно! ⚔️");
       } else {
-        const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
-          options: {
-            data: {
-              display_name: displayName.trim(),
+        const { data, error } =
+          await supabase.auth.signUp({
+            email: email.trim(),
+            password,
+            options: {
+              data: {
+                display_name:
+                  displayName.trim(),
+              },
             },
-          },
-        });
+          });
 
         if (error) {
           throw error;
@@ -121,7 +202,10 @@ export default function App() {
 
         if (data.session) {
           setSession(data.session);
-          setMessage("Героя створено! Ласкаво просимо до Eldara ⚔️");
+
+          setMessage(
+            "Героя створено! Ласкаво просимо до Eldara ⚔️"
+          );
         } else {
           setMessage(
             "Реєстрацію виконано! Перевір email для підтвердження акаунта."
@@ -131,34 +215,50 @@ export default function App() {
     } catch (err) {
       console.error("Auth error:", err);
 
-      let text = "Сталася помилка. Спробуй ще раз.";
+      let text =
+        "Сталася помилка. Спробуй ще раз.";
 
       if (err?.message) {
         text = err.message;
       }
 
+      const lowerText =
+        text.toLowerCase();
+
       if (
-        text.toLowerCase().includes("invalid login credentials")
+        lowerText.includes(
+          "invalid login credentials"
+        )
       ) {
-        text = "Неправильний email або пароль.";
+        text =
+          "Неправильний email або пароль.";
       }
 
       if (
-        text.toLowerCase().includes("user already registered")
+        lowerText.includes(
+          "user already registered"
+        )
       ) {
-        text = "Користувач із таким email вже існує.";
+        text =
+          "Користувач із таким email вже існує.";
       }
 
       if (
-        text.toLowerCase().includes("email not confirmed")
+        lowerText.includes(
+          "email not confirmed"
+        )
       ) {
-        text = "Спочатку підтвердь email.";
+        text =
+          "Спочатку підтвердь email.";
       }
 
       if (
-        text.toLowerCase().includes("password should be at least")
+        lowerText.includes(
+          "password should be at least"
+        )
       ) {
-        text = "Пароль має містити щонайменше 6 символів.";
+        text =
+          "Пароль має містити щонайменше 6 символів.";
       }
 
       setError(text);
@@ -167,28 +267,43 @@ export default function App() {
     }
   }
 
+  // ============================================================
+  // LOGOUT
+  // ============================================================
+
   async function handleLogout() {
     setBusy(true);
     setError("");
     setMessage("");
 
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } =
+        await supabase.auth.signOut();
 
       if (error) {
         throw error;
       }
 
       setSession(null);
+      setProfile(null);
+
       setEmail("");
       setPassword("");
+      setDisplayName("");
     } catch (err) {
       console.error("Logout error:", err);
-      setError("Не вдалося вийти з акаунта.");
+
+      setError(
+        "Не вдалося вийти з акаунта."
+      );
     } finally {
       setBusy(false);
     }
   }
+
+  // ============================================================
+  // SWITCH AUTH MODE
+  // ============================================================
 
   function switchMode(newMode) {
     setMode(newMode);
@@ -196,11 +311,17 @@ export default function App() {
     setMessage("");
   }
 
+  // ============================================================
+  // LOADING
+  // ============================================================
+
   if (loading) {
     return (
       <div style={styles.page}>
         <div style={styles.loadingCard}>
-          <div style={styles.logo}>⚔️</div>
+          <div style={styles.logo}>
+            ⚔️
+          </div>
 
           <h1 style={styles.title}>
             Хроніки Згаслого Світанку
@@ -216,19 +337,174 @@ export default function App() {
     );
   }
 
+  // ============================================================
+  // AUTHENTICATED USER
+  // ============================================================
+
   if (session) {
     const userName =
-      session.user?.user_metadata?.display_name ||
+      profile?.display_name ||
+      profile?.username ||
+      session.user?.user_metadata
+        ?.display_name ||
       session.user?.email?.split("@")[0] ||
       "Герой";
+
+    // ----------------------------------------------------------
+    // PROFILE LOADING
+    // ----------------------------------------------------------
+
+    if (profileLoading) {
+      return (
+        <div style={styles.page}>
+          <div style={styles.loadingCard}>
+            <div style={styles.logo}>
+              ⚔️
+            </div>
+
+            <h1 style={styles.title}>
+              Хроніки Згаслого Світанку
+            </h1>
+
+            <p style={styles.muted}>
+              Завантажуємо профіль героя...
+            </p>
+
+            <div style={styles.loader} />
+          </div>
+        </div>
+      );
+    }
+
+    // ----------------------------------------------------------
+    // PROFILE NOT FOUND
+    // ----------------------------------------------------------
+
+    if (!profile) {
+      return (
+        <div style={styles.page}>
+          <div style={styles.gameCard}>
+            <div style={styles.logoLarge}>
+              ⚠️
+            </div>
+
+            <h1 style={styles.title}>
+              Профіль не знайдено
+            </h1>
+
+            <p style={styles.muted}>
+              Авторизація працює, але запис
+              гравця в таблиці profiles
+              не завантажився.
+            </p>
+
+            {error && (
+              <div style={styles.error}>
+                {error}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() =>
+                loadProfile(session.user.id)
+              }
+              style={styles.primaryButton}
+            >
+              🔄 Спробувати ще раз
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={busy}
+              style={styles.secondaryButton}
+            >
+              Вийти
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ----------------------------------------------------------
+    // BANNED USER
+    // ----------------------------------------------------------
+
+    if (profile.is_banned) {
+      return (
+        <div style={styles.page}>
+          <div style={styles.gameCard}>
+            <div style={styles.logoLarge}>
+              🚫
+            </div>
+
+            <h1 style={styles.title}>
+              Доступ заблоковано
+            </h1>
+
+            <p style={styles.muted}>
+              Твій акаунт заблокований.
+            </p>
+
+            {profile.ban_reason && (
+              <div style={styles.error}>
+                Причина: {profile.ban_reason}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={busy}
+              style={styles.secondaryButton}
+            >
+              Вийти з акаунта
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ----------------------------------------------------------
+    // REAL PROFILE
+    // ----------------------------------------------------------
+
+    const level =
+      Number(profile.level) || 1;
+
+    const experience =
+      Number(profile.experience) || 0;
+
+    const gold =
+      Number(profile.gold) || 0;
+
+    const crystals =
+      Number(profile.crystals) || 0;
+
+    const energy =
+      Number(profile.energy) || 0;
+
+    const maxEnergy =
+      Number(profile.max_energy) || 100;
+
+    const role =
+      profile.role || "player";
 
     return (
       <div style={styles.page}>
         <div style={styles.gameCard}>
-          <div style={styles.logoLarge}>⚔️</div>
 
-          <div style={styles.badge}>
-            ONLINE
+          {/* HEADER */}
+
+          <div style={styles.gameHeader}>
+            <div style={styles.logoLarge}>
+              ⚔️
+            </div>
+
+            <div style={styles.onlineBadge}>
+              ● ONLINE
+            </div>
           </div>
 
           <h1 style={styles.title}>
@@ -239,12 +515,24 @@ export default function App() {
             Ласкаво просимо, {userName}
           </p>
 
+          {/* PROFILE */}
+
           <div style={styles.profileBox}>
             <div style={styles.avatar}>
-              {userName.charAt(0).toUpperCase()}
+              {profile.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={userName}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                userName
+                  .charAt(0)
+                  .toUpperCase()
+              )}
             </div>
 
-            <div>
+            <div style={styles.profileInfo}>
               <div style={styles.profileName}>
                 {userName}
               </div>
@@ -252,37 +540,178 @@ export default function App() {
               <div style={styles.profileEmail}>
                 {session.user?.email}
               </div>
+
+              <div style={styles.role}>
+                {role === "super_admin"
+                  ? "👑 SUPER ADMIN"
+                  : role === "admin"
+                  ? "🛡️ ADMIN"
+                  : role === "moderator"
+                  ? "🔨 MODERATOR"
+                  : "⚔️ ГРАВЕЦЬ"}
+              </div>
             </div>
           </div>
 
-          <div style={styles.stats}>
-            <div style={styles.stat}>
-              <span>⭐</span>
-              <strong>1</strong>
-              <small>Рівень</small>
+          {/* LEVEL */}
+
+          <div style={styles.levelCard}>
+            <div style={styles.levelTop}>
+              <span>
+                Рівень героя
+              </span>
+
+              <strong>
+                {level}
+              </strong>
             </div>
 
-            <div style={styles.stat}>
-              <span>🪙</span>
-              <strong>1000</strong>
-              <small>Золото</small>
+            <div style={styles.xpBar}>
+              <div
+                style={{
+                  ...styles.xpFill,
+                  width: `${Math.min(
+                    100,
+                    experience % 100
+                  )}%`,
+                }}
+              />
             </div>
 
-            <div style={styles.stat}>
-              <span>💎</span>
-              <strong>100</strong>
-              <small>Кристали</small>
+            <div style={styles.xpText}>
+              ✨ {experience} XP
             </div>
           </div>
 
-          <div style={styles.success}>
-            ⚔️ Авторизація працює!
+          {/* RESOURCES */}
+
+          <div style={styles.resources}>
+
+            <div style={styles.resource}>
+              <span style={styles.resourceIcon}>
+                🪙
+              </span>
+
+              <strong>
+                {gold.toLocaleString("uk-UA")}
+              </strong>
+
+              <small>
+                Золото
+              </small>
+            </div>
+
+            <div style={styles.resource}>
+              <span style={styles.resourceIcon}>
+                💎
+              </span>
+
+              <strong>
+                {crystals.toLocaleString(
+                  "uk-UA"
+                )}
+              </strong>
+
+              <small>
+                Кристали
+              </small>
+            </div>
+
+            <div style={styles.resource}>
+              <span style={styles.resourceIcon}>
+                ⚡
+              </span>
+
+              <strong>
+                {energy}/{maxEnergy}
+              </strong>
+
+              <small>
+                Енергія
+              </small>
+            </div>
+
           </div>
 
-          <p style={styles.muted}>
-            Наступним кроком підключимо справжній профіль,
-            героїв, пети та прогрес гри.
-          </p>
+          {/* GAME MENU */}
+
+          <div style={styles.menuGrid}>
+
+            <button
+              type="button"
+              style={styles.menuButton}
+            >
+              ⚔️
+              <span>
+                Бій
+              </span>
+            </button>
+
+            <button
+              type="button"
+              style={styles.menuButton}
+            >
+              🦸
+              <span>
+                Герої
+              </span>
+            </button>
+
+            <button
+              type="button"
+              style={styles.menuButton}
+            >
+              🐾
+              <span>
+                Пети
+              </span>
+            </button>
+
+            <button
+              type="button"
+              style={styles.menuButton}
+            >
+              🎒
+              <span>
+                Інвентар
+              </span>
+            </button>
+
+            <button
+              type="button"
+              style={styles.menuButton}
+            >
+              🏆
+              <span>
+                Арена
+              </span>
+            </button>
+
+            <button
+              type="button"
+              style={styles.menuButton}
+            >
+              🏰
+              <span>
+                Клан
+              </span>
+            </button>
+
+          </div>
+
+          {/* DATABASE INFO */}
+
+          <div style={styles.databaseInfo}>
+            <div>
+              🗄️ Профіль завантажено з Supabase
+            </div>
+
+            <div style={styles.userId}>
+              ID: {profile.id}
+            </div>
+          </div>
+
+          {/* LOGOUT */}
 
           <button
             type="button"
@@ -290,12 +719,20 @@ export default function App() {
             disabled={busy}
             style={styles.secondaryButton}
           >
-            {busy ? "Вихід..." : "Вийти з акаунта"}
+            {busy
+              ? "Вихід..."
+              : "🚪 Вийти з акаунта"}
           </button>
+
+          {message && (
+            <div style={styles.success}>
+              ✅ {message}
+            </div>
+          )}
 
           {error && (
             <div style={styles.error}>
-              {error}
+              ❌ {error}
             </div>
           )}
         </div>
@@ -303,10 +740,17 @@ export default function App() {
     );
   }
 
+  // ============================================================
+  // LOGIN / REGISTER
+  // ============================================================
+
   return (
     <div style={styles.page}>
       <div style={styles.authCard}>
-        <div style={styles.logo}>⚔️</div>
+
+        <div style={styles.logo}>
+          ⚔️
+        </div>
 
         <h1 style={styles.title}>
           Хроніки Згаслого Світанку
@@ -316,10 +760,15 @@ export default function App() {
           Eldara чекає на свого героя
         </p>
 
+        {/* TABS */}
+
         <div style={styles.tabs}>
+
           <button
             type="button"
-            onClick={() => switchMode("login")}
+            onClick={() =>
+              switchMode("login")
+            }
             style={{
               ...styles.tab,
               ...(mode === "login"
@@ -332,7 +781,9 @@ export default function App() {
 
           <button
             type="button"
-            onClick={() => switchMode("register")}
+            onClick={() =>
+              switchMode("register")
+            }
             style={{
               ...styles.tab,
               ...(mode === "register"
@@ -342,9 +793,13 @@ export default function App() {
           >
             Реєстрація
           </button>
+
         </div>
 
+        {/* FORM */}
+
         <form onSubmit={handleSubmit}>
+
           {mode === "register" && (
             <label style={styles.label}>
               Ім'я героя
@@ -353,7 +808,9 @@ export default function App() {
                 type="text"
                 value={displayName}
                 onChange={(event) =>
-                  setDisplayName(event.target.value)
+                  setDisplayName(
+                    event.target.value
+                  )
                 }
                 placeholder="Наприклад: Роман"
                 maxLength={30}
@@ -422,12 +879,14 @@ export default function App() {
               ? "⚔️ Увійти в гру"
               : "✨ Створити героя"}
           </button>
+
         </form>
 
         <p style={styles.footerText}>
           {mode === "login"
             ? "Ще немає акаунта?"
             : "Вже маєш акаунт?"}{" "}
+
           <button
             type="button"
             onClick={() =>
@@ -450,10 +909,15 @@ export default function App() {
           <br />
           🔥 Але надія ще жива.
         </div>
+
       </div>
     </div>
   );
 }
+
+// ============================================================
+// STYLES
+// ============================================================
 
 const styles = {
   page: {
@@ -499,7 +963,7 @@ const styles = {
 
   gameCard: {
     width: "100%",
-    maxWidth: "520px",
+    maxWidth: "560px",
     boxSizing: "border-box",
     textAlign: "center",
     background:
@@ -510,6 +974,12 @@ const styles = {
     padding: "30px 24px",
     boxShadow:
       "0 25px 80px rgba(0,0,0,0.55)",
+  },
+
+  gameHeader: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
   },
 
   logo: {
@@ -528,18 +998,15 @@ const styles = {
   },
 
   logoLarge: {
-    fontSize: "68px",
-    marginBottom: "10px",
+    fontSize: "58px",
+    marginBottom: "8px",
   },
 
-  badge: {
+  onlineBadge: {
     display: "inline-block",
-    padding: "5px 10px",
-    borderRadius: "999px",
-    background: "rgba(70, 200, 120, 0.12)",
     color: "#70e0a0",
     fontSize: "11px",
-    fontWeight: "700",
+    fontWeight: "800",
     letterSpacing: "1px",
     marginBottom: "12px",
   },
@@ -566,7 +1033,8 @@ const styles = {
 
   tabs: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns:
+      "1fr 1fr",
     gap: "8px",
     padding: "5px",
     marginBottom: "22px",
@@ -655,6 +1123,7 @@ const styles = {
     color: "#ff9eab",
     fontSize: "13px",
     lineHeight: "1.5",
+    wordBreak: "break-word",
   },
 
   success: {
@@ -712,21 +1181,33 @@ const styles = {
   },
 
   avatar: {
-    width: "52px",
-    height: "52px",
+    width: "60px",
+    height: "60px",
     flexShrink: 0,
-    borderRadius: "15px",
+    borderRadius: "18px",
     background:
       "linear-gradient(135deg, #e84c82, #702040)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "23px",
+    fontSize: "25px",
     fontWeight: "800",
+    overflow: "hidden",
+  },
+
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+
+  profileInfo: {
+    minWidth: 0,
+    flex: 1,
   },
 
   profileName: {
-    fontSize: "16px",
+    fontSize: "17px",
     fontWeight: "800",
     marginBottom: "4px",
   },
@@ -737,22 +1218,117 @@ const styles = {
     wordBreak: "break-all",
   },
 
-  stats: {
+  role: {
+    marginTop: "6px",
+    color: "#e84c82",
+    fontSize: "10px",
+    fontWeight: "800",
+    letterSpacing: "0.5px",
+  },
+
+  levelCard: {
+    textAlign: "left",
+    padding: "16px",
+    marginBottom: "12px",
+    borderRadius: "16px",
+    background: "#100610",
+    border:
+      "1px solid rgba(255,255,255,0.06)",
+  },
+
+  levelTop: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "10px",
+    color: "#d8c5cf",
+    fontSize: "13px",
+  },
+
+  xpBar: {
+    width: "100%",
+    height: "8px",
+    overflow: "hidden",
+    borderRadius: "99px",
+    background: "#251421",
+  },
+
+  xpFill: {
+    height: "100%",
+    borderRadius: "99px",
+    background:
+      "linear-gradient(90deg, #e84c82, #ff9bc0)",
+  },
+
+  xpText: {
+    marginTop: "7px",
+    color: "#806b77",
+    fontSize: "11px",
+  },
+
+  resources: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
+    gridTemplateColumns:
+      "repeat(3, 1fr)",
     gap: "8px",
     marginBottom: "18px",
   },
 
-  stat: {
-    padding: "14px 8px",
+  resource: {
+    padding: "14px 6px",
     borderRadius: "14px",
     background: "#100610",
     border:
       "1px solid rgba(255,255,255,0.06)",
     display: "flex",
     flexDirection: "column",
+    alignItems: "center",
     gap: "4px",
+  },
+
+  resourceIcon: {
+    fontSize: "20px",
+  },
+
+  menuGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(3, 1fr)",
+    gap: "9px",
+    marginBottom: "18px",
+  },
+
+  menuButton: {
+    minHeight: "82px",
+    border:
+      "1px solid rgba(232,76,130,0.15)",
+    borderRadius: "15px",
+    background: "#100610",
+    color: "#ffffff",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "7px",
+    fontSize: "25px",
+    cursor: "pointer",
+  },
+
+  databaseInfo: {
+    marginTop: "8px",
+    padding: "12px",
+    borderRadius: "12px",
+    background:
+      "rgba(70, 200, 120, 0.06)",
+    color: "#79c796",
+    fontSize: "11px",
+    lineHeight: "1.7",
+  },
+
+  userId: {
+    color: "#607c6b",
+    wordBreak: "break-all",
+    marginTop: "3px",
   },
 
   loader: {
