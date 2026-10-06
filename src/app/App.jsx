@@ -1,1346 +1,654 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
+
+import Home from "./pages/Home";
+import Heroes from "./pages/Heroes";
+import Inventory from "./pages/Inventory";
+import Pets from "./pages/Pets";
+import Battle from "./pages/Battle";
+import Arena from "./pages/Arena";
+import Mine from "./pages/Mine";
+import Shop from "./pages/Shop";
+import Forge from "./pages/Forge";
+import Clan from "./pages/Clan";
+import Ranking from "./pages/Ranking";
+import Laboratory from "./pages/Laboratory";
+import Adventures from "./pages/Adventures";
+
+const PAGES = [
+  { id: "hero", label: "Мій герой", icon: "⚔️" },
+  { id: "home", label: "Головна", icon: "🏰" },
+  { id: "battle", label: "Бій", icon: "🗡️" },
+  { id: "heroes", label: "Герої", icon: "🦸" },
+  { id: "pets", label: "Пети", icon: "🐺" },
+  { id: "inventory", label: "Інвентар", icon: "🎒" },
+  { id: "arena", label: "Арена", icon: "🏆" },
+  { id: "adventures", label: "Пригоди", icon: "🗺️" },
+  { id: "mine", label: "Шахта", icon: "⛏️" },
+  { id: "shop", label: "Магазин", icon: "🛒" },
+  { id: "forge", label: "Кузня", icon: "⚒️" },
+  { id: "laboratory", label: "Лабораторія", icon: "🧪" },
+  { id: "clan", label: "Мій клан", icon: "🛡️" },
+  { id: "ranking", label: "Рейтинг", icon: "📊" },
+];
+
+const PAGE_COMPONENTS = {
+  hero: Home,
+  home: Home,
+  battle: Battle,
+  heroes: Heroes,
+  pets: Pets,
+  inventory: Inventory,
+  arena: Arena,
+  adventures: Adventures,
+  mine: Mine,
+  shop: Shop,
+  forge: Forge,
+  laboratory: Laboratory,
+  clan: Clan,
+  ranking: Ranking,
+};
+
+const PROFILE_FIELDS = [
+  "id",
+  "username",
+  "display_name",
+  "avatar_url",
+  "role",
+  "level",
+  "experience",
+  "gold",
+  "crystals",
+  "energy",
+  "max_energy",
+  "last_energy_update",
+  "is_banned",
+  "ban_reason",
+  "last_seen_at",
+  "created_at",
+  "updated_at",
+].join(", ");
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [page, setPage] = useState("hero");
 
   const [loading, setLoading] = useState(true);
-  const [profileLoading, setProfileLoading] = useState(false);
-
-  const [mode, setMode] = useState("login");
-
+  const [authMode, setAuthMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
 
-  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  // ============================================================
-  // SESSION
-  // ============================================================
+  const loadProfile = useCallback(async (userId) => {
+    const { data, error: profileError } = await supabase
+      .from("profiles")
+      .select(PROFILE_FIELDS)
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profileError) {
+      throw profileError;
+    }
+
+    if (!data) {
+      throw new Error(
+        "Профіль не знайдено. Перевір створення профілю після реєстрації."
+      );
+    }
+
+    setProfile(data);
+
+    if (data.is_banned) {
+      setError(
+        data.ban_reason
+          ? `Акаунт заблоковано: ${data.ban_reason}`
+          : "Твій акаунт заблоковано."
+      );
+    }
+
+    return data;
+  }, []);
 
   useEffect(() => {
-    let mounted = true;
+    let active = true;
 
-    async function loadSession() {
+    async function initialize() {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error: sessionError } =
+          await supabase.auth.getSession();
 
-        if (error) {
-          console.error("Supabase session error:", error);
+        if (sessionError) throw sessionError;
+        if (!active) return;
 
-          if (mounted) {
-            setError("Не вдалося перевірити авторизацію.");
-          }
-        }
+        const currentSession = data.session;
+        setSession(currentSession);
 
-        if (mounted) {
-          setSession(data?.session ?? null);
+        if (currentSession?.user) {
+          await loadProfile(currentSession.user.id);
         }
       } catch (err) {
-        console.error("Session exception:", err);
-
-        if (mounted) {
-          setError("Помилка підключення до Supabase.");
+        if (active) {
+          setError(err.message || "Не вдалося завантажити профіль.");
         }
       } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
 
-    loadSession();
+    initialize();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
-        if (mounted) {
-          setSession(newSession);
-        }
+    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (!active) return;
+
+      setSession(newSession);
+
+      if (!newSession) {
+        setProfile(null);
+        setPage("hero");
+        setLoading(false);
       }
-    );
+    });
 
     return () => {
-      mounted = false;
+      active = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadProfile]);
 
-  // ============================================================
-  // LOAD PROFILE
-  // ============================================================
-
-  useEffect(() => {
-    if (!session?.user?.id) {
-      setProfile(null);
-      return;
-    }
-
-    loadProfile(session.user.id);
-  }, [session]);
-
-  async function loadProfile(userId) {
-    setProfileLoading(true);
-    setError("");
-
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          `
-          id,
-          username,
-          display_name,
-          avatar_url,
-          role,
-          level,
-          experience,
-          gold,
-          crystals,
-          energy,
-          max_energy,
-          last_energy_update,
-          is_banned,
-          ban_reason,
-          last_seen_at,
-          created_at,
-          updated_at
-          `
-        )
-        .eq("id", userId)
-        .single();
-
-      if (error) {
-        console.error("Profile load error:", error);
-        throw error;
-      }
-
-      setProfile(data);
-    } catch (err) {
-      console.error("Failed to load profile:", err);
-
-      setError(
-        "Не вдалося завантажити профіль гравця."
-      );
-    } finally {
-      setProfileLoading(false);
-    }
-  }
-
-  // ============================================================
-  // LOGIN / REGISTER
-  // ============================================================
-
-  async function handleSubmit(event) {
+  async function handleAuth(event) {
     event.preventDefault();
-
     setError("");
     setMessage("");
-
-    if (!email.trim()) {
-      setError("Введи email.");
-      return;
-    }
-
-    if (!password) {
-      setError("Введи пароль.");
-      return;
-    }
-
-    if (password.length < 6) {
-      setError(
-        "Пароль має містити щонайменше 6 символів."
-      );
-      return;
-    }
-
-    if (
-      mode === "register" &&
-      !displayName.trim()
-    ) {
-      setError("Введи ім'я героя.");
-      return;
-    }
-
-    setBusy(true);
+    setSubmitting(true);
 
     try {
-      if (mode === "login") {
-        const { data, error } =
-          await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password,
-          });
-
-        if (error) {
-          throw error;
-        }
-
-        setSession(data.session);
-        setMessage("Вхід виконано успішно! ⚔️");
-      } else {
-        const { data, error } =
+      if (authMode === "register") {
+        const { data, error: authError } =
           await supabase.auth.signUp({
             email: email.trim(),
             password,
             options: {
               data: {
-                display_name:
-                  displayName.trim(),
+                display_name: username.trim(),
               },
             },
           });
 
-        if (error) {
-          throw error;
-        }
+        if (authError) throw authError;
 
-        if (data.session) {
+        if (data.session && data.user) {
           setSession(data.session);
-
-          setMessage(
-            "Героя створено! Ласкаво просимо до Eldara ⚔️"
-          );
+          await loadProfile(data.user.id);
+          setMessage("Реєстрація успішна!");
         } else {
           setMessage(
-            "Реєстрацію виконано! Перевір email для підтвердження акаунта."
+            "Акаунт створено. Перевір електронну пошту, щоб підтвердити реєстрацію."
           );
         }
+      } else {
+        const { data, error: authError } =
+          await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+
+        if (authError) throw authError;
+
+        setSession(data.session);
+        await loadProfile(data.user.id);
+        setMessage("Вхід успішний!");
       }
     } catch (err) {
-      console.error("Auth error:", err);
-
-      let text =
-        "Сталася помилка. Спробуй ще раз.";
-
-      if (err?.message) {
-        text = err.message;
-      }
-
-      const lowerText =
-        text.toLowerCase();
-
-      if (
-        lowerText.includes(
-          "invalid login credentials"
-        )
-      ) {
-        text =
-          "Неправильний email або пароль.";
-      }
-
-      if (
-        lowerText.includes(
-          "user already registered"
-        )
-      ) {
-        text =
-          "Користувач із таким email вже існує.";
-      }
-
-      if (
-        lowerText.includes(
-          "email not confirmed"
-        )
-      ) {
-        text =
-          "Спочатку підтвердь email.";
-      }
-
-      if (
-        lowerText.includes(
-          "password should be at least"
-        )
-      ) {
-        text =
-          "Пароль має містити щонайменше 6 символів.";
-      }
-
-      setError(text);
+      setError(err.message || "Не вдалося виконати операцію.");
     } finally {
-      setBusy(false);
+      setSubmitting(false);
     }
   }
-
-  // ============================================================
-  // LOGOUT
-  // ============================================================
 
   async function handleLogout() {
-    setBusy(true);
     setError("");
-    setMessage("");
+    const { error: logoutError } = await supabase.auth.signOut();
 
-    try {
-      const { error } =
-        await supabase.auth.signOut();
+    if (logoutError) {
+      setError(logoutError.message);
+      return;
+    }
 
-      if (error) {
-        throw error;
-      }
+    setSession(null);
+    setProfile(null);
+    setPage("hero");
+  }
 
-      setSession(null);
-      setProfile(null);
-
-      setEmail("");
-      setPassword("");
-      setDisplayName("");
-    } catch (err) {
-      console.error("Logout error:", err);
-
-      setError(
-        "Не вдалося вийти з акаунта."
-      );
-    } finally {
-      setBusy(false);
+  function navigateTo(nextPage) {
+    if (PAGE_COMPONENTS[nextPage]) {
+      setPage(nextPage);
+      window.scrollTo({ top: 0, behavior: "auto" });
     }
   }
-
-  // ============================================================
-  // SWITCH AUTH MODE
-  // ============================================================
-
-  function switchMode(newMode) {
-    setMode(newMode);
-    setError("");
-    setMessage("");
-  }
-
-  // ============================================================
-  // LOADING
-  // ============================================================
 
   if (loading) {
     return (
-      <div style={styles.page}>
-        <div style={styles.loadingCard}>
-          <div style={styles.logo}>
-            ⚔️
-          </div>
-
-          <h1 style={styles.title}>
-            Хроніки Згаслого Світанку
-          </h1>
-
-          <p style={styles.muted}>
-            Завантаження світу...
-          </p>
-
-          <div style={styles.loader} />
-        </div>
+      <div style={styles.centerScreen}>
+        <div style={styles.logo}>⚔️</div>
+        <h2>Хроніки Згаслого Світанку</h2>
+        <p style={styles.muted}>Завантаження світу...</p>
       </div>
     );
   }
 
-  // ============================================================
-  // AUTHENTICATED USER
-  // ============================================================
-
-  if (session) {
-    const userName =
-      profile?.display_name ||
-      profile?.username ||
-      session.user?.user_metadata
-        ?.display_name ||
-      session.user?.email?.split("@")[0] ||
-      "Герой";
-
-    // ----------------------------------------------------------
-    // PROFILE LOADING
-    // ----------------------------------------------------------
-
-    if (profileLoading) {
-      return (
-        <div style={styles.page}>
-          <div style={styles.loadingCard}>
-            <div style={styles.logo}>
-              ⚔️
-            </div>
-
-            <h1 style={styles.title}>
-              Хроніки Згаслого Світанку
-            </h1>
-
-            <p style={styles.muted}>
-              Завантажуємо профіль героя...
-            </p>
-
-            <div style={styles.loader} />
-          </div>
-        </div>
-      );
-    }
-
-    // ----------------------------------------------------------
-    // PROFILE NOT FOUND
-    // ----------------------------------------------------------
-
-    if (!profile) {
-      return (
-        <div style={styles.page}>
-          <div style={styles.gameCard}>
-            <div style={styles.logoLarge}>
-              ⚠️
-            </div>
-
-            <h1 style={styles.title}>
-              Профіль не знайдено
-            </h1>
-
-            <p style={styles.muted}>
-              Авторизація працює, але запис
-              гравця в таблиці profiles
-              не завантажився.
-            </p>
-
-            {error && (
-              <div style={styles.error}>
-                {error}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() =>
-                loadProfile(session.user.id)
-              }
-              style={styles.primaryButton}
-            >
-              🔄 Спробувати ще раз
-            </button>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={busy}
-              style={styles.secondaryButton}
-            >
-              Вийти
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    // ----------------------------------------------------------
-    // BANNED USER
-    // ----------------------------------------------------------
-
-    if (profile.is_banned) {
-      return (
-        <div style={styles.page}>
-          <div style={styles.gameCard}>
-            <div style={styles.logoLarge}>
-              🚫
-            </div>
-
-            <h1 style={styles.title}>
-              Доступ заблоковано
-            </h1>
-
-            <p style={styles.muted}>
-              Твій акаунт заблокований.
-            </p>
-
-            {profile.ban_reason && (
-              <div style={styles.error}>
-                Причина: {profile.ban_reason}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={busy}
-              style={styles.secondaryButton}
-            >
-              Вийти з акаунта
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    // ----------------------------------------------------------
-    // REAL PROFILE
-    // ----------------------------------------------------------
-
-    const level =
-      Number(profile.level) || 1;
-
-    const experience =
-      Number(profile.experience) || 0;
-
-    const gold =
-      Number(profile.gold) || 0;
-
-    const crystals =
-      Number(profile.crystals) || 0;
-
-    const energy =
-      Number(profile.energy) || 0;
-
-    const maxEnergy =
-      Number(profile.max_energy) || 100;
-
-    const role =
-      profile.role || "player";
-
+  if (!session || !profile) {
     return (
-      <div style={styles.page}>
-        <div style={styles.gameCard}>
-
-          {/* HEADER */}
-
-          <div style={styles.gameHeader}>
-            <div style={styles.logoLarge}>
-              ⚔️
-            </div>
-
-            <div style={styles.onlineBadge}>
-              ● ONLINE
-            </div>
-          </div>
-
+      <div style={styles.centerScreen}>
+        <form style={styles.authCard} onSubmit={handleAuth}>
+          <div style={styles.logo}>⚔️</div>
           <h1 style={styles.title}>
             Хроніки Згаслого Світанку
           </h1>
-
-          <p style={styles.subtitle}>
-            Ласкаво просимо, {userName}
+          <p style={styles.muted}>
+            {authMode === "login"
+              ? "Повернися у світ Eldara"
+              : "Створи свого героя"}
           </p>
 
-          {/* PROFILE */}
+          {authMode === "register" && (
+            <input
+              style={styles.input}
+              placeholder="Ім'я гравця"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              required
+              minLength={2}
+              maxLength={30}
+            />
+          )}
 
-          <div style={styles.profileBox}>
-            <div style={styles.avatar}>
-              {profile.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt={userName}
-                  style={styles.avatarImage}
-                />
-              ) : (
-                userName
-                  .charAt(0)
-                  .toUpperCase()
-              )}
-            </div>
+          <input
+            style={styles.input}
+            type="email"
+            placeholder="Електронна пошта"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
 
-            <div style={styles.profileInfo}>
-              <div style={styles.profileName}>
-                {userName}
-              </div>
+          <input
+            style={styles.input}
+            type="password"
+            placeholder="Пароль (мінімум 6 символів)"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            minLength={6}
+          />
 
-              <div style={styles.profileEmail}>
-                {session.user?.email}
-              </div>
-
-              <div style={styles.role}>
-                {role === "super_admin"
-                  ? "👑 SUPER ADMIN"
-                  : role === "admin"
-                  ? "🛡️ ADMIN"
-                  : role === "moderator"
-                  ? "🔨 MODERATOR"
-                  : "⚔️ ГРАВЕЦЬ"}
-              </div>
-            </div>
-          </div>
-
-          {/* LEVEL */}
-
-          <div style={styles.levelCard}>
-            <div style={styles.levelTop}>
-              <span>
-                Рівень героя
-              </span>
-
-              <strong>
-                {level}
-              </strong>
-            </div>
-
-            <div style={styles.xpBar}>
-              <div
-                style={{
-                  ...styles.xpFill,
-                  width: `${Math.min(
-                    100,
-                    experience % 100
-                  )}%`,
-                }}
-              />
-            </div>
-
-            <div style={styles.xpText}>
-              ✨ {experience} XP
-            </div>
-          </div>
-
-          {/* RESOURCES */}
-
-          <div style={styles.resources}>
-
-            <div style={styles.resource}>
-              <span style={styles.resourceIcon}>
-                🪙
-              </span>
-
-              <strong>
-                {gold.toLocaleString("uk-UA")}
-              </strong>
-
-              <small>
-                Золото
-              </small>
-            </div>
-
-            <div style={styles.resource}>
-              <span style={styles.resourceIcon}>
-                💎
-              </span>
-
-              <strong>
-                {crystals.toLocaleString(
-                  "uk-UA"
-                )}
-              </strong>
-
-              <small>
-                Кристали
-              </small>
-            </div>
-
-            <div style={styles.resource}>
-              <span style={styles.resourceIcon}>
-                ⚡
-              </span>
-
-              <strong>
-                {energy}/{maxEnergy}
-              </strong>
-
-              <small>
-                Енергія
-              </small>
-            </div>
-
-          </div>
-
-          {/* GAME MENU */}
-
-          <div style={styles.menuGrid}>
-
-            <button
-              type="button"
-              style={styles.menuButton}
-            >
-              ⚔️
-              <span>
-                Бій
-              </span>
-            </button>
-
-            <button
-              type="button"
-              style={styles.menuButton}
-            >
-              🦸
-              <span>
-                Герої
-              </span>
-            </button>
-
-            <button
-              type="button"
-              style={styles.menuButton}
-            >
-              🐾
-              <span>
-                Пети
-              </span>
-            </button>
-
-            <button
-              type="button"
-              style={styles.menuButton}
-            >
-              🎒
-              <span>
-                Інвентар
-              </span>
-            </button>
-
-            <button
-              type="button"
-              style={styles.menuButton}
-            >
-              🏆
-              <span>
-                Арена
-              </span>
-            </button>
-
-            <button
-              type="button"
-              style={styles.menuButton}
-            >
-              🏰
-              <span>
-                Клан
-              </span>
-            </button>
-
-          </div>
-
-          {/* DATABASE INFO */}
-
-          <div style={styles.databaseInfo}>
-            <div>
-              🗄️ Профіль завантажено з Supabase
-            </div>
-
-            <div style={styles.userId}>
-              ID: {profile.id}
-            </div>
-          </div>
-
-          {/* LOGOUT */}
+          {error && <p style={styles.error}>{error}</p>}
+          {message && <p style={styles.success}>{message}</p>}
 
           <button
-            type="button"
-            onClick={handleLogout}
-            disabled={busy}
-            style={styles.secondaryButton}
+            style={styles.primaryButton}
+            type="submit"
+            disabled={submitting}
           >
-            {busy
-              ? "Вихід..."
-              : "🚪 Вийти з акаунта"}
+            {submitting
+              ? "Зачекай..."
+              : authMode === "login"
+                ? "Увійти в гру"
+                : "Зареєструватися"}
           </button>
 
-          {message && (
-            <div style={styles.success}>
-              ✅ {message}
-            </div>
-          )}
+          <button
+            style={styles.textButton}
+            type="button"
+            onClick={() => {
+              setAuthMode(
+                authMode === "login" ? "register" : "login"
+              );
+              setError("");
+              setMessage("");
+            }}
+          >
+            {authMode === "login"
+              ? "Немає акаунта? Реєстрація"
+              : "Вже є акаунт? Увійти"}
+          </button>
+        </form>
+      </div>
+    );
+  }
 
-          {error && (
-            <div style={styles.error}>
-              ❌ {error}
-            </div>
-          )}
+  if (profile.is_banned) {
+    return (
+      <div style={styles.centerScreen}>
+        <div style={styles.authCard}>
+          <div style={styles.logo}>🚫</div>
+          <h2>Акаунт заблоковано</h2>
+          <p>{profile.ban_reason || "Звернися до адміністрації гри."}</p>
+          <button style={styles.primaryButton} onClick={handleLogout}>
+            Вийти з акаунта
+          </button>
         </div>
       </div>
     );
   }
 
-  // ============================================================
-  // LOGIN / REGISTER
-  // ============================================================
+  const CurrentPage = PAGE_COMPONENTS[page] || Home;
 
   return (
-    <div style={styles.page}>
-      <div style={styles.authCard}>
-
-        <div style={styles.logo}>
-          ⚔️
-        </div>
-
-        <h1 style={styles.title}>
-          Хроніки Згаслого Світанку
-        </h1>
-
-        <p style={styles.subtitle}>
-          Eldara чекає на свого героя
-        </p>
-
-        {/* TABS */}
-
-        <div style={styles.tabs}>
-
-          <button
-            type="button"
-            onClick={() =>
-              switchMode("login")
-            }
-            style={{
-              ...styles.tab,
-              ...(mode === "login"
-                ? styles.tabActive
-                : {}),
-            }}
-          >
-            Вхід
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              switchMode("register")
-            }
-            style={{
-              ...styles.tab,
-              ...(mode === "register"
-                ? styles.tabActive
-                : {}),
-            }}
-          >
-            Реєстрація
-          </button>
-
-        </div>
-
-        {/* FORM */}
-
-        <form onSubmit={handleSubmit}>
-
-          {mode === "register" && (
-            <label style={styles.label}>
-              Ім'я героя
-
-              <input
-                type="text"
-                value={displayName}
-                onChange={(event) =>
-                  setDisplayName(
-                    event.target.value
-                  )
-                }
-                placeholder="Наприклад: Роман"
-                maxLength={30}
-                disabled={busy}
-                style={styles.input}
+    <div style={styles.app}>
+      <header style={styles.topBar}>
+        <div style={styles.playerInfo}>
+          <div style={styles.avatar}>
+            {profile.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt="Аватар"
+                style={styles.avatarImage}
               />
-            </label>
-          )}
+            ) : (
+              "⚔️"
+            )}
+          </div>
 
-          <label style={styles.label}>
-            Email
-
-            <input
-              type="email"
-              value={email}
-              onChange={(event) =>
-                setEmail(event.target.value)
-              }
-              placeholder="your@email.com"
-              autoComplete="email"
-              disabled={busy}
-              style={styles.input}
-            />
-          </label>
-
-          <label style={styles.label}>
-            Пароль
-
-            <input
-              type="password"
-              value={password}
-              onChange={(event) =>
-                setPassword(event.target.value)
-              }
-              placeholder="Мінімум 6 символів"
-              autoComplete={
-                mode === "login"
-                  ? "current-password"
-                  : "new-password"
-              }
-              disabled={busy}
-              style={styles.input}
-            />
-          </label>
-
-          {error && (
-            <div style={styles.error}>
-              ❌ {error}
+          <div style={{ minWidth: 0 }}>
+            <div style={styles.playerName}>
+              {profile.display_name ||
+                profile.username ||
+                "Мандрівник"}
             </div>
-          )}
-
-          {message && (
-            <div style={styles.success}>
-              ✅ {message}
+            <div style={styles.smallText}>
+              Рівень {profile.level ?? 1} · {profile.role || "player"}
             </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={busy}
-            style={styles.primaryButton}
-          >
-            {busy
-              ? "Зачекай..."
-              : mode === "login"
-              ? "⚔️ Увійти в гру"
-              : "✨ Створити героя"}
-          </button>
-
-        </form>
-
-        <p style={styles.footerText}>
-          {mode === "login"
-            ? "Ще немає акаунта?"
-            : "Вже маєш акаунт?"}{" "}
-
-          <button
-            type="button"
-            onClick={() =>
-              switchMode(
-                mode === "login"
-                  ? "register"
-                  : "login"
-              )
-            }
-            style={styles.linkButton}
-          >
-            {mode === "login"
-              ? "Зареєструватися"
-              : "Увійти"}
-          </button>
-        </p>
-
-        <div style={styles.worldInfo}>
-          🌑 Світ згасає.
-          <br />
-          🔥 Але надія ще жива.
+          </div>
         </div>
 
+        <div style={styles.resources}>
+          <span title="Золото">🪙 {profile.gold ?? 0}</span>
+          <span title="Кристали">💎 {profile.crystals ?? 0}</span>
+          <span title="Енергія">
+            ⚡ {profile.energy ?? 0}/{profile.max_energy ?? 100}
+          </span>
+        </div>
+      </header>
+
+      <div style={styles.xpTrack} title="Досвід героя">
+        <div
+          style={{
+            ...styles.xpFill,
+            width: `${Math.min(
+              100,
+              Math.max(
+                0,
+                ((profile.experience ?? 0) % 1000) / 10
+              )
+            )}%`,
+          }}
+        />
       </div>
+
+      <nav style={styles.navigation}>
+        {PAGES.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => navigateTo(item.id)}
+            style={{
+              ...styles.navButton,
+              ...(page === item.id ? styles.activeNavButton : {}),
+            }}
+          >
+            <span style={styles.navIcon}>{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      <main style={styles.content}>
+        {error && (
+          <div style={styles.notice}>
+            {error}
+            <button
+              style={styles.dismissButton}
+              onClick={() => setError("")}
+              aria-label="Закрити повідомлення"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        <CurrentPage
+          profile={profile}
+          player={profile}
+          onNavigate={navigateTo}
+        />
+      </main>
+
+      <footer style={styles.footer}>
+        <div>
+          <strong>
+            {profile.display_name || profile.username || "Гравець"}
+          </strong>
+          <span style={styles.smallText}>
+            {" "}· Рівень {profile.level ?? 1}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          style={styles.textButton}
+          onClick={handleLogout}
+        >
+          ⚙️ Вийти
+        </button>
+      </footer>
     </div>
   );
 }
 
-// ============================================================
-// STYLES
-// ============================================================
-
 const styles = {
-  page: {
+  app: {
+    minHeight: "100vh",
+    background: "#100811",
+    color: "#f8edf5",
+    fontFamily: "Arial, sans-serif",
+  },
+  centerScreen: {
     minHeight: "100vh",
     boxSizing: "border-box",
-    background:
-      "radial-gradient(circle at top, #3a1028 0%, #160812 45%, #080308 100%)",
-    color: "#ffffff",
+    padding: 20,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "24px 16px",
-    fontFamily:
-      "Inter, Arial, sans-serif",
+    flexDirection: "column",
+    background: "radial-gradient(circle at top, #40152f, #100811 65%)",
+    color: "#fff",
+    textAlign: "center",
   },
-
   authCard: {
     width: "100%",
-    maxWidth: "440px",
+    maxWidth: 390,
     boxSizing: "border-box",
-    background:
-      "rgba(25, 9, 20, 0.94)",
-    border:
-      "1px solid rgba(232, 76, 130, 0.28)",
-    borderRadius: "24px",
-    padding: "30px 24px",
-    boxShadow:
-      "0 25px 80px rgba(0,0,0,0.55)",
+    padding: 24,
+    border: "1px solid #67314f",
+    borderRadius: 18,
+    background: "#1d1020",
   },
-
-  loadingCard: {
-    width: "100%",
-    maxWidth: "440px",
-    textAlign: "center",
-    background:
-      "rgba(25, 9, 20, 0.94)",
-    border:
-      "1px solid rgba(232, 76, 130, 0.25)",
-    borderRadius: "24px",
-    padding: "40px 24px",
-    boxSizing: "border-box",
-  },
-
-  gameCard: {
-    width: "100%",
-    maxWidth: "560px",
-    boxSizing: "border-box",
-    textAlign: "center",
-    background:
-      "rgba(25, 9, 20, 0.96)",
-    border:
-      "1px solid rgba(232, 76, 130, 0.3)",
-    borderRadius: "24px",
-    padding: "30px 24px",
-    boxShadow:
-      "0 25px 80px rgba(0,0,0,0.55)",
-  },
-
-  gameHeader: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-
   logo: {
-    width: "76px",
-    height: "76px",
-    margin: "0 auto 18px",
-    borderRadius: "22px",
-    background:
-      "linear-gradient(135deg, #e84c82, #7a1f4a)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "40px",
-    boxShadow:
-      "0 10px 35px rgba(232,76,130,0.25)",
+    fontSize: 52,
+    marginBottom: 12,
   },
-
-  logoLarge: {
-    fontSize: "58px",
-    marginBottom: "8px",
-  },
-
-  onlineBadge: {
-    display: "inline-block",
-    color: "#70e0a0",
-    fontSize: "11px",
-    fontWeight: "800",
-    letterSpacing: "1px",
-    marginBottom: "12px",
-  },
-
   title: {
-    margin: "0",
-    fontSize: "27px",
-    lineHeight: "1.2",
-    fontWeight: "800",
+    fontSize: 23,
+    lineHeight: 1.3,
+    margin: "0 0 10px",
   },
-
-  subtitle: {
-    margin:
-      "10px 0 24px",
-    color: "#c7aeba",
-    fontSize: "15px",
-  },
-
   muted: {
-    color: "#9d8996",
-    fontSize: "14px",
-    lineHeight: "1.6",
+    color: "#bcaabd",
+    lineHeight: 1.5,
   },
-
-  tabs: {
-    display: "grid",
-    gridTemplateColumns:
-      "1fr 1fr",
-    gap: "8px",
-    padding: "5px",
-    marginBottom: "22px",
-    background: "#100610",
-    borderRadius: "13px",
-  },
-
-  tab: {
-    border: "none",
-    borderRadius: "10px",
-    padding: "11px",
-    background: "transparent",
-    color: "#9d8996",
-    fontSize: "14px",
-    fontWeight: "700",
-    cursor: "pointer",
-  },
-
-  tabActive: {
-    background: "#e84c82",
-    color: "#ffffff",
-  },
-
-  label: {
-    display: "block",
-    textAlign: "left",
-    marginBottom: "15px",
-    color: "#e9dbe3",
-    fontSize: "13px",
-    fontWeight: "700",
-  },
-
   input: {
-    width: "100%",
+    display: "block",
     boxSizing: "border-box",
-    marginTop: "7px",
-    padding: "14px 15px",
-    borderRadius: "12px",
-    border:
-      "1px solid rgba(255,255,255,0.1)",
-    outline: "none",
-    background: "#100610",
-    color: "#ffffff",
-    fontSize: "15px",
+    width: "100%",
+    marginTop: 12,
+    padding: "13px 14px",
+    border: "1px solid #59324f",
+    borderRadius: 10,
+    background: "#120b16",
+    color: "#fff",
+    fontSize: 16,
   },
-
   primaryButton: {
     width: "100%",
-    border: "none",
-    borderRadius: "13px",
-    padding: "15px",
-    marginTop: "6px",
-    background:
-      "linear-gradient(135deg, #e84c82, #b92f65)",
-    color: "#ffffff",
-    fontSize: "15px",
-    fontWeight: "800",
+    marginTop: 16,
+    padding: 14,
+    border: 0,
+    borderRadius: 10,
+    background: "#c23e79",
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: 700,
     cursor: "pointer",
-    boxShadow:
-      "0 10px 25px rgba(232,76,130,0.2)",
   },
-
-  secondaryButton: {
-    width: "100%",
-    border:
-      "1px solid rgba(232,76,130,0.35)",
-    borderRadius: "13px",
-    padding: "14px",
-    marginTop: "18px",
+  textButton: {
+    border: 0,
     background: "transparent",
-    color: "#f1b4c9",
-    fontSize: "14px",
-    fontWeight: "700",
+    color: "#f08cba",
+    padding: 10,
     cursor: "pointer",
   },
-
   error: {
-    margin:
-      "12px 0",
-    padding: "12px",
-    borderRadius: "12px",
-    background:
-      "rgba(220, 60, 80, 0.12)",
-    border:
-      "1px solid rgba(220, 60, 80, 0.25)",
-    color: "#ff9eab",
-    fontSize: "13px",
-    lineHeight: "1.5",
-    wordBreak: "break-word",
+    color: "#ff8d8d",
+    overflowWrap: "anywhere",
   },
-
   success: {
-    margin:
-      "12px 0",
-    padding: "12px",
-    borderRadius: "12px",
-    background:
-      "rgba(70, 200, 120, 0.1)",
-    border:
-      "1px solid rgba(70, 200, 120, 0.2)",
-    color: "#8de2ad",
-    fontSize: "13px",
-    lineHeight: "1.5",
+    color: "#8fe0b0",
+    overflowWrap: "anywhere",
   },
-
-  footerText: {
-    marginTop: "20px",
-    textAlign: "center",
-    color: "#9d8996",
-    fontSize: "13px",
+  topBar: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 14px",
+    background: "#1b101e",
+    borderBottom: "1px solid #42243e",
+    flexWrap: "wrap",
   },
-
-  linkButton: {
-    border: "none",
-    padding: "0",
-    background: "transparent",
-    color: "#e84c82",
-    fontWeight: "700",
-    cursor: "pointer",
-  },
-
-  worldInfo: {
-    marginTop: "25px",
-    paddingTop: "20px",
-    borderTop:
-      "1px solid rgba(255,255,255,0.07)",
-    color: "#806b77",
-    fontSize: "12px",
-    lineHeight: "1.8",
-  },
-
-  profileBox: {
+  playerInfo: {
     display: "flex",
     alignItems: "center",
-    gap: "14px",
-    textAlign: "left",
-    padding: "15px",
-    margin:
-      "20px 0",
-    borderRadius: "16px",
-    background: "#100610",
-    border:
-      "1px solid rgba(255,255,255,0.06)",
+    gap: 10,
   },
-
   avatar: {
-    width: "60px",
-    height: "60px",
-    flexShrink: 0,
-    borderRadius: "18px",
-    background:
-      "linear-gradient(135deg, #e84c82, #702040)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "25px",
-    fontWeight: "800",
+    width: 42,
+    height: 42,
+    borderRadius: 10,
     overflow: "hidden",
+    display: "grid",
+    placeItems: "center",
+    background: "#3c1b39",
+    fontSize: 24,
+    flexShrink: 0,
   },
-
   avatarImage: {
     width: "100%",
     height: "100%",
     objectFit: "cover",
   },
-
-  profileInfo: {
-    minWidth: 0,
-    flex: 1,
+  playerName: {
+    fontWeight: 700,
+    overflowWrap: "anywhere",
   },
-
-  profileName: {
-    fontSize: "17px",
-    fontWeight: "800",
-    marginBottom: "4px",
+  smallText: {
+    fontSize: 12,
+    color: "#c4afc4",
   },
-
-  profileEmail: {
-    color: "#8e7986",
-    fontSize: "12px",
-    wordBreak: "break-all",
-  },
-
-  role: {
-    marginTop: "6px",
-    color: "#e84c82",
-    fontSize: "10px",
-    fontWeight: "800",
-    letterSpacing: "0.5px",
-  },
-
-  levelCard: {
-    textAlign: "left",
-    padding: "16px",
-    marginBottom: "12px",
-    borderRadius: "16px",
-    background: "#100610",
-    border:
-      "1px solid rgba(255,255,255,0.06)",
-  },
-
-  levelTop: {
+  resources: {
     display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: "10px",
-    color: "#d8c5cf",
-    fontSize: "13px",
+    gap: 12,
+    flexWrap: "wrap",
+    fontSize: 13,
   },
-
-  xpBar: {
-    width: "100%",
-    height: "8px",
-    overflow: "hidden",
-    borderRadius: "99px",
-    background: "#251421",
+  xpTrack: {
+    height: 3,
+    background: "#352137",
   },
-
   xpFill: {
     height: "100%",
-    borderRadius: "99px",
-    background:
-      "linear-gradient(90deg, #e84c82, #ff9bc0)",
+    background: "#f16da8",
+    transition: "width 0.2s",
   },
-
-  xpText: {
-    marginTop: "7px",
-    color: "#806b77",
-    fontSize: "11px",
-  },
-
-  resources: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(3, 1fr)",
-    gap: "8px",
-    marginBottom: "18px",
-  },
-
-  resource: {
-    padding: "14px 6px",
-    borderRadius: "14px",
-    background: "#100610",
-    border:
-      "1px solid rgba(255,255,255,0.06)",
+  navigation: {
     display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "4px",
+    gap: 6,
+    padding: 10,
+    overflowX: "auto",
+    background: "#170d1a",
+    borderBottom: "1px solid #42243e",
   },
-
-  resourceIcon: {
-    fontSize: "20px",
-  },
-
-  menuGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(3, 1fr)",
-    gap: "9px",
-    marginBottom: "18px",
-  },
-
-  menuButton: {
-    minHeight: "82px",
-    border:
-      "1px solid rgba(232,76,130,0.15)",
-    borderRadius: "15px",
-    background: "#100610",
-    color: "#ffffff",
+  navButton: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: "7px",
-    fontSize: "25px",
+    gap: 5,
+    minWidth: 76,
+    padding: "10px 8px",
+    border: "1px solid transparent",
+    borderRadius: 10,
+    background: "transparent",
+    color: "#cbb9cd",
+    fontSize: 11,
     cursor: "pointer",
   },
-
-  databaseInfo: {
-    marginTop: "8px",
-    padding: "12px",
-    borderRadius: "12px",
-    background:
-      "rgba(70, 200, 120, 0.06)",
-    color: "#79c796",
-    fontSize: "11px",
-    lineHeight: "1.7",
+  activeNavButton: {
+    background: "#3a1935",
+    borderColor: "#a43f76",
+    color: "#fff",
   },
-
-  userId: {
-    color: "#607c6b",
-    wordBreak: "break-all",
-    marginTop: "3px",
+  navIcon: {
+    fontSize: 22,
   },
-
-  loader: {
-    width: "28px",
-    height: "28px",
-    margin: "22px auto 0",
-    border:
-      "3px solid rgba(255,255,255,0.1)",
-    borderTop:
-      "3px solid #e84c82",
-    borderRadius: "50%",
-    animation:
-      "spin 1s linear infinite",
+  content: {
+    width: "100%",
+    maxWidth: 1200,
+    boxSizing: "border-box",
+    margin: "0 auto",
+    padding: 14,
+  },
+  notice: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderRadius: 10,
+    background: "#42202b",
+    color: "#ffd1df",
+    overflowWrap: "anywhere",
+  },
+  dismissButton: {
+    border: 0,
+    background: "transparent",
+    color: "#fff",
+    fontSize: 20,
+    cursor: "pointer",
+  },
+  footer: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    padding: "14px",
+    borderTop: "1px solid #42243e",
+    background: "#170d1a",
   },
 };
