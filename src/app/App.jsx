@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "./lib/supabase";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -26,7 +26,9 @@ export default function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
+      if (mounted) {
+        setSession(newSession);
+      }
     });
 
     return () => {
@@ -39,7 +41,7 @@ export default function App() {
     return (
       <div className="app-loading">
         <div className="app-loading__logo">⚔️</div>
-        <h1>MY RPG</h1>
+        <h1>Хроніки Згаслого Світанку</h1>
         <p>Завантаження...</p>
       </div>
     );
@@ -52,11 +54,9 @@ export default function App() {
           <div className="auth-screen__card">
             <div className="auth-screen__icon">⚔️</div>
 
-            <h1>MY RPG</h1>
+            <h1>Хроніки Згаслого Світанку</h1>
 
-            <p>
-              Світ героїв, битв та пригод.
-            </p>
+            <p>Світ героїв, битв та пригод.</p>
 
             <button type="button">
               Увійти в гру
@@ -70,16 +70,12 @@ export default function App() {
   return (
     <div className="app">
       <main>
-        <h1>MY RPG</h1>
+        <h1>Хроніки Згаслого Світанку</h1>
 
-        <p>
-          Вітаємо у грі!
-        </p>
+        <p>Вітаємо у грі!</p>
 
-        <p>
-          ID користувача: {session.user.id}
-        </p>
+        <p>ID користувача: {session.user.id}</p>
       </main>
     </div>
   );
-        }
+}
