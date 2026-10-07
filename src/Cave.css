@@ -1,0 +1,299 @@
+.cave-page {
+  min-height: 100vh;
+  background: #120d09;
+  color: #d8c8b8;
+}
+
+.cave-container {
+  width: min(100%, 560px);
+  margin: 0 auto;
+  background: #1b130e;
+  min-height: 100vh;
+  border-left: 1px solid #3d2a1d;
+  border-right: 1px solid #3d2a1d;
+}
+
+/* HEADER */
+
+.cave-header {
+  height: 42px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #24170f;
+  border-bottom: 1px solid #493323;
+}
+
+.cave-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #d9b889;
+  font-weight: 700;
+}
+
+.cave-top-resources {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: #a99582;
+}
+
+.cave-top-resources span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* CONTENT */
+
+.cave-content {
+  padding: 15px 12px 12px;
+}
+
+.cave-status {
+  text-align: center;
+  margin-bottom: 17px;
+}
+
+.cave-status strong {
+  display: block;
+  color: #e2c6a3;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.cave-status span {
+  color: #927e6c;
+  font-size: 11px;
+}
+
+/* RESOURCES */
+
+.cave-resources {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.cave-resource {
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  background: #211710;
+  border: 1px solid #3f2b1d;
+}
+
+.resource-icon {
+  width: 58px;
+  height: 50px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background:
+    linear-gradient(145deg, #2b1d15, #18100c);
+
+  border: 1px solid #4a3526;
+
+  font-size: 27px;
+}
+
+.resource-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.resource-info strong {
+  color: #d6b991;
+  font-size: 13px;
+}
+
+.resource-info span {
+  color: #8e7967;
+  font-size: 11px;
+}
+
+.resource-info b {
+  color: #c5a06f;
+}
+
+/* CHANCE */
+
+.chance-button {
+  width: 100%;
+  margin-top: 13px;
+  padding: 9px 8px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  background: transparent;
+  border: 0;
+
+  color: #b99b77;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.chance-price {
+  color: #d2ad75;
+}
+
+/* ACTIONS */
+
+.cave-actions {
+  text-align: center;
+  margin-top: 5px;
+}
+
+.mine-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-width: 180px;
+  padding: 10px 20px;
+
+  background: linear-gradient(
+    #6a482a,
+    #4b301d
+  );
+
+  border: 1px solid #92704b;
+  border-radius: 3px;
+
+  color: #f0dfc6;
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.mine-button:hover {
+  filter: brightness(1.12);
+}
+
+.new-search-button {
+  display: block;
+  margin: 9px auto 0;
+
+  background: none;
+  border: 0;
+
+  color: #9c8061;
+  text-decoration: underline;
+
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* NAVIGATION */
+
+.cave-navigation {
+  border-top: 1px solid #3d2a1d;
+  border-bottom: 1px solid #3d2a1d;
+  margin-top: 8px;
+}
+
+.cave-navigation button {
+  width: 100%;
+  min-height: 39px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 0 13px;
+
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #302117;
+
+  color: #b9a28c;
+
+  text-align: left;
+  cursor: pointer;
+}
+
+.cave-navigation button:last-child {
+  border-bottom: 0;
+}
+
+.cave-navigation button:hover {
+  background: #24170f;
+}
+
+.cave-navigation b {
+  margin-left: auto;
+  color: #b58d5c;
+}
+
+/* PROFILE */
+
+.cave-profile {
+  padding: 10px 12px 14px;
+  background: #17100c;
+}
+
+.profile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.profile-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #c7b29c;
+  font-size: 12px;
+}
+
+.profile-top button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+
+  background: none;
+  border: 0;
+
+  color: #8e7864;
+  font-size: 10px;
+
+  cursor: pointer;
+}
+
+.profile-resources {
+  display: flex;
+  gap: 17px;
+  margin-top: 9px;
+
+  color: #a99582;
+  font-size: 11px;
+}
+
+/* MOBILE */
+
+@media (max-width: 480px) {
+  .cave-content {
+    padding: 13px 9px 10px;
+  }
+
+  .resource-icon {
+    width: 52px;
+    height: 48px;
+  }
+
+  .mine-button {
+    min-width: 170px;
+  }
+}
