@@ -1,193 +1,162 @@
-import React, { useState } from "react";
-import {
-  Mountain,
-  Pickaxe,
-  Coins,
-  User,
-  Users,
-  Home,
-  Settings,
-  Shield,
-} from "lucide-react";
-import "./Cave.css";
+import React, { useState } from 'react';
+import './Cave.css';
 
-const RESOURCES = [
-  { name: "Алмаз", chance: 13, icon: "💎" },
-  { name: "Корунд", chance: 33, icon: "🔴" },
-  { name: "Обсидиан", chance: 18, icon: "⬛" },
-  { name: "Графит", chance: 24, icon: "⚫" },
-  { name: "Оникс", chance: 16, icon: "🖤" },
-  { name: "Амброзия", chance: 8, icon: "✨" },
-  { name: "Мята", chance: 12, icon: "🌿" },
-  { name: "Аир", chance: 1, icon: "🌱" },
-  { name: "Рябина", chance: 7, icon: "🔴" },
+// Повний список можливих ресурсів печери
+const CAVE_RESOURCES = [
+  { id: 'diamond', name: 'Алмаз', icon: '💎', defaultChance: 13 },
+  { id: 'corundum', name: 'Корунд', icon: '🪨', defaultChance: 33 },
+  { id: 'obsidian', name: 'Обсидиан', icon: '⬛', defaultChance: 15 },
+  { id: 'graphite', name: 'Графит', icon: '✏️', defaultChance: 25 },
+  { id: 'onyx', name: 'Оникс', icon: '🔮', defaultChance: 10 },
+  { id: 'ambrosia', name: 'Амброзия', icon: '🏺', defaultChance: 5 },
+  { id: 'mint', name: 'Мята', icon: '🍃', defaultChance: 20 },
+  { id: 'calamus', name: 'Аир', icon: '🌿', defaultChance: 1 },
+  { id: 'rowan', name: 'Рябина', icon: '🍒', defaultChance: 18 }
 ];
 
-export default function Cave({
-  username = "Непроромний",
-  playerPower = 64192,
+const Cave = () => {
+  const [gold, setGold] = useState(8492);
+  const [silver, setSilver] = useState(2200000); // 2.2M
+  
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchTimer, setSearchTimer] = useState(0);
+  const [boosted, setBoosted] = useState(false);
 
-  initialGold = 8492,
-  initialEnergy = 75,
-  initialSilver = 2200000,
+  // Поточні знайдені ресурси в локації
+  const [foundResources, setFoundResources] = useState([
+    { ...CAVE_RESOURCES[0], chance: 13 },
+    { ...CAVE_RESOURCES[1], chance: 33 },
+    { ...CAVE_RESOURCES[7], chance: 1 }
+  ]);
 
-  onHome,
-  onHeroes,
-  onClan,
-  onSettings,
-}) {
-  const [gold] = useState(initialGold);
-  const [energy] = useState(initialEnergy);
-  const [silver] = useState(initialSilver);
+  // Генерація нових 3 випадкових ресурсів
+  const generateNewResources = () => {
+    const shuffled = [...CAVE_RESOURCES].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, 3).map((item) => ({
+      ...item,
+      chance: Math.floor(Math.random() * 40) + 1
+    }));
+    setFoundResources(selected);
+    setBoosted(false);
+  };
 
-  const [searched, setSearched] = useState(true);
-  const [selectedResources, setSelectedResources] = useState(
-    RESOURCES.slice(0, 3)
-  );
-
+  // Новий ошук (безкоштовний або за час)
   const handleNewSearch = () => {
-    const shuffled = [...RESOURCES].sort(
-      () => Math.random() - 0.5
-    );
+    generateNewResources();
+  };
 
-    setSelectedResources(shuffled.slice(0, 3));
-    setSearched(true);
+  // Прискорення пошуку за срібло
+  const handleSpeedUpSearch = () => {
+    const speedUpCost = 50000; // 50k срібла
+    if (silver >= speedUpCost) {
+      setSilver((prev) => prev - speedUpCost);
+      generateNewResources();
+      alert('Пошук прискорено за срібло!');
+    } else {
+      alert('Недостатньо срібла!');
+    }
+  };
+
+  // Збільшення шансу до 100% за золото
+  const handleBoostChance = () => {
+    if (boosted) return;
+    const boostCost = 21;
+    if (gold >= boostCost) {
+      setGold((prev) => prev - boostCost);
+      setFoundResources((prev) => prev.map((item) => ({ ...item, chance: 100 })));
+      setBoosted(true);
+    } else {
+      alert('Недостатньо золота!');
+    }
+  };
+
+  const handleStartMining = () => {
+    alert('Добування ресурсів розпочато! Ресурси відправлено на склад.');
   };
 
   return (
-    <div className="cave-page">
-      <main className="cave-container">
-
-        {/* HEADER */}
+    <div className="cave-wrapper">
+      <div className="cave-container">
+        {/* Шапка гри */}
         <header className="cave-header">
-          <div className="cave-title">
-            <Mountain size={17} />
-            <span>Пещера</span>
-          </div>
-
-          <div className="cave-top-resources">
-            <span>
-              <Shield size={13} />
-              {formatNumber(playerPower)}
-            </span>
-
-            <span>
-              <Shield size={13} />
-              {formatNumber(2050)}
-            </span>
-          </div>
+          <span className="header-title">Пещера</span>
+          <span className="header-stats">🛡️ 34102 | 🛡️ 2050</span>
         </header>
 
-        {/* CONTENT */}
-        <section className="cave-content">
+        {/* Статус огляду */}
+        <div className="cave-status">
+          <p>Осмотр пещеры завершен</p>
+          <p>Вы нашли место с ресурсами:</p>
+        </div>
 
-          <div className="cave-status">
-            <strong>Осмотр пещеры завершен</strong>
-            <span>
-              Вы нашли место с ресурсами:
-            </span>
-          </div>
+        {/* Список знайдених ресурсів */}
+        <div className="resources-list">
+          {foundResources.map((item) => (
+            <div className="resource-item" key={item.id}>
+              <div className="resource-icon-box">{item.icon}</div>
+              <div className="resource-info">
+                <div className="resource-name">{item.name}</div>
+                <div className="resource-chance">Шанс добыть: {item.chance}%</div>
+              </div>
+            </div>
+          ))}
+        </div>
 
-          <div className="cave-resources">
-            {searched &&
-              selectedResources.map((resource) => (
-                <div
-                  className="cave-resource"
-                  key={resource.name}
-                >
-                  <div className="resource-icon">
-                    {resource.icon}
-                  </div>
-
-                  <div className="resource-info">
-                    <strong>{resource.name}</strong>
-
-                    <span>
-                      Шанс добыть:{" "}
-                      <b>{resource.chance}%</b>
-                    </span>
-                  </div>
-                </div>
-              ))}
-          </div>
-
-          {/* INCREASE CHANCE */}
-          <button className="chance-button">
-            <span>❯ Увеличить шанс до 100%</span>
-
-            <span className="chance-price">
-              за 🪙 21
-            </span>
+        {/* Опції покращення шансів та прискорення */}
+        <div className="boost-options">
+          <button 
+            className="boost-link" 
+            onClick={handleBoostChance}
+            disabled={boosted}
+          >
+            ❯ Увеличить шанс до 100% за <span className="icon">🪙</span> 21
           </button>
 
-          {/* ACTIONS */}
-          <div className="cave-actions">
-
-            <button className="mine-button">
-              <Pickaxe size={17} />
-              Начать добычу
-            </button>
-
-            <button
-              className="new-search-button"
-              onClick={handleNewSearch}
-            >
-              Новый поиск
-            </button>
-
-          </div>
-
-        </section>
-
-        {/* NAVIGATION */}
-        <nav className="cave-navigation">
-
-          <button onClick={onHeroes}>
-            <User size={16} />
-            <span>Мой герой</span>
+          <button 
+            className="boost-link" 
+            onClick={handleSpeedUpSearch}
+          >
+            ⚡ Ускорить поиск за <span className="icon">⚪</span> 50K
           </button>
+        </div>
 
-          <button onClick={onClan}>
-            <Users size={16} />
-            <span>Мой клан</span>
-            <b>+</b>
+        {/* Дії */}
+        <div className="actions-box">
+          <button className="btn-primary" onClick={handleStartMining}>
+            Начать добычу
           </button>
-
-          <button onClick={onHome}>
-            <Home size={16} />
-            <span>На главную</span>
+          <button className="btn-link" onClick={handleNewSearch}>
+            Новый поиск
           </button>
+        </div>
 
+        {/* Підказка щодо використання ресурсів */}
+        <div className="cave-info-note">
+          • Ресурсы можно потратить на усиление своего персонажа в Лаборатории и Кузнице
+        </div>
+
+        {/* Навігація */}
+        <nav className="cave-nav">
+          <a href="#hero" className="nav-item">🧙 Мой герой</a>
+          <a href="#clan" className="nav-item">🧙 Мой клан (+)</a>
+          <a href="#main" className="nav-item">❯ На главную</a>
         </nav>
 
-        {/* PROFILE */}
-        <section className="cave-profile">
-
+        {/* Профіль та ресурси */}
+        <footer className="player-profile">
           <div className="profile-top">
-            <div className="profile-name">
-              <User size={15} />
-              {username}
-            </div>
-
-            <button onClick={onSettings}>
-              <Settings size={14} />
-              Настройки
-            </button>
+            <span className="player-name">👤 Непроромний</span>
+            <a href="#settings" className="settings-link">Настройки</a>
           </div>
-
-          <div className="profile-resources">
-            <span>🟢 {formatNumber(energy)}</span>
-            <span>🪙 {formatNumber(gold)}</span>
-            <span>⚪ {formatNumber(silver)}</span>
+          <div className="player-resources">
+            <span>🟢 75</span>
+            <span>🪙 {gold.toLocaleString('ru-RU')}</span>
+            <span>⚪ {(silver / 1000000).toFixed(1)}M</span>
           </div>
-
-        </section>
-
-      </main>
+        </footer>
+      </div>
     </div>
   );
-}
+};
 
-function formatNumber(number) {
-  return Number(number || 0).toLocaleString("uk-UA");
-                      }
+export default Cave;
