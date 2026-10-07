@@ -22,7 +22,9 @@
   border-right: 1px solid #2d221a;
 }
 
-/* HEADER */
+/* =========================
+   HEADER
+========================= */
 
 .career-header {
   min-height: 32px;
@@ -55,7 +57,9 @@
   gap: 3px;
 }
 
-/* DESCRIPTION */
+/* =========================
+   TOP HINT
+========================= */
 
 .career-description {
   text-align: center;
@@ -69,7 +73,13 @@
   color: #e8a23b;
 }
 
-/* CHAPTER */
+/* =========================
+   CHAPTER
+========================= */
+
+.chapter-section {
+  margin-top: 4px;
+}
 
 .chapter-heading {
   display: flex;
@@ -81,29 +91,78 @@
   margin-bottom: 6px;
 }
 
+/* =========================
+   CAREER CARD
+========================= */
+
 .career-card {
   border: 1px solid #3a2b20;
   background: #1f1712;
   padding: 10px;
 }
 
+/* =========================
+   ART + RANK
+========================= */
+
+.rank-area {
+  display: grid;
+  grid-template-columns: 58px 1fr 58px;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+
+.career-art {
+  height: 62px;
+  border: 1px solid #4a3526;
+  background:
+    linear-gradient(
+      145deg,
+      #2b1d15,
+      #18110d
+    );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.career-art::before {
+  content: "⚔";
+  color: #705437;
+  font-size: 25px;
+  opacity: 0.45;
+}
+
+.career-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .rank-status {
   text-align: center;
   color: #e8a23b;
   font-weight: bold;
-  margin-bottom: 9px;
+  line-height: 1.35;
 }
 
 .rank-status strong {
+  display: block;
   color: #f0c06a;
+  font-size: 15px;
+  margin-top: 2px;
 }
 
-/* ATTACK */
+/* =========================
+   ATTACK
+========================= */
 
 .career-attack-button {
   width: 62%;
   min-height: 36px;
-  margin: 0 auto 8px;
+  margin: 0 auto 10px;
 
   display: flex;
   align-items: center;
@@ -115,11 +174,11 @@
 
   background: linear-gradient(
     180deg,
-    #d84315,
-    #8d2400
+    #d84315 0%,
+    #8d2400 100%
   );
 
-  color: white;
+  color: #fff;
   font-weight: bold;
   font-size: 12px;
   cursor: pointer;
@@ -133,7 +192,9 @@
   transform: translateY(1px);
 }
 
-/* RANKING */
+/* =========================
+   RANKING
+========================= */
 
 .ranking-head,
 .ranking-row {
@@ -187,7 +248,9 @@
   background: rgba(76, 175, 80, 0.07);
 }
 
-/* CHAPTER LOCK */
+/* =========================
+   CHAPTER LOCK
+========================= */
 
 .chapter-lock {
   border: 1px solid #4b3322;
@@ -230,6 +293,7 @@
   padding: 5px 7px;
   font-size: 10px;
   font-weight: bold;
+  cursor: pointer;
 }
 
 .chapter-lock small {
@@ -237,7 +301,9 @@
   margin-top: 2px;
 }
 
-/* REWARD */
+/* =========================
+   REWARD RULES
+========================= */
 
 .reward-info {
   margin: 9px 1px;
@@ -260,7 +326,9 @@
   line-height: 1.35;
 }
 
-/* BANNERS */
+/* =========================
+   BANNERS
+========================= */
 
 .banners-section {
   margin-top: 10px;
@@ -339,7 +407,9 @@
   font-size: 23px;
 }
 
-/* BANNER RULES */
+/* =========================
+   BANNER RULES
+========================= */
 
 .banner-rules {
   margin-top: 6px;
@@ -348,7 +418,9 @@
   line-height: 1.45;
 }
 
-/* NAVIGATION */
+/* =========================
+   NAVIGATION
+========================= */
 
 .career-navigation {
   margin-top: 10px;
@@ -373,6 +445,7 @@
   color: #e8a23b;
   font-size: 12px;
   text-align: left;
+  cursor: pointer;
 }
 
 .career-navigation button:last-child {
@@ -383,7 +456,9 @@
   color: #4caf50;
 }
 
-/* PROFILE */
+/* =========================
+   PROFILE
+========================= */
 
 .career-profile {
   margin-top: 8px;
@@ -417,6 +492,7 @@
 
   color: #e8a23b;
   font-size: 10px;
+  cursor: pointer;
 }
 
 .profile-resources {
@@ -426,16 +502,9 @@
   font-size: 11px;
 }
 
-/* FOOTER */
-
-.career-footer {
-  text-align: center;
-  color: #5e5045;
-  font-size: 9px;
-  padding: 10px 0 4px;
-}
-
-/* MESSAGE */
+/* =========================
+   MESSAGE
+========================= */
 
 .career-message {
   position: fixed;
@@ -485,7 +554,9 @@
   color: #7fcf6b;
 }
 
-/* MOBILE */
+/* =========================
+   MOBILE
+========================= */
 
 @media (max-width: 420px) {
   .career-container {
@@ -509,5 +580,14 @@
 
   .banner {
     min-height: 84px;
+  }
+
+  .rank-area {
+    grid-template-columns: 48px 1fr 48px;
+    gap: 5px;
+  }
+
+  .career-art {
+    height: 54px;
   }
   }
