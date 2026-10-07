@@ -1,0 +1,387 @@
+.colosseum-wrapper {
+  background-color: #0d0b09;
+  color: #d4b382;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.colosseum-container {
+  width: 100%;
+  max-width: 420px;
+  background-color: #181310;
+  border-left: 1px solid #2d221a;
+  border-right: 1px solid #2d221a;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.colosseum-header {
+  text-align: right;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #36281e;
+  font-weight: bold;
+  color: #d4b382;
+}
+
+.view-content {
+  padding: 10px 0;
+}
+
+.subtitle-text {
+  text-align: center;
+  color: #a8927a;
+  margin-bottom: 12px;
+}
+
+.queue-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.btn-dark {
+  background: linear-gradient(180deg, #3a2b20 0%, #211710 100%);
+  color: #d4b382;
+  border: 1px solid #543f30;
+  padding: 5px 16px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.rank-display {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin: 16px 0;
+}
+
+.rank-side {
+  text-align: center;
+}
+
+.rank-icon {
+  font-size: 28px;
+}
+
+.rank-num {
+  font-weight: bold;
+  font-size: 16px;
+  color: #e8a23b;
+}
+
+.rank-label {
+  font-size: 11px;
+  color: #a8927a;
+}
+
+.stars-row {
+  color: #e8a23b;
+  font-size: 18px;
+  letter-spacing: 2px;
+}
+
+.stars-row.gold {
+  text-align: center;
+  margin: 8px 0;
+}
+
+.action-buttons-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.hint-text {
+  text-align: center;
+  color: #8c7563;
+  font-size: 11px;
+  margin: 6px 0 16px;
+}
+
+.tournament-banner {
+  text-align: center;
+  border-top: 1px solid #36281e;
+  padding-top: 12px;
+}
+
+.tournament-title {
+  font-size: 15px;
+  font-weight: bold;
+  color: #e8a23b;
+}
+
+.tournament-title.orange {
+  text-align: center;
+}
+
+.skulls-count {
+  margin: 8px 0;
+  font-weight: bold;
+}
+
+.tournament-desc {
+  color: #a8927a;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.timer-text {
+  color: #e8a23b;
+  font-weight: bold;
+  margin: 10px 0 4px;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: #e8a23b;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.link-btn.left {
+  display: block;
+  text-align: left;
+  margin-top: 12px;
+}
+
+.link-btn.center {
+  display: block;
+  margin: 0 auto;
+}
+
+.info-bullets {
+  border-top: 1px solid #36281e;
+  margin-top: 12px;
+  padding-top: 8px;
+  color: #e8a23b;
+  font-size: 11px;
+}
+
+/* Экран Правил */
+.skulls-icons {
+  text-align: center;
+  margin: 6px 0;
+}
+
+.rules-text {
+  text-align: center;
+  color: #a8927a;
+  line-height: 1.4;
+}
+
+.rules-section, .rewards-section {
+  text-align: center;
+  margin: 12px 0;
+  color: #d4b382;
+}
+
+.bold { font-weight: bold; }
+.small { font-size: 11px; color: #8c7563; }
+.warning-text {
+  color: #e8a23b;
+  font-size: 11px;
+  text-align: center;
+  margin: 12px 0;
+}
+
+.center-btn {
+  display: block;
+  margin: 0 auto;
+}
+
+/* Арена и Бой */
+.battle-top-bar {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.arena-stage {
+  height: 140px;
+  background: linear-gradient(180deg, #2b1f18 0%, #17110c 100%);
+  border: 1px solid #423226;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 30px;
+  margin-bottom: 10px;
+}
+
+.hero-sprite {
+  font-size: 48px;
+}
+
+.battle-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.btn-attack {
+  background: linear-gradient(180deg, #a83218 0%, #5e1808 100%);
+  color: #fff;
+  border: 1px solid #d45035;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 8px 0;
+}
+
+.btn-skill {
+  background: #1d2618;
+  color: #a3d482;
+  border: 1px solid #385229;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 11px;
+  padding: 6px 20px;
+}
+
+.btn-skill.grey {
+  background: #242220;
+  color: #a8927a;
+  border-color: #423d38;
+}
+
+.in-battle-info {
+  text-align: center;
+  margin: 8px 0;
+  font-weight: bold;
+}
+
+.battle-log-box {
+  background-color: #120e0b;
+  border: 1px solid #261c15;
+  padding: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #a8927a;
+}
+
+.log-line {
+  margin-bottom: 2px;
+}
+
+/* Экран результатов */
+.victory-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #e8a23b;
+}
+
+.center-flex {
+  justify-content: center;
+}
+
+.results-text {
+  color: #d4b382;
+  margin: 10px 0;
+  line-height: 1.4;
+}
+
+.rewards-box {
+  color: #a8927a;
+  margin: 10px 0;
+}
+
+.best-player {
+  font-weight: bold;
+  color: #e8a23b;
+  margin: 12px 0;
+}
+
+.battle-summary {
+  border-top: 1px solid #36281e;
+  padding-top: 8px;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.actions-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, #4a382a 0%, #291e16 100%);
+  color: #ffffff;
+  border: 1px solid #6e543f;
+  padding: 6px 20px;
+  font-weight: bold;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #e8a23b;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Подвал и навигация */
+.colosseum-nav {
+  border-top: 1px solid #36281e;
+  border-bottom: 1px solid #36281e;
+  margin-bottom: 12px;
+}
+
+.nav-item {
+  display: block;
+  padding: 6px 0;
+  color: #e8a23b;
+  text-decoration: none;
+  border-bottom: 1px solid #261c15;
+}
+
+.nav-item:last-child {
+  border-bottom: none;
+}
+
+.player-profile {
+  background-color: #211913;
+  padding: 6px 8px;
+}
+
+.profile-top {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+
+.player-name {
+  color: #d4b382;
+}
+
+.settings-link {
+  color: #e8a23b;
+  text-decoration: underline;
+}
+
+.player-resources {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.mt-4 { margin-top: 4px; }
+.mt-8 { margin-top: 8px; }
+.text-center { text-align: center; }
+    
