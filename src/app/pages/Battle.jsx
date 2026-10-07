@@ -474,10 +474,20 @@ export default function Career({
 
           <div className="career-card">
 
-            <div className="rank-status">
-              Ти на{" "}
-              <strong>{place} місці</strong>
-            </div>
+            <div className="rank-area">
+  <div className="career-art">
+    {/* Ліва картинка суперника */}
+  </div>
+
+  <div className="rank-status">
+    Ти на{" "}
+    <strong>{place} місці</strong>
+  </div>
+
+  <div className="career-art">
+    {/* Права картинка суперника */}
+  </div>
+</div>
 
             {!chapterLockedUntil && (
               <button
