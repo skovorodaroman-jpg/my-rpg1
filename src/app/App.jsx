@@ -14,8 +14,8 @@ import Clan from "./pages/Clan";
 import Ranking from "./pages/Ranking";
 import Laboratory from "./pages/Laboratory";
 import Adventures from "./pages/Adventures";
-import Colosseum from "./pages/Colosseum";
-import Cave from "./pages/Cave";
+import Colosseum from "../pages/Colosseum";
+import Cave from "../pages/Cave";
 
 const PAGES = [
   { id: "hero", label: "Мій герой", icon: "⚔️" },
