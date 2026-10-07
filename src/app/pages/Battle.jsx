@@ -759,9 +759,6 @@ export default function Career({
 
         </section>
 
-        <footer className="career-footer">
-          Хроніки Згаслого Світанку · 2026
-        </footer>
 
         {/* MESSAGE */}
         {message && (
