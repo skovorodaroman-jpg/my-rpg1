@@ -1,0 +1,711 @@
+/* =========================================================
+   ПЕЧЕРА — ХРОНІКИ ЗГАСЛОГО СВІТАНКУ
+   ========================================================= */
+
+.cave-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  box-sizing: border-box;
+
+  display: flex;
+  justify-content: center;
+
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      #302117 0%,
+      #17110d 42%,
+      #0d0b09 100%
+    );
+
+  color: #d4b382;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   ОСНОВНИЙ КОНТЕЙНЕР
+   ========================================================= */
+
+.cave-container {
+  width: 100%;
+  max-width: 420px;
+  min-height: 100vh;
+
+  box-sizing: border-box;
+
+  padding: 8px 9px 0;
+
+  background-color: #181310;
+
+  border-left: 1px solid #2d221a;
+  border-right: 1px solid #2d221a;
+
+  box-shadow:
+    0 0 25px rgba(0, 0, 0, 0.45);
+}
+
+
+/* =========================================================
+   ШАПКА
+   ========================================================= */
+
+.cave-header {
+  min-height: 30px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  padding: 0 2px 7px;
+
+  border-bottom: 1px solid #36281e;
+
+  font-weight: bold;
+}
+
+.header-title {
+  color: #e8a23b;
+  font-size: 15px;
+  white-space: nowrap;
+
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.header-stats {
+  color: #bda483;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   СТАТУС ПЕЧЕРИ
+   ========================================================= */
+
+.cave-status {
+  text-align: center;
+
+  color: #a8927a;
+
+  margin: 12px 0 16px;
+
+  line-height: 1.45;
+}
+
+.cave-status p {
+  margin: 3px 0;
+}
+
+.cave-status strong {
+  display: inline-block;
+
+  margin-top: 5px;
+
+  color: #e8a23b;
+  font-size: 18px;
+
+  letter-spacing: 1px;
+}
+
+
+/* =========================================================
+   ПОВІДОМЛЕННЯ
+   ========================================================= */
+
+.cave-message {
+  box-sizing: border-box;
+
+  width: 100%;
+
+  padding: 9px 10px;
+  margin: 8px 0 14px;
+
+  border: 1px solid #4b392b;
+
+  background:
+    linear-gradient(
+      180deg,
+      #261c15 0%,
+      #1c1510 100%
+    );
+
+  line-height: 1.4;
+
+  text-align: center;
+
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.cave-message-success {
+  color: #9ed39e;
+  border-color: #3d573d;
+}
+
+.cave-message-warning {
+  color: #e8c477;
+  border-color: #66502e;
+}
+
+.cave-message-error {
+  color: #e58d8d;
+  border-color: #613535;
+}
+
+.cave-message-info {
+  color: #d4b382;
+}
+
+
+/* =========================================================
+   СПИСОК РЕСУРСІВ
+   ========================================================= */
+
+.resources-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 11px;
+
+  margin-bottom: 16px;
+}
+
+
+/* =========================================================
+   ОКРЕМИЙ РЕСУРС
+   ========================================================= */
+
+.resource-item {
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  min-height: 54px;
+}
+
+
+/* =========================================================
+   ІКОНКА РЕСУРСУ
+   ========================================================= */
+
+.resource-icon-box {
+  width: 52px;
+  height: 52px;
+
+  flex: 0 0 52px;
+
+  box-sizing: border-box;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background:
+    linear-gradient(
+      135deg,
+      #f7e3ca 0%,
+      #e7cbaa 100%
+    );
+
+  border: 1px solid #a8927a;
+
+  font-size: 25px;
+
+  box-shadow:
+    inset 0 0 8px rgba(80, 50, 25, 0.25),
+    0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+
+/* =========================================================
+   ІНФОРМАЦІЯ ПРО РЕСУРС
+   ========================================================= */
+
+.resource-info {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+.resource-name {
+  color: #d4b382;
+
+  font-weight: bold;
+
+  font-size: 14px;
+
+  overflow-wrap: anywhere;
+}
+
+.resource-chance {
+  color: #a8927a;
+
+  font-size: 12px;
+}
+
+.resource-chance strong {
+  color: #e8a23b;
+}
+
+.resource-amount {
+  color: #76685b;
+
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   ОПЦІЇ ПОКРАЩЕННЯ
+   ========================================================= */
+
+.boost-options {
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+
+  margin: 14px 0;
+}
+
+.boost-link {
+  width: fit-content;
+
+  padding: 0;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: #e8a23b;
+
+  cursor: pointer;
+
+  font-family: inherit;
+  font-size: 13px;
+
+  text-align: left;
+
+  transition:
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.boost-link:hover:not(:disabled) {
+  color: #ffc15a;
+}
+
+.boost-link:active:not(:disabled) {
+  opacity: 0.75;
+}
+
+.boost-link:disabled {
+  color: #655648;
+
+  cursor: default;
+
+  opacity: 0.65;
+}
+
+.boost-link .icon {
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   БЛОК ДІЙ
+   ========================================================= */
+
+.actions-box {
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+
+  gap: 8px;
+
+  margin: 17px 0 14px;
+}
+
+
+/* =========================================================
+   ГОЛОВНА КНОПКА
+   ========================================================= */
+
+.btn-primary {
+  min-width: 140px;
+
+  box-sizing: border-box;
+
+  padding: 7px 20px;
+
+  border: 1px solid #6e543f;
+  border-radius: 3px;
+
+  background:
+    linear-gradient(
+      180deg,
+      #4a382a 0%,
+      #291e16 100%
+    );
+
+  color: #ffffff;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: bold;
+
+  cursor: pointer;
+
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.5);
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.05s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background:
+    linear-gradient(
+      180deg,
+      #5a4432 0%,
+      #302219 100%
+    );
+
+  border-color: #84664c;
+}
+
+.btn-primary:active:not(:disabled) {
+  background: #1e150f;
+  transform: translateY(1px);
+}
+
+.btn-primary:disabled {
+  color: #81766e;
+
+  border-color: #40342b;
+
+  background:
+    linear-gradient(
+      180deg,
+      #302820 0%,
+      #211a15 100%
+    );
+
+  cursor: default;
+
+  opacity: 0.65;
+}
+
+
+/* =========================================================
+   ПОСИЛАННЯ «НОВИЙ ПОШУК»
+   ========================================================= */
+
+.btn-link {
+  padding: 2px 5px;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: #e8a23b;
+
+  font-family: inherit;
+  font-size: 13px;
+
+  text-decoration: underline;
+
+  cursor: pointer;
+}
+
+.btn-link:hover:not(:disabled) {
+  color: #ffc15a;
+}
+
+.btn-link:disabled {
+  color: #655648;
+
+  cursor: default;
+
+  text-decoration: none;
+
+  opacity: 0.65;
+}
+
+
+/* =========================================================
+   ІНФОРМАЦІЙНА ПІДКАЗКА
+   ========================================================= */
+
+.cave-info-note {
+  color: #e8a23b;
+
+  font-size: 11px;
+
+  margin: 10px 0 14px;
+
+  padding-top: 8px;
+
+  line-height: 1.45;
+
+  border-top: 1px dashed #36281e;
+}
+
+
+/* =========================================================
+   НАВІГАЦІЯ
+   ========================================================= */
+
+.cave-nav {
+  margin-bottom: 12px;
+
+  border-top: 1px solid #36281e;
+  border-bottom: 1px solid #36281e;
+}
+
+
+/* =========================================================
+   НАВІГАЦІЙНИЙ ПУНКТ
+   ========================================================= */
+
+.nav-item {
+  display: block;
+
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding: 7px 0;
+
+  border: none;
+  border-bottom: 1px solid #261c15;
+
+  background: transparent;
+
+  color: #e8a23b;
+
+  font-family: inherit;
+  font-size: 13px;
+
+  text-align: left;
+
+  text-decoration: none;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.nav-item:last-child {
+  border-bottom: none;
+}
+
+.nav-item:hover {
+  color: #ffc15a;
+
+  background: rgba(232, 162, 59, 0.035);
+}
+
+.nav-item:active {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+
+/* =========================================================
+   ПРОФІЛЬ ГРАВЦЯ
+   ========================================================= */
+
+.player-profile {
+  box-sizing: border-box;
+
+  width: 100%;
+
+  padding: 7px 8px;
+
+  background:
+    linear-gradient(
+      180deg,
+      #251c15 0%,
+      #211913 100%
+    );
+
+  border-top: 1px solid #2d2118;
+}
+
+
+/* =========================================================
+   ВЕРХ ПРОФІЛЮ
+   ========================================================= */
+
+.profile-top {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  margin-bottom: 5px;
+
+  font-weight: bold;
+}
+
+.player-name {
+  min-width: 0;
+
+  color: #d4b382;
+
+  overflow-wrap: anywhere;
+}
+
+
+/* =========================================================
+   НАЛАШТУВАННЯ
+   ========================================================= */
+
+.settings-link {
+  padding: 0;
+
+  border: none;
+
+  background: transparent;
+
+  color: #e8a23b;
+
+  font-family: inherit;
+  font-size: 12px;
+
+  text-decoration: underline;
+
+  cursor: pointer;
+
+  white-space: nowrap;
+}
+
+.settings-link:hover {
+  color: #ffc15a;
+}
+
+
+/* =========================================================
+   РЕСУРСИ ГРАВЦЯ
+   ========================================================= */
+
+.player-resources {
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+
+  flex-wrap: wrap;
+
+  color: #bda483;
+
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   МОБІЛЬНА АДАПТАЦІЯ
+   ========================================================= */
+
+@media (max-width: 430px) {
+  .cave-container {
+    max-width: none;
+
+    border-left: none;
+    border-right: none;
+
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .header-title {
+    font-size: 14px;
+  }
+
+  .header-stats {
+    font-size: 10px;
+  }
+
+  .resource-icon-box {
+    width: 50px;
+    height: 50px;
+    flex-basis: 50px;
+  }
+
+  .resource-name {
+    font-size: 13px;
+  }
+
+  .resource-chance {
+    font-size: 11px;
+  }
+}
+
+
+/* =========================================================
+   ДУЖЕ МАЛЕНЬКИЙ ЕКРАН
+   ========================================================= */
+
+@media (max-width: 340px) {
+  .cave-container {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .cave-header {
+    gap: 5px;
+  }
+
+  .header-stats {
+    font-size: 9px;
+  }
+
+  .resource-item {
+    gap: 9px;
+  }
+
+  .resource-icon-box {
+    width: 46px;
+    height: 46px;
+    flex-basis: 46px;
+
+    font-size: 22px;
+  }
+
+  .player-resources {
+    gap: 8px;
+  }
+}
+
+
+/* =========================================================
+   ПОВАГА ДО REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .boost-link,
+  .btn-primary,
+  .btn-link,
+  .nav-item {
+    transition: none;
+  }
+  }
