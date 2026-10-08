@@ -352,6 +352,11 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState("");
   const [profileError, setProfileError] = useState("");
+   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authMessage, setAuthMessage] = useState("");
+  const [authMode, setAuthMode] = useState("login");
 
   /* -------------------------------------------------------
      LOAD PROFILE
@@ -438,7 +443,50 @@ export default function App() {
     };
   }, [loadProfile]);
 
+async function handleAuth(event) {
+    event.preventDefault();
 
+    setAuthMessage("");
+    setAuthLoading(true);
+
+    try {
+      if (!email.trim() || !password) {
+        setAuthMessage("Введи email та пароль.");
+        return;
+      }
+
+      if (authMode === "login") {
+        const { error } =
+          await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+
+        if (error) {
+          setAuthMessage(error.message);
+        }
+
+        return;
+      }
+
+      const { error } =
+        await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+        });
+
+      if (error) {
+        setAuthMessage(error.message);
+        return;
+      }
+
+      setAuthMessage(
+        "Акаунт створено. Перевір пошту для підтвердження."
+      );
+    } finally {
+      setAuthLoading(false);
+    }
+         }
   /* -------------------------------------------------------
      NAVIGATION
      
@@ -659,18 +707,99 @@ export default function App() {
 
   if (!session) {
     return (
-      <div style={styles.loading}>
-        <div style={styles.loadingIcon}>🌅</div>
+      <div style={styles.authScreen}>
 
-        <h2>Хроніки Згаслого Світанку</h2>
+        <div style={styles.authCard}>
 
-        <p>
-          Увійди в акаунт, щоб продовжити.
-        </p>
+          <div style={styles.authLogo}>
+            🌅
+          </div>
+
+          <h1 style={styles.authTitle}>
+            Хроніки Згаслого Світанку
+          </h1>
+
+          <p style={styles.authSubtitle}>
+            {authMode === "login"
+              ? "Увійди у свій акаунт"
+              : "Створи свій акаунт"}
+          </p>
+
+          <form
+            onSubmit={handleAuth}
+            style={styles.authForm}
+          >
+
+            <input
+              type="email"
+              value={email}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
+              placeholder="Email"
+              autoComplete="email"
+              style={styles.authInput}
+              disabled={authLoading}
+            />
+
+            <input
+              type="password"
+              value={password}
+              onChange={(e) =>
+                setPassword(e.target.value)
+              }
+              placeholder="Пароль"
+              autoComplete={
+                authMode === "login"
+                  ? "current-password"
+                  : "new-password"
+              }
+              style={styles.authInput}
+              disabled={authLoading}
+            />
+
+            {authMessage && (
+              <div style={styles.authMessage}>
+                {authMessage}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={authLoading}
+              style={styles.authButton}
+            >
+              {authLoading
+                ? "Зачекай..."
+                : authMode === "login"
+                ? "Увійти"
+                : "Зареєструватися"}
+            </button>
+
+          </form>
+
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMessage("");
+              setAuthMode(
+                authMode === "login"
+                  ? "register"
+                  : "login"
+              );
+            }}
+            style={styles.authSwitch}
+          >
+            {authMode === "login"
+              ? "Немає акаунта? Зареєструватися"
+              : "Вже є акаунт? Увійти"}
+          </button>
+
+        </div>
+
       </div>
     );
   }
-
 
   /* -------------------------------------------------------
      BAN
@@ -920,6 +1049,103 @@ const styles = {
     fontSize: "11px",
     opacity: 0.65,
     marginTop: "2px",
+  },
+
+   authScreen: {
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "20px",
+    boxSizing: "border-box",
+    background:
+      "radial-gradient(circle at top, #35142f 0%, #120812 55%, #090509 100%)",
+  },
+
+  authCard: {
+    width: "100%",
+    maxWidth: "390px",
+    padding: "30px 22px",
+    boxSizing: "border-box",
+    borderRadius: "20px",
+    background:
+      "linear-gradient(145deg, rgba(55,21,51,0.96), rgba(22,9,23,0.98))",
+    border:
+      "1px solid rgba(255,255,255,0.1)",
+    boxShadow:
+      "0 20px 60px rgba(0,0,0,0.45)",
+    textAlign: "center",
+  },
+
+  authLogo: {
+    fontSize: "56px",
+    marginBottom: "10px",
+  },
+
+  authTitle: {
+    margin: 0,
+    fontSize: "24px",
+    lineHeight: 1.2,
+    fontWeight: 800,
+  },
+
+  authSubtitle: {
+    margin: "8px 0 22px",
+    color: "rgba(255,255,255,0.55)",
+    fontSize: "13px",
+  },
+
+  authForm: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "11px",
+  },
+
+  authInput: {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "14px",
+    borderRadius: "10px",
+    border:
+      "1px solid rgba(255,255,255,0.1)",
+    outline: "none",
+    background:
+      "rgba(10,5,12,0.75)",
+    color: "#fff",
+    fontSize: "14px",
+  },
+
+  authButton: {
+    marginTop: "5px",
+    width: "100%",
+    padding: "14px",
+    border: "none",
+    borderRadius: "10px",
+    background:
+      "linear-gradient(135deg, #8c315e, #d65388)",
+    color: "#fff",
+    fontSize: "14px",
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+
+  authSwitch: {
+    marginTop: "18px",
+    border: "none",
+    background: "transparent",
+    color: "#e28bb3",
+    fontSize: "12px",
+    cursor: "pointer",
+  },
+
+  authMessage: {
+    padding: "10px",
+    borderRadius: "8px",
+    background:
+      "rgba(180,70,100,0.15)",
+    color: "#e9a5bc",
+    fontSize: "12px",
+    lineHeight: 1.4,
   },
 
   adminBadge: {
