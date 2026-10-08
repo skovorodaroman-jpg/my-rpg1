@@ -16,6 +16,7 @@ import Laboratory from "./pages/Laboratory";
 import Adventures from "./pages/Adventures";
 import Colosseum from "./pages/Colosseum";
 import Cave from "./pages/Cave";
+import Training from "./pages/Training";
 
 
 /* =========================================================
@@ -240,6 +241,7 @@ const SUBSECTIONS = {
 const PAGE_COMPONENTS = {
   /* Основні */
   hero: Heroes,
+   training: Training,
   home: Home,
   clan: Clan,
 
