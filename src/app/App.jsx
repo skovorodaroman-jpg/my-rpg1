@@ -17,40 +17,168 @@ import Adventures from "./pages/Adventures";
 import Colosseum from "./pages/Colosseum";
 import Cave from "./pages/Cave";
 
-/* =========================================================
-   ОСНОВНІ РОЗДІЛИ ГРИ
-========================================================= */
 
-const PAGES = [
+/* =========================================================
+   ОСНОВНІ РОЗДІЛИ
+   ========================================================= */
+
+const MAIN_PAGES = [
   { id: "hero", label: "Мій герой", icon: "⚔️" },
   { id: "home", label: "Головна", icon: "🏰" },
-  { id: "battle", label: "Бій", icon: "🗡️" },
-  { id: "heroes", label: "Герої", icon: "🦸" },
-  { id: "pets", label: "Пети", icon: "🐺" },
-  { id: "inventory", label: "Інвентар", icon: "🎒" },
-  { id: "arena", label: "Арена", icon: "🏆" },
-  { id: "colosseum", label: "Колізей", icon: "⚔️" },
-  { id: "cave", label: "Печера", icon: "🗿" },
-  { id: "adventures", label: "Пригоди", icon: "🗺️" },
-  { id: "mine", label: "Шахта", icon: "⛏️" },
-  { id: "shop", label: "Магазин", icon: "🛒" },
-  { id: "forge", label: "Кузня", icon: "⚒️" },
-  { id: "laboratory", label: "Лабораторія", icon: "🧪" },
   { id: "clan", label: "Мій клан", icon: "🛡️" },
+];
+
+
+/* =========================================================
+   МЕНЮ ГОЛОВНОЇ
+   ========================================================= */
+
+const HOME_MENU = [
+  { id: "arena", label: "Арена", icon: "⚔️" },
+  { id: "career", label: "Карьера", icon: "🏆" },
+  { id: "cave", label: "Пещера", icon: "🗿" },
+
+  {
+    id: "sage",
+    label: "Хижина мудреца",
+    icon: "🧙",
+    expandable: true,
+  },
+
+  {
+    id: "immortalKing",
+    label: "Король бессмертных",
+    icon: "👑",
+  },
+
+  {
+    id: "battles",
+    label: "Сражения",
+    icon: "⚔️",
+    expandable: true,
+  },
+
+  { id: "colosseum", label: "Колизей", icon: "🏟️" },
+  { id: "adventures", label: "Поход", icon: "🗺️" },
+
+  {
+    id: "getGold",
+    label: "Получить золото",
+    icon: "🪙",
+  },
+
+  {
+    id: "equipmentShop",
+    label: "Магазин снаряжения",
+    icon: "🛒",
+    expandable: true,
+  },
+
+  {
+    id: "forge",
+    label: "Кузница",
+    icon: "🔨",
+    expandable: true,
+  },
+
+  {
+    id: "laboratory",
+    label: "Лаборатория",
+    icon: "🧪",
+    expandable: true,
+  },
+
   { id: "ranking", label: "Рейтинг", icon: "📊" },
 ];
 
+
 /* =========================================================
-   ВНУТРІШНІ РОЗДІЛИ
-   Поки що це ТІЛЬКИ структура навігації.
-   Механіки додамо пізніше.
-========================================================= */
+   ВКЛАДЕНІ РОЗДІЛИ
+   ========================================================= */
 
 const SUBSECTIONS = {
+  sage: [
+    { id: "quests", label: "Задания", icon: "📜" },
+    { id: "trophies", label: "Трофеи", icon: "🏆" },
+    { id: "collections", label: "Коллекции", icon: "📚" },
+    { id: "relics", label: "Древние реликвии", icon: "🏺" },
+  ],
+
+  battles: [
+    {
+      id: "clan_tournament",
+      label: "Клановый турнир",
+      icon: "🛡️",
+    },
+    {
+      id: "ancient_altars",
+      label: "Древние алтари",
+      icon: "🗿",
+    },
+    {
+      id: "immortals_valley",
+      label: "Долина бессмертных",
+      icon: "🏔️",
+    },
+    {
+      id: "immortal_king",
+      label: "Король бессмертных",
+      icon: "👑",
+    },
+    {
+      id: "chosen_league",
+      label: "Лига избранных",
+      icon: "⚔️",
+    },
+  ],
+
+  equipmentShop: [
+    {
+      id: "titanic",
+      label: "Титанические вещи",
+      icon: "🔱",
+    },
+    {
+      id: "legendary",
+      label: "Легендарные вещи",
+      icon: "👑",
+    },
+    {
+      id: "epic_plus",
+      label: "Эпические+ вещи",
+      icon: "🟣",
+    },
+    {
+      id: "epic",
+      label: "Эпические вещи",
+      icon: "🟪",
+    },
+    {
+      id: "rare_plus",
+      label: "Редкие+ вещи",
+      icon: "🔵",
+    },
+    {
+      id: "rare",
+      label: "Редкие вещи",
+      icon: "🔷",
+    },
+    {
+      id: "common_plus",
+      label: "Обычные+ вещи",
+      icon: "🟢",
+    },
+    {
+      id: "common",
+      label: "Обычные вещи",
+      icon: "⚪",
+    },
+  ],
+
   forge: [
     {
       id: "runes",
-      label: "Торговець рунами",
+      label: "Торговец рунами",
       icon: "🔮",
     },
     {
@@ -70,85 +198,52 @@ const SUBSECTIONS = {
     },
     {
       id: "stars",
-      label: "Зірки",
+      label: "Звезды",
       icon: "⭐",
     },
     {
       id: "rings",
-      label: "Кільця",
+      label: "Кольца",
       icon: "💍",
     },
   ],
 
-  shop: [
+  laboratory: [
     {
-      id: "titanic",
-      label: "Титанічні речі",
-      icon: "🔱",
+      id: "boosts",
+      label: "Усиления",
+      icon: "⚡",
     },
     {
-      id: "legendary",
-      label: "Легендарні речі",
-      icon: "👑",
+      id: "elixirs",
+      label: "Эликсиры",
+      icon: "🧪",
     },
     {
-      id: "epic_plus",
-      label: "Епічні+ речі",
-      icon: "🟣",
+      id: "stone",
+      label: "Камень",
+      icon: "🪨",
     },
     {
-      id: "epic",
-      label: "Епічні речі",
-      icon: "🟪",
-    },
-    {
-      id: "rare_plus",
-      label: "Рідкі+ речі",
-      icon: "🔵",
-    },
-    {
-      id: "rare",
-      label: "Рідкі речі",
-      icon: "🔷",
-    },
-    {
-      id: "common_plus",
-      label: "Звичайні+ речі",
-      icon: "🟢",
-    },
-    {
-      id: "common",
-      label: "Звичайні речі",
-      icon: "⚪",
-    },
-  ],
-
-  sage: [
-    {
-      id: "main",
-      label: "Хижина мудреця",
-      icon: "🧙",
-    },
-    {
-      id: "knowledge",
-      label: "Знання",
-      icon: "📖",
-    },
-    {
-      id: "research",
-      label: "Дослідження",
-      icon: "🔬",
+      id: "herb",
+      label: "Трава",
+      icon: "🌿",
     },
   ],
 };
 
+
 /* =========================================================
-   КОМПОНЕНТИ СТОРІНОК
-========================================================= */
+   ІСНУЮЧІ СТОРІНКИ + НОВІ АЛІАСИ
+   ========================================================= */
 
 const PAGE_COMPONENTS = {
-  hero: Home,
+  /* Основні */
+  hero: Heroes,
   home: Home,
+  clan: Clan,
+
+  /* Існуючі */
   battle: Battle,
   heroes: Heroes,
   pets: Pets,
@@ -161,13 +256,66 @@ const PAGE_COMPONENTS = {
   shop: Shop,
   forge: Forge,
   laboratory: Laboratory,
-  clan: Clan,
   ranking: Ranking,
+
+  /* Нові назви */
+  battles: Battle,
+  equipmentShop: Shop,
+
+  /* Тимчасові нові розділи */
+  career: ComingSoon,
+  sage: ComingSoon,
+  immortalKing: ComingSoon,
+  getGold: ComingSoon,
 };
 
+
 /* =========================================================
-   ПРОФІЛЬ
-========================================================= */
+   ЗАГЛУШКА ДЛЯ ЩЕ НЕ СТВОРЕНИХ СТОРІНОК
+   ========================================================= */
+
+function ComingSoon({ section, subsection }) {
+  const homeItem = HOME_MENU.find((item) => item.id === section);
+
+  const subsectionItem =
+    SUBSECTIONS[section]?.find(
+      (item) => item.id === subsection
+    );
+
+  const title =
+    subsectionItem?.label ||
+    homeItem?.label ||
+    section ||
+    "Розділ";
+
+  const icon =
+    subsectionItem?.icon ||
+    homeItem?.icon ||
+    "🏰";
+
+  return (
+    <div style={styles.comingSoon}>
+      <div style={styles.comingSoonIcon}>
+        {icon}
+      </div>
+
+      <h2 style={styles.comingSoonTitle}>
+        {title}
+      </h2>
+
+      <p style={styles.comingSoonText}>
+        Цей розділ уже доданий до структури гри.
+        <br />
+        Сторінку та її механіку створимо наступним етапом.
+      </p>
+    </div>
+  );
+}
+
+
+/* =========================================================
+   PROFILE
+   ========================================================= */
 
 const PROFILE_FIELDS = [
   "id",
@@ -189,232 +337,128 @@ const PROFILE_FIELDS = [
   "updated_at",
 ].join(", ");
 
+
+/* =========================================================
+   APP
+   ========================================================= */
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
 
-  /*
-    section = основний розділ
-    subsection = внутрішній розділ
-
-    Наприклад:
-    section: "forge"
-    subsection: "runes"
-  */
-  const [section, setSection] = useState("hero");
+  const [section, setSection] = useState("home");
   const [subsection, setSubsection] = useState(null);
 
   const [loading, setLoading] = useState(true);
-  const [authMode, setAuthMode] = useState("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [profileError, setProfileError] = useState("");
 
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  /* =======================================================
-     ЗАВАНТАЖЕННЯ ПРОФІЛЮ
-  ======================================================= */
+  /* -------------------------------------------------------
+     LOAD PROFILE
+     ------------------------------------------------------- */
 
   const loadProfile = useCallback(async (userId) => {
-    const { data, error: profileError } = await supabase
+    if (!userId) {
+      setProfile(null);
+      return;
+    }
+
+    setProfileError("");
+
+    const { data, error } = await supabase
       .from("profiles")
       .select(PROFILE_FIELDS)
       .eq("id", userId)
       .maybeSingle();
 
-    if (profileError) {
-      throw profileError;
-    }
-
-    if (!data) {
-      throw new Error(
-        "Профіль не знайдено. Перевір створення профілю після реєстрації."
-      );
+    if (error) {
+      console.error("Profile load error:", error);
+      setProfileError(error.message);
+      setProfile(null);
+      return;
     }
 
     setProfile(data);
-
-    if (data.is_banned) {
-      setError(
-        data.ban_reason
-          ? `Акаунт заблоковано: ${data.ban_reason}`
-          : "Твій акаунт заблоковано."
-      );
-    }
-
-    return data;
   }, []);
 
-  /* =======================================================
-     ІНІЦІАЛІЗАЦІЯ
-  ======================================================= */
+
+  /* -------------------------------------------------------
+     AUTH
+     ------------------------------------------------------- */
 
   useEffect(() => {
-    let active = true;
+    let mounted = true;
 
-    async function initialize() {
-      try {
-        const { data, error: sessionError } =
-          await supabase.auth.getSession();
+    async function init() {
+      setLoading(true);
 
-        if (sessionError) throw sessionError;
-        if (!active) return;
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
 
-        const currentSession = data.session;
-        setSession(currentSession);
+      if (!mounted) return;
 
-        if (currentSession?.user) {
-          await loadProfile(currentSession.user.id);
-        }
-      } catch (err) {
-        if (active) {
-          setError(err.message || "Не вдалося завантажити профіль.");
-        }
-      } finally {
-        if (active) setLoading(false);
+      if (error) {
+        setAuthError(error.message);
+        setLoading(false);
+        return;
       }
+
+      setSession(session);
+
+      if (session?.user?.id) {
+        await loadProfile(session.user.id);
+      }
+
+      setLoading(false);
     }
 
-    initialize();
+    init();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (!active) return;
+    } = supabase.auth.onAuthStateChange(
+      async (_event, nextSession) => {
+        if (!mounted) return;
 
-      setSession(newSession);
+        setSession(nextSession);
 
-      if (!newSession) {
-        setProfile(null);
-        setSection("hero");
-        setSubsection(null);
-        setLoading(false);
+        if (nextSession?.user?.id) {
+          await loadProfile(nextSession.user.id);
+        } else {
+          setProfile(null);
+        }
       }
-    });
+    );
 
     return () => {
-      active = false;
+      mounted = false;
       subscription.unsubscribe();
     };
   }, [loadProfile]);
 
-  /* =======================================================
-     АВТОРИЗАЦІЯ
-  ======================================================= */
 
-  async function handleAuth(event) {
-    event.preventDefault();
-
-    setError("");
-    setMessage("");
-    setSubmitting(true);
-
-    try {
-      if (authMode === "register") {
-        const { data, error: authError } =
-          await supabase.auth.signUp({
-            email: email.trim(),
-            password,
-            options: {
-              data: {
-                display_name: username.trim(),
-              },
-            },
-          });
-
-        if (authError) throw authError;
-
-        if (data.session && data.user) {
-          setSession(data.session);
-          await loadProfile(data.user.id);
-          setMessage("Реєстрація успішна!");
-        } else {
-          setMessage(
-            "Акаунт створено. Перевір електронну пошту, щоб підтвердити реєстрацію."
-          );
-        }
-      } else {
-        const { data, error: authError } =
-          await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password,
-          });
-
-        if (authError) throw authError;
-
-        setSession(data.session);
-        await loadProfile(data.user.id);
-        setMessage("Вхід успішний!");
-      }
-    } catch (err) {
-      setError(err.message || "Не вдалося виконати операцію.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  /* =======================================================
-     ВИХІД
-  ======================================================= */
-
-  async function handleLogout() {
-    setError("");
-
-    const { error: logoutError } =
-      await supabase.auth.signOut();
-
-    if (logoutError) {
-      setError(logoutError.message);
-      return;
-    }
-
-    setSession(null);
-    setProfile(null);
-    setSection("hero");
-    setSubsection(null);
-  }
-
-  /* =======================================================
-     ЦЕНТРАЛЬНА НАВІГАЦІЯ
+  /* -------------------------------------------------------
+     NAVIGATION
      
-     Старий варіант:
+     Старий формат:
        navigateTo("forge")
 
-     Новий варіант:
+     Новий формат:
        navigateTo("forge", "runes")
-
-     Старі сторінки продовжать працювати.
-  ======================================================= */
+     ------------------------------------------------------- */
 
   function navigateTo(nextSection, nextSubsection = null) {
     if (!PAGE_COMPONENTS[nextSection]) {
+      console.warn(
+        `Unknown navigation section: ${nextSection}`
+      );
       return;
     }
 
     setSection(nextSection);
-
-    /*
-      Якщо для розділу передано підрозділ —
-      відкриваємо його.
-
-      Якщо підрозділ не передано —
-      скидаємо попередній.
-    */
-    if (nextSubsection) {
-      const availableSubsections =
-        SUBSECTIONS[nextSection] || [];
-
-      const exists = availableSubsections.some(
-        (item) => item.id === nextSubsection
-      );
-
-      setSubsection(exists ? nextSubsection : null);
-    } else {
-      setSubsection(null);
-    }
+    setSubsection(nextSubsection);
 
     window.scrollTo({
       top: 0,
@@ -422,184 +466,255 @@ export default function App() {
     });
   }
 
-  /* =======================================================
-     LOADING
-  ======================================================= */
 
-  if (loading) {
+  /* -------------------------------------------------------
+     MAIN BOTTOM NAVIGATION
+     ------------------------------------------------------- */
+
+  function renderBottomNavigation() {
     return (
-      <div style={styles.centerScreen}>
-        <div style={styles.logo}>⚔️</div>
+      <nav style={styles.bottomNav}>
+        {MAIN_PAGES.map((item) => {
+          const active =
+            section === item.id ||
+            (item.id === "home" &&
+              HOME_MENU.some(
+                (menuItem) => menuItem.id === section
+              ));
 
-        <h2>
-          Хроніки Згаслого Світанку
-        </h2>
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => navigateTo(item.id)}
+              style={{
+                ...styles.bottomNavItem,
+                ...(active
+                  ? styles.bottomNavItemActive
+                  : {}),
+              }}
+            >
+              <span style={styles.bottomNavIcon}>
+                {item.icon}
+              </span>
 
-        <p style={styles.muted}>
-          Завантаження світу...
-        </p>
-      </div>
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
     );
   }
 
-  /* =======================================================
-     AUTH
-  ======================================================= */
 
-  if (!session || !profile) {
+  /* -------------------------------------------------------
+     HOME MENU
+     ------------------------------------------------------- */
+
+  function renderHomeMenu() {
+    if (section !== "home") return null;
+
     return (
-      <div style={styles.centerScreen}>
-        <form
-          style={styles.authCard}
-          onSubmit={handleAuth}
-        >
-          <div style={styles.logo}>⚔️</div>
+      <div style={styles.homeMenu}>
+        <div style={styles.homeMenuTitle}>
+          <span>🏰</span>
+          <span>ГОЛОВНА</span>
+        </div>
 
-          <h1 style={styles.title}>
-            Хроніки Згаслого Світанку
-          </h1>
+        <div style={styles.homeMenuGrid}>
+          {HOME_MENU.map((item) => {
+            const hasChildren =
+              Array.isArray(SUBSECTIONS[item.id]) &&
+              SUBSECTIONS[item.id].length > 0;
 
-          <p style={styles.muted}>
-            {authMode === "login"
-              ? "Повернися у світ Eldara"
-              : "Створи свого героя"}
-          </p>
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => navigateTo(item.id)}
+                style={styles.homeMenuItem}
+              >
+                <span style={styles.homeMenuIcon}>
+                  {item.icon}
+                </span>
 
-          {authMode === "register" && (
-            <input
-              style={styles.input}
-              placeholder="Ім'я гравця"
-              value={username}
-              onChange={(event) =>
-                setUsername(event.target.value)
-              }
-              required
-              minLength={2}
-              maxLength={30}
-            />
-          )}
+                <span style={styles.homeMenuLabel}>
+                  {item.label}
+                </span>
 
-          <input
-            style={styles.input}
-            type="email"
-            placeholder="Електронна пошта"
-            value={email}
-            onChange={(event) =>
-              setEmail(event.target.value)
-            }
-            required
-          />
-
-          <input
-            style={styles.input}
-            type="password"
-            placeholder="Пароль (мінімум 6 символів)"
-            value={password}
-            onChange={(event) =>
-              setPassword(event.target.value)
-            }
-            required
-            minLength={6}
-          />
-
-          {error && (
-            <p style={styles.error}>
-              {error}
-            </p>
-          )}
-
-          {message && (
-            <p style={styles.success}>
-              {message}
-            </p>
-          )}
-
-          <button
-            style={styles.primaryButton}
-            type="submit"
-            disabled={submitting}
-          >
-            {submitting
-              ? "Зачекай..."
-              : authMode === "login"
-                ? "Увійти в гру"
-                : "Зареєструватися"}
-          </button>
-
-          <button
-            style={styles.textButton}
-            type="button"
-            onClick={() => {
-              setAuthMode(
-                authMode === "login"
-                  ? "register"
-                  : "login"
-              );
-
-              setError("");
-              setMessage("");
-            }}
-          >
-            {authMode === "login"
-              ? "Немає акаунта? Реєстрація"
-              : "Вже є акаунт? Увійти"}
-          </button>
-        </form>
-      </div>
-    );
-  }
-
-  /* =======================================================
-     BANNED
-  ======================================================= */
-
-  if (profile.is_banned) {
-    return (
-      <div style={styles.centerScreen}>
-        <div style={styles.authCard}>
-          <div style={styles.logo}>🚫</div>
-
-          <h2>
-            Акаунт заблоковано
-          </h2>
-
-          <p>
-            {profile.ban_reason ||
-              "Звернися до адміністрації гри."}
-          </p>
-
-          <button
-            style={styles.primaryButton}
-            onClick={handleLogout}
-          >
-            Вийти з акаунта
-          </button>
+                {hasChildren && (
+                  <span style={styles.homeMenuArrow}>
+                    ›
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
     );
   }
 
+
+  /* -------------------------------------------------------
+     SUBSECTION MENU
+     ------------------------------------------------------- */
+
+  function renderSubsectionMenu() {
+    const items = SUBSECTIONS[section];
+
+    if (!items) return null;
+
+    return (
+      <div style={styles.subsectionWrapper}>
+        <button
+          type="button"
+          onClick={() => navigateTo("home")}
+          style={styles.backButton}
+        >
+          ← Головна
+        </button>
+
+        <div style={styles.subsectionHeader}>
+          <span>
+            {
+              HOME_MENU.find(
+                (item) => item.id === section
+              )?.icon
+            }
+          </span>
+
+          <span>
+            {
+              HOME_MENU.find(
+                (item) => item.id === section
+              )?.label
+            }
+          </span>
+        </div>
+
+        <div style={styles.subsectionGrid}>
+          {items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() =>
+                navigateTo(section, item.id)
+              }
+              style={{
+                ...styles.subsectionItem,
+                ...(subsection === item.id
+                  ? styles.subsectionItemActive
+                  : {}),
+              }}
+            >
+              <span style={styles.subsectionIcon}>
+                {item.icon}
+              </span>
+
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+
+  /* -------------------------------------------------------
+     LOADING
+     ------------------------------------------------------- */
+
+  if (loading) {
+    return (
+      <div style={styles.loading}>
+        <div style={styles.loadingIcon}>🌅</div>
+        <div>Завантаження...</div>
+      </div>
+    );
+  }
+
+
+  /* -------------------------------------------------------
+     AUTH ERROR
+     ------------------------------------------------------- */
+
+  if (authError) {
+    return (
+      <div style={styles.errorScreen}>
+        <h2>Помилка авторизації</h2>
+        <p>{authError}</p>
+      </div>
+    );
+  }
+
+
+  /* -------------------------------------------------------
+     NO SESSION
+     
+     Тут залишаємо твою існуючу систему авторизації.
+     Якщо в поточному App.jsx є окремий Login-компонент,
+     його можна повернути сюди без зміни навігації.
+     ------------------------------------------------------- */
+
+  if (!session) {
+    return (
+      <div style={styles.loading}>
+        <div style={styles.loadingIcon}>🌅</div>
+
+        <h2>Хроніки Згаслого Світанку</h2>
+
+        <p>
+          Увійди в акаунт, щоб продовжити.
+        </p>
+      </div>
+    );
+  }
+
+
+  /* -------------------------------------------------------
+     BAN
+     ------------------------------------------------------- */
+
+  if (profile?.is_banned) {
+    return (
+      <div style={styles.errorScreen}>
+        <div style={styles.loadingIcon}>⛔</div>
+
+        <h2>Акаунт заблоковано</h2>
+
+        <p>
+          {profile.ban_reason ||
+            "Доступ до гри обмежено адміністратором."}
+        </p>
+      </div>
+    );
+  }
+
+
+  /* -------------------------------------------------------
+     CURRENT PAGE
+     ------------------------------------------------------- */
+
   const CurrentPage =
     PAGE_COMPONENTS[section] || Home;
 
-  const currentSubsections =
-    SUBSECTIONS[section] || [];
 
   return (
     <div style={styles.app}>
 
       {/* ===================================================
-          TOP BAR
-      =================================================== */}
+          TOP PLAYER BAR
+          =================================================== */}
 
       <header style={styles.topBar}>
-        <div style={styles.playerInfo}>
+        <div style={styles.playerBlock}>
 
           <div style={styles.avatar}>
-            {profile.avatar_url ? (
+            {profile?.avatar_url ? (
               <img
                 src={profile.avatar_url}
-                alt="Аватар"
+                alt=""
                 style={styles.avatarImage}
               />
             ) : (
@@ -607,336 +722,183 @@ export default function App() {
             )}
           </div>
 
-          <div style={{ minWidth: 0 }}>
+          <div>
             <div style={styles.playerName}>
-              {profile.display_name ||
-                profile.username ||
-                "Мандрівник"}
+              {profile?.display_name ||
+                profile?.username ||
+                "Гравець"}
             </div>
 
-            <div style={styles.smallText}>
-              Рівень {profile.level ?? 1} ·{" "}
-              {profile.role || "player"}
+            <div style={styles.playerLevel}>
+              Ур. {profile?.level || 1}
+              {profile?.role === "admin" && (
+                <span style={styles.adminBadge}>
+                  ADMIN
+                </span>
+              )}
             </div>
+          </div>
+        </div>
+
+
+        <div style={styles.resources}>
+
+          <div style={styles.resource}>
+            <span>🪙</span>
+            <span>
+              {Number(profile?.gold || 0).toLocaleString()}
+            </span>
+          </div>
+
+          <div style={styles.resource}>
+            <span>💎</span>
+            <span>
+              {Number(profile?.crystals || 0).toLocaleString()}
+            </span>
+          </div>
+
+          <div style={styles.resource}>
+            <span>⚡</span>
+            <span>
+              {profile?.energy ?? 0}/
+              {profile?.max_energy ?? 100}
+            </span>
           </div>
 
         </div>
-
-        <div style={styles.resources}>
-          <span title="Золото">
-            🪙 {profile.gold ?? 0}
-          </span>
-
-          <span title="Кристали">
-            💎 {profile.crystals ?? 0}
-          </span>
-
-          <span title="Енергія">
-            ⚡ {profile.energy ?? 0}/
-            {profile.max_energy ?? 100}
-          </span>
-        </div>
       </header>
+
 
       {/* ===================================================
           XP
-      =================================================== */}
+          =================================================== */}
 
-      <div
-        style={styles.xpTrack}
-        title="Досвід героя"
-      >
+      <div style={styles.xpTrack}>
         <div
           style={{
             ...styles.xpFill,
-
             width: `${Math.min(
               100,
               Math.max(
                 0,
-                ((profile.experience ?? 0) % 1000) /
-                  10
+                Number(profile?.experience || 0) % 100
               )
             )}%`,
           }}
         />
       </div>
 
-      {/* ===================================================
-          ОСНОВНА НАВІГАЦІЯ
-      =================================================== */}
-
-      <nav style={styles.navigation}>
-        {PAGES.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() =>
-              navigateTo(item.id)
-            }
-            style={{
-              ...styles.navButton,
-
-              ...(section === item.id
-                ? styles.activeNavButton
-                : {}),
-            }}
-          >
-            <span style={styles.navIcon}>
-              {item.icon}
-            </span>
-
-            <span>
-              {item.label}
-            </span>
-          </button>
-        ))}
-      </nav>
-
-      {/* ===================================================
-          ВНУТРІШНЄ МЕНЮ
-          
-          З'являється тільки там, де є SUBSECTIONS.
-      =================================================== */}
-
-      {currentSubsections.length > 0 && (
-        <nav style={styles.subNavigation}>
-
-          <div style={styles.subNavigationTitle}>
-            {PAGES.find(
-              (item) => item.id === section
-            )?.icon}{" "}
-            {PAGES.find(
-              (item) => item.id === section
-            )?.label}
-          </div>
-
-          <div style={styles.subNavigationList}>
-            {currentSubsections.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() =>
-                  navigateTo(
-                    section,
-                    item.id
-                  )
-                }
-                style={{
-                  ...styles.subNavButton,
-
-                  ...(subsection === item.id
-                    ? styles.activeSubNavButton
-                    : {}),
-                }}
-              >
-                <span style={styles.subNavIcon}>
-                  {item.icon}
-                </span>
-
-                <span>
-                  {item.label}
-                </span>
-              </button>
-            ))}
-          </div>
-
-        </nav>
-      )}
 
       {/* ===================================================
           CONTENT
-      =================================================== */}
+          =================================================== */}
 
       <main style={styles.content}>
 
-        {error && (
-          <div style={styles.notice}>
-            <span>
-              {error}
-            </span>
+        {/* Головне меню */}
+        {renderHomeMenu()}
 
-            <button
-              style={styles.dismissButton}
-              onClick={() =>
-                setError("")
-              }
-              aria-label="Закрити повідомлення"
-            >
-              ×
-            </button>
-          </div>
-        )}
+        {/* Вкладені меню */}
+        {renderSubsectionMenu()}
 
+        {/* Сторінка */}
         <CurrentPage
           profile={profile}
           player={profile}
-          onNavigate={navigateTo}
-
-          /*
-            Нові сторінки зможуть отримати:
-            subsection = "runes"
-          */
-          subsection={subsection}
           section={section}
+          subsection={subsection}
+          onNavigate={navigateTo}
         />
+
+        {profileError && (
+          <div style={styles.profileError}>
+            Не вдалося оновити профіль:
+            {" "}
+            {profileError}
+          </div>
+        )}
 
       </main>
 
+
+      {/* ===================================================
+          ПОСТІЙНА НИЖНЯ НАВІГАЦІЯ
+          =================================================== */}
+
+      {renderBottomNavigation()}
+
+
       {/* ===================================================
           FOOTER
-      =================================================== */}
+          =================================================== */}
 
       <footer style={styles.footer}>
-
         <div>
-          <strong>
-            {profile.display_name ||
-              profile.username ||
-              "Гравець"}
-          </strong>
-
-          <span style={styles.smallText}>
-            {" "}· Рівень{" "}
-            {profile.level ?? 1}
-          </span>
+          Хроніки Згаслого Світанку
         </div>
 
-        <button
-          type="button"
-          style={styles.textButton}
-          onClick={handleLogout}
-        >
-          ⚙️ Вийти
-        </button>
-
+        <div>
+          Світло ще не згасло...
+        </div>
       </footer>
+
     </div>
   );
 }
 
+
 /* =========================================================
    STYLES
-========================================================= */
+   ========================================================= */
 
 const styles = {
+
   app: {
     minHeight: "100vh",
-    background: "#100811",
-    color: "#f8edf5",
-    fontFamily: "Arial, sans-serif",
-  },
-  centerScreen: {
-    minHeight: "100vh",
-    boxSizing: "border-box",
-    padding: 20,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "column",
     background:
-      "radial-gradient(circle at top, #40152f, #100811 65%)",
-    color: "#fff",
-    textAlign: "center",
-  },
-
-  authCard: {
-    width: "100%",
-    maxWidth: 390,
-    boxSizing: "border-box",
-    padding: 24,
-    border: "1px solid #67314f",
-    borderRadius: 18,
-    background: "#1d1020",
-  },
-
-  logo: {
-    fontSize: 52,
-    marginBottom: 12,
-  },
-
-  title: {
-    fontSize: 23,
-    lineHeight: 1.3,
-    margin: "0 0 10px",
-  },
-
-  muted: {
-    color: "#bcaabd",
-    lineHeight: 1.5,
-  },
-
-  input: {
-    display: "block",
-    boxSizing: "border-box",
-    width: "100%",
-    marginTop: 12,
-    padding: "13px 14px",
-    border: "1px solid #59324f",
-    borderRadius: 10,
-    background: "#120b16",
-    color: "#fff",
-    fontSize: 16,
-  },
-
-  primaryButton: {
-    width: "100%",
-    marginTop: 16,
-    padding: 14,
-    border: 0,
-    borderRadius: 10,
-    background: "#c23e79",
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-
-  textButton: {
-    border: 0,
-    background: "transparent",
-    color: "#f08cba",
-    padding: 10,
-    cursor: "pointer",
-  },
-
-  error: {
-    color: "#ff8d8d",
-    overflowWrap: "anywhere",
-  },
-
-  success: {
-    color: "#8fe0b0",
-    overflowWrap: "anywhere",
+      "linear-gradient(180deg, #120812 0%, #1b0d1e 45%, #100711 100%)",
+    color: "#f5eaf5",
+    paddingBottom: "90px",
   },
 
   topBar: {
+    position: "sticky",
+    top: 0,
+    zIndex: 100,
+    minHeight: "58px",
     display: "flex",
-    justifyContent: "space-between",
     alignItems: "center",
-    gap: 12,
-    padding: "10px 14px",
-    background: "#1b101e",
-    borderBottom: "1px solid #42243e",
-    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: "10px",
+    padding: "8px 12px",
+    background:
+      "rgba(26, 8, 25, 0.96)",
+    borderBottom:
+      "1px solid rgba(255,255,255,0.08)",
+    backdropFilter: "blur(12px)",
   },
 
-  playerInfo: {
+  playerBlock: {
     display: "flex",
     alignItems: "center",
-    gap: 10,
+    gap: "9px",
+    minWidth: 0,
   },
 
   avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 10,
-    overflow: "hidden",
-    display: "grid",
-    placeItems: "center",
-    background: "#3c1b39",
-    fontSize: 24,
+    width: "40px",
+    height: "40px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background:
+      "linear-gradient(135deg, #56203f, #241025)",
+    border:
+      "1px solid rgba(255,255,255,0.15)",
     flexShrink: 0,
+    overflow: "hidden",
+    fontSize: "20px",
   },
 
   avatarImage: {
@@ -947,175 +909,295 @@ const styles = {
 
   playerName: {
     fontWeight: 700,
-    overflowWrap: "anywhere",
+    fontSize: "14px",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    maxWidth: "130px",
   },
 
-  smallText: {
-    fontSize: 12,
-    color: "#c4afc4",
+  playerLevel: {
+    fontSize: "11px",
+    opacity: 0.65,
+    marginTop: "2px",
+  },
+
+  adminBadge: {
+    marginLeft: "6px",
+    padding: "2px 5px",
+    borderRadius: "4px",
+    background: "#7d294f",
+    color: "#fff",
+    fontSize: "8px",
+    fontWeight: 800,
   },
 
   resources: {
     display: "flex",
-    gap: 12,
-    flexWrap: "wrap",
-    fontSize: 13,
+    alignItems: "center",
+    gap: "7px",
+    fontSize: "11px",
+    flexShrink: 0,
+  },
+
+  resource: {
+    display: "flex",
+    alignItems: "center",
+    gap: "3px",
+    whiteSpace: "nowrap",
   },
 
   xpTrack: {
-    height: 3,
-    background: "#352137",
+    height: "3px",
+    width: "100%",
+    background: "rgba(255,255,255,0.08)",
   },
 
   xpFill: {
     height: "100%",
-    background: "#f16da8",
-    transition: "width 0.2s",
+    background:
+      "linear-gradient(90deg, #7c315e, #e45c91)",
+    transition: "width 0.3s ease",
   },
 
-  /* =========================================
-     ОСНОВНА НАВІГАЦІЯ
-  ========================================= */
+  content: {
+    width: "100%",
+    maxWidth: "900px",
+    margin: "0 auto",
+    padding: "14px 12px 20px",
+    boxSizing: "border-box",
+  },
 
-  navigation: {
+  homeMenu: {
+    marginBottom: "18px",
+  },
+
+  homeMenuTitle: {
     display: "flex",
-    gap: 6,
-    padding: 10,
-    overflowX: "auto",
-    background: "#170d1a",
-    borderBottom: "1px solid #42243e",
-    scrollbarWidth: "thin",
+    alignItems: "center",
+    gap: "8px",
+    fontSize: "17px",
+    fontWeight: 800,
+    marginBottom: "12px",
+    padding: "4px 2px",
   },
 
-  navButton: {
+  homeMenuGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(2, minmax(0, 1fr))",
+    gap: "8px",
+  },
+
+  homeMenuItem: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    minHeight: "56px",
+    padding: "9px 10px",
+    borderRadius: "11px",
+    border:
+      "1px solid rgba(255,255,255,0.08)",
+    background:
+      "linear-gradient(145deg, rgba(71,25,60,0.75), rgba(30,13,31,0.9))",
+    color: "#f8edf8",
+    cursor: "pointer",
+    textAlign: "left",
+  },
+
+  homeMenuIcon: {
+    fontSize: "22px",
+    width: "28px",
+    textAlign: "center",
+    flexShrink: 0,
+  },
+
+  homeMenuLabel: {
+    fontSize: "12px",
+    fontWeight: 700,
+    lineHeight: 1.2,
+  },
+
+  homeMenuArrow: {
+    position: "absolute",
+    right: "9px",
+    fontSize: "21px",
+    opacity: 0.45,
+  },
+
+  subsectionWrapper: {
+    marginBottom: "18px",
+  },
+
+  backButton: {
+    border: "none",
+    background: "transparent",
+    color: "#dba0c2",
+    padding: "4px 0 12px",
+    fontSize: "13px",
+    cursor: "pointer",
+  },
+
+  subsectionHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    fontSize: "18px",
+    fontWeight: 800,
+    marginBottom: "12px",
+  },
+
+  subsectionGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(2, minmax(0, 1fr))",
+    gap: "8px",
+  },
+
+  subsectionItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    minHeight: "52px",
+    padding: "9px 10px",
+    borderRadius: "10px",
+    border:
+      "1px solid rgba(255,255,255,0.08)",
+    background:
+      "rgba(43, 20, 43, 0.9)",
+    color: "#f5eaf5",
+    cursor: "pointer",
+    textAlign: "left",
+    fontSize: "12px",
+    fontWeight: 700,
+  },
+
+  subsectionItemActive: {
+    border:
+      "1px solid rgba(224, 92, 145, 0.55)",
+    background:
+      "linear-gradient(145deg, rgba(105,39,78,0.9), rgba(49,18,46,0.95))",
+  },
+
+  subsectionIcon: {
+    fontSize: "20px",
+    width: "26px",
+    textAlign: "center",
+    flexShrink: 0,
+  },
+
+  comingSoon: {
+    marginTop: "15px",
+    padding: "35px 18px",
+    borderRadius: "16px",
+    border:
+      "1px solid rgba(255,255,255,0.08)",
+    background:
+      "linear-gradient(145deg, rgba(52,20,49,0.85), rgba(25,11,27,0.95))",
+    textAlign: "center",
+  },
+
+  comingSoonIcon: {
+    fontSize: "50px",
+    marginBottom: "10px",
+  },
+
+  comingSoonTitle: {
+    margin: 0,
+    fontSize: "21px",
+  },
+
+  comingSoonText: {
+    marginTop: "10px",
+    color: "rgba(255,255,255,0.6)",
+    lineHeight: 1.5,
+    fontSize: "13px",
+  },
+
+  bottomNav: {
+    position: "fixed",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 200,
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    minHeight: "64px",
+    background:
+      "rgba(20, 8, 20, 0.97)",
+    borderTop:
+      "1px solid rgba(255,255,255,0.1)",
+    backdropFilter: "blur(12px)",
+  },
+
+  bottomNavItem: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
-    minWidth: 76,
-    padding: "10px 8px",
-    border: "1px solid transparent",
-    borderRadius: 10,
+    gap: "3px",
+    border: "none",
     background: "transparent",
-    color: "#cbb9cd",
-    fontSize: 11,
-    cursor: "pointer",
-    transition: "all 0.15s ease",
-  },
-
-  activeNavButton: {
-    background: "#3a1935",
-    borderColor: "#a43f76",
-    color: "#fff",
-  },
-
-  navIcon: {
-    fontSize: 22,
-    lineHeight: 1,
-  },
-
-  /* =========================================
-     ВНУТРІШНЄ МЕНЮ
-  ========================================= */
-
-  subNavigation: {
-    padding: "8px 10px 10px",
-    background: "#120a15",
-    borderBottom: "1px solid #42243e",
-  },
-
-  subNavigationTitle: {
-    padding: "4px 6px 8px",
-    color: "#f08cba",
-    fontSize: 12,
+    color: "rgba(255,255,255,0.5)",
+    fontSize: "10px",
     fontWeight: 700,
-  },
-
-  subNavigationList: {
-    display: "flex",
-    gap: 6,
-    overflowX: "auto",
-    paddingBottom: 2,
-    scrollbarWidth: "thin",
-  },
-
-  subNavButton: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    flexShrink: 0,
-    padding: "8px 11px",
-    border: "1px solid #3b2439",
-    borderRadius: 8,
-    background: "#1b101e",
-    color: "#bfaabd",
-    fontSize: 11,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    transition: "all 0.15s ease",
-  },
-
-  activeSubNavButton: {
-    background: "#48203f",
-    borderColor: "#c24e88",
-    color: "#fff",
-  },
-
-  subNavIcon: {
-    fontSize: 16,
-    lineHeight: 1,
-  },
-
-  /* =========================================
-     ОСНОВНИЙ КОНТЕНТ
-  ========================================= */
-
-  content: {
-    width: "100%",
-    maxWidth: 1200,
-    boxSizing: "border-box",
-    margin: "0 auto",
-    padding: 14,
-  },
-
-  notice: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 12,
-    padding: 12,
-    marginBottom: 12,
-    borderRadius: 10,
-    background: "#42202b",
-    color: "#ffd1df",
-    overflowWrap: "anywhere",
-  },
-
-  dismissButton: {
-    flexShrink: 0,
-    border: 0,
-    background: "transparent",
-    color: "#fff",
-    fontSize: 20,
-    lineHeight: 1,
     cursor: "pointer",
   },
 
-  /* =========================================
-     FOOTER
-  ========================================= */
+  bottomNavItemActive: {
+    color: "#f08ab5",
+    background:
+      "rgba(117, 40, 82, 0.18)",
+  },
+
+  bottomNavIcon: {
+    fontSize: "20px",
+    lineHeight: 1,
+  },
 
   footer: {
+    textAlign: "center",
+    padding: "15px 10px",
+    color: "rgba(255,255,255,0.35)",
+    fontSize: "10px",
+  },
+
+  loading: {
+    minHeight: "100vh",
     display: "flex",
-    justifyContent: "space-between",
+    flexDirection: "column",
     alignItems: "center",
-    gap: 10,
-    padding: "14px",
-    borderTop: "1px solid #42243e",
-    background: "#170d1a",
+    justifyContent: "center",
+    background: "#120812",
+    color: "#f5eaf5",
+    gap: "10px",
+    textAlign: "center",
+  },
+
+  loadingIcon: {
+    fontSize: "48px",
+  },
+
+  errorScreen: {
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#120812",
+    color: "#f5eaf5",
+    padding: "20px",
+    textAlign: "center",
+  },
+
+  profileError: {
+    marginTop: "12px",
+    padding: "10px",
+    borderRadius: "8px",
+    background:
+      "rgba(150, 50, 70, 0.15)",
+    color: "#e8a8b8",
+    fontSize: "11px",
   },
 };
-  
-  
