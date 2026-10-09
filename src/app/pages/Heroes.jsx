@@ -191,11 +191,13 @@ export default function Heroes({ profile, player, onNavigate }) {
             key={index}
             style={styles.menuItem}
             onClick={() => {
-  if (item.title === "Тренування") {
-    onNavigate?.("training");
-  } else {
-    showPlaceholder(item.title);
-  }
+if (item.title === "Тренування") {
+  onNavigate?.("training");
+} else if (item.title === "Уміння") {
+  onNavigate?.("skills");
+} else {
+  showPlaceholder(item.title);
+}
 }}
             >
           
