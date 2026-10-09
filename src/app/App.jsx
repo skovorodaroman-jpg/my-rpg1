@@ -17,6 +17,7 @@ import Adventures from "./pages/Adventures";
 import Colosseum from "./pages/Colosseum";
 import Cave from "./pages/Cave";
 import Training from "./pages/Training";
+import Skills from "./pages/Skills";
 
 
 /* =========================================================
@@ -242,6 +243,7 @@ const PAGE_COMPONENTS = {
   /* Основні */
   hero: Heroes,
    training: Training,
+   skills: Skills,
   home: Home,
   clan: Clan,
 
