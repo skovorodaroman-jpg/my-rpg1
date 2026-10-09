@@ -198,7 +198,7 @@ export default function Heroes({ profile, player, onNavigate }) {
   }
 }}
             >
-          </div>
+          
             <div style={styles.menuLeft}>
               <span style={styles.menuIcon}>
                 {item.icon}
