@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function Heroes({ profile, player }) {
+export default function Heroes({ profile, player, onNavigate }) {
   const [message, setMessage] = useState(null);
 
   const hero = player || profile || {};
@@ -190,8 +190,13 @@ export default function Heroes({ profile, player }) {
           <div
             key={index}
             style={styles.menuItem}
-            onClick={() => showPlaceholder(item.title)}
-          >
+            onClick={() => {
+  if (item.title === "Тренування") {
+    onNavigate?.("training");
+  } else {
+    showPlaceholder(item.title);
+  }
+}}
             <div style={styles.menuLeft}>
               <span style={styles.menuIcon}>
                 {item.icon}
