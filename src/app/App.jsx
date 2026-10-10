@@ -24,10 +24,11 @@ import Skills from "./pages/Skills";
    ОСНОВНІ РОЗДІЛИ
    ========================================================= */
 
+
 const MAIN_PAGES = [
   { id: "hero", label: "Мій герой", icon: "⚔️" },
-  { id: "home", label: "Головна", icon: "🏰" },
   { id: "clan", label: "Мій клан", icon: "🛡️" },
+  { id: "home", label: "На головну", icon: "🏰" },
 ];
 
 
@@ -501,22 +502,22 @@ async function handleAuth(event) {
        navigateTo("forge", "runes")
      ------------------------------------------------------- */
 
-  function navigateTo(nextSection, nextSubsection = null) {
-    if (!PAGE_COMPONENTS[nextSection]) {
-      console.warn(
-        `Unknown navigation section: ${nextSection}`
-      );
-      return;
-    }
-
-    setSection(nextSection);
-    setSubsection(nextSubsection);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "auto",
-    });
+  
+function navigateTo(nextSection, nextSubsection = null) {
+  if (!PAGE_COMPONENTS[nextSection]) {
+    console.warn(`Unknown navigation section: ${nextSection}`);
+    return;
   }
+
+  setSection(nextSection);
+  setSubsection(nextSubsection);
+
+  window.scrollTo({
+    top: 0,
+    behavior: "auto",
+  });
+}
+
 
 
   /* -------------------------------------------------------
@@ -926,32 +927,40 @@ async function handleAuth(event) {
           CONTENT
           =================================================== */}
 
-      <main style={styles.content}>
 
-        {/* Головне меню */}
-        {renderHomeMenu()}
+<main style={styles.content}>
+  {section === "home" && renderHomeMenu()}
 
-        {/* Вкладені меню */}
-        {renderSubsectionMenu()}
+  {SUBSECTIONS[section] && renderSubsectionMenu()}
 
-        {/* Сторінка */}
-        <CurrentPage
-          profile={profile}
-          player={profile}
-          section={section}
-          subsection={subsection}
-          onNavigate={navigateTo}
-        />
+  {(() => {
+    const hasSubsections = Boolean(SUBSECTIONS[section]);
+    const isSubsectionMenu =
+      hasSubsections && subsection === null;
 
-        {profileError && (
-          <div style={styles.profileError}>
-            Не вдалося оновити профіль:
-            {" "}
-            {profileError}
-          </div>
-        )}
+    if (isSubsectionMenu) {
+      return null;
+    }
 
-      </main>
+    return (
+      <CurrentPage
+        key={`${section}-${subsection || ""}`}
+        profile={profile}
+        player={profile}
+        section={section}
+        subsection={subsection}
+        onNavigate={navigateTo}
+      />
+    );
+  })()}
+
+  {profileError && (
+    <div style={styles.profileError}>
+      Не вдалося оновити профіль: {profileError}
+    </div>
+  )}
+</main>
+
 
 
       {/* ===================================================
@@ -965,10 +974,14 @@ async function handleAuth(event) {
           FOOTER
           =================================================== */}
 
-      <footer style={styles.footer}>
-        <div>
-          Хроніки Згаслого Світанку
-        </div>
+    
+<footer style={styles.footer}>
+  <div>Хроніки Згаслого Світанку</div>
+  <div>Світло ще не згасло...</div>
+</footer>
+
+{renderBottomNavigation()}
+</div>
 
         <div>
           Світло ще не згасло...
