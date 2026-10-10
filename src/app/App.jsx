@@ -974,20 +974,13 @@ function navigateTo(nextSection, nextSubsection = null) {
           FOOTER
           =================================================== */}
 
-    
-<footer style={styles.footer}>
-  <div>Хроніки Згаслого Світанку</div>
-  <div>Світло ще не згасло...</div>
-</footer>
 
-{renderBottomNavigation()}
-</div>
-
-        <div>
-          Світло ще не згасло...
-        </div>
+      <footer style={styles.footer}>
+        <div>Хроніки Згаслого Світанку</div>
+        <div>Світло ще не згасло...</div>
       </footer>
 
+      {renderBottomNavigation()}
     </div>
   );
 }
