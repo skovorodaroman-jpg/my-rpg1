@@ -950,6 +950,7 @@ function navigateTo(nextSection, nextSubsection = null) {
         section={section}
         subsection={subsection}
         onNavigate={navigateTo}
+         onProfileUpdate={() => loadProfile(profile.id)}
       />
     );
   })()}
