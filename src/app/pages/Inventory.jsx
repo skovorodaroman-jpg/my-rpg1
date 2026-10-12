@@ -722,42 +722,118 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
           <div className="inventory-toolbar">
   <button
     className="inventory-btn"
-    onClick={() => addTestItem("equipment")}
-    disabled={!!busyId || loading}
+    onClick={sellAll}
+    disabled={!!busyId || loading || bag.length === 0}
   >
-    + Річ у сумку
+    <Coins size={14} />
+    Продати все
   </button>
 
   <button
     className="inventory-btn"
-    onClick={() => addTestItem("resource")}
+    onClick={loadInventory}
     disabled={!!busyId || loading}
   >
-    + Ресурс у сундук
-  </button>
-
-  <button
-    className="inventory-btn"
-    onClick={() => addTestItem("potion")}
-    disabled={!!busyId || loading}
-  >
-    <FlaskConical size={14} />
-    Еліксир у сундук
+    <RefreshCw size={14} />
+    Оновити
   </button>
 </div>
 
-<div className="inventory-admin-note">
-  <Package size={14} />
-  Видалення всього інвентаря вимкнено, щоб випадково не втратити
-  речі з бази даних.
+<div className="inventory-rarity-toolbar">
+  {Object.entries(RARITY_LABELS).map(([rarity, label]) => (
+    <button
+      key={rarity}
+      className={`inventory-btn ${RARITY_CLASSES[rarity]}`}
+      onClick={() => sellByRarity(rarity)}
+      disabled={!!busyId || loading}
+    >
+      Продати: {label}
+    </button>
+  ))}
 </div>
+</section>
+) : (
+<section className="inventory-section">
+  <div className="inventory-heading">
+    <div>
+      <h1>
+        <Box size={22} /> Сундук
+      </h1>
+      <p>Речі, які ти зберіг для майбутніх пригод.</p>
+    </div>
+  </div>
+
+  {loading ? (
+    <div className="inventory-empty">
+      <RefreshCw className="inventory-spinning" size={28} />
+      <div className="inventory-empty-title">
+        Завантажуємо сундук…
+      </div>
+    </div>
+  ) : chest.length ? (
+    <div className="inventory-grid">
+      {chest.map((row) => renderItem(row, "chest"))}
+    </div>
+  ) : (
+    <div className="inventory-empty">
+      <Box size={35} />
+      <div className="inventory-empty-title">Сундук порожній</div>
+      <p>Перемісти сюди предмети із сумки, щоб зберегти їх.</p>
+    </div>
+  )}
 </section>
 )}
 
+{isAdmin && (
+  <section className="inventory-admin">
+    <h2>
+      <Sparkles size={19} />
+      Панель тестування інвентаря
+    </h2>
+
+    <p>
+      Ці кнопки додають випадкові активні предмети з таблиці items
+      до інвентаря поточного гравця.
+    </p>
+
+    <div className="inventory-toolbar">
+      <button
+        className="inventory-btn"
+        onClick={() => addTestItem("equipment")}
+        disabled={!!busyId || loading}
+      >
+        <Sword size={14} />
+        Додати спорядження
+      </button>
+
+      <button
+        className="inventory-btn"
+        onClick={() => addTestItem("resource")}
+        disabled={!!busyId || loading}
+      >
+        <Package size={14} />
+        Додати ресурс
+      </button>
+
+      <button
+        className="inventory-btn"
+        onClick={() => addTestItem("potion")}
+        disabled={!!busyId || loading}
+      >
+        <FlaskConical size={14} />
+        Додати еліксир
+      </button>
+    </div>
+
+    <div className="inventory-admin-note">
+      <AlertCircle size={14} />
+      Очищення інвентаря вимкнено, щоб уникнути випадкової втрати речей.
+    </div>
+  </section>
+)}
+
 <footer className="inventory-footer">
-  Темрява приховує скарби. Світло ще не згасло…
-  <br />
-  Інвентар гравця · Дані завантажуються із Supabase
+  Хроніки Згаслого Світанку · Інвентар мандрівника
 </footer>
 </main>
 );
