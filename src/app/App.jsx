@@ -253,6 +253,8 @@ const PAGE_COMPONENTS = {
   heroes: Heroes,
   pets: Pets,
   inventory: Inventory,
+bag: Inventory,
+chest: Inventory,
   arena: Arena,
   colosseum: Colosseum,
   cave: Cave,
