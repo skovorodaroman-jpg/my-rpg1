@@ -190,15 +190,21 @@ export default function Heroes({ profile, player, onNavigate }) {
           <div
             key={index}
             style={styles.menuItem}
-            onClick={() => {
-if (item.title === "Тренування") {
-  onNavigate?.("training");
-} else if (item.title === "Уміння") {
-  onNavigate?.("skills");
-} else {
-  showPlaceholder(item.title);
-}
+            
+onClick={() => {
+  if (item.title === "Тренування") {
+    onNavigate?.("training");
+  } else if (item.title === "Уміння") {
+    onNavigate?.("skills");
+  } else if (item.title === "Сумка") {
+    onNavigate?.("inventory", "bag");
+  } else if (item.title === "Сундук") {
+    onNavigate?.("inventory", "chest");
+  } else {
+    showPlaceholder(item.title);
+  }
 }}
+
             >
           
             <div style={styles.menuLeft}>
