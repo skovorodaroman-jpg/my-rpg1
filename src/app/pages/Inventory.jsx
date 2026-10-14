@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import {
@@ -7,7 +8,6 @@ import {
   Shield,
   Sword,
   FlaskConical,
-  Sparkles,
   Trash2,
   ArrowLeftRight,
   RefreshCw,
@@ -43,9 +43,14 @@ function getItemIcon(item) {
 
   if (name.includes("меч") || name.includes("клинок")) return "⚔️";
   if (name.includes("щит")) return "🛡️";
-  if (name.includes("шолом") || name.includes("корона")) return "👑";
-  if (name.includes("чоб")) return "🥾";
-  if (name.includes("рукав") || name.includes("перчат")) return "🧤";
+  if (
+    name.includes("шолом") ||
+    name.includes("шлем") ||
+    name.includes("корона") ||
+    type === "helmet"
+  ) return "👑";
+  if (name.includes("чоб") || name.includes("сапог") || type === "boots") return "🥾";
+  if (name.includes("рукав") || name.includes("перчат") || type === "gloves") return "🧤";
   if (name.includes("перстень") || name.includes("кільц")) return "💍";
   if (name.includes("амулет")) return "📿";
   if (name.includes("посох")) return "🪄";
@@ -56,7 +61,7 @@ function getItemIcon(item) {
   if (type.includes("potion")) return "🧪";
   if (type.includes("resource") || type.includes("material")) return "🌿";
   if (type.includes("weapon")) return "⚔️";
-  if (type.includes("armor")) return "🛡️";
+  if (type.includes("armor") || type === "shield") return "🛡️";
 
   return "📦";
 }
@@ -66,6 +71,12 @@ function getItemTypeLabel(item) {
 
   if (type.includes("weapon")) return "Зброя";
   if (type.includes("armor")) return "Обладунок";
+  if (type === "helmet") return "Шолом";
+  if (type === "shield") return "Щит";
+  if (type === "shoulders") return "Наплічники";
+  if (type === "gloves") return "Рукавиці";
+  if (type === "pants") return "Штани";
+  if (type === "boots") return "Чоботи";
   if (type.includes("accessory")) return "Аксесуар";
   if (type.includes("potion")) return "Еліксир";
   if (type.includes("resource") || type.includes("material")) return "Ресурс";
@@ -119,7 +130,7 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
     if (!userId) {
       setItems([]);
       setLoading(false);
-      showMessage("Не знайдено акаунт гравця. Увійди в гру.");
+      showMessage("Не знайдено акаунт гравця. Увійди в гру.", true);
       return;
     }
 
@@ -143,10 +154,7 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
       );
     } catch (err) {
       console.error("Помилка завантаження інвентаря:", err);
-      showMessage(
-        err?.message || "Не вдалося завантажити інвентар.",
-        true
-      );
+      showMessage(err?.message || "Не вдалося завантажити інвентар.", true);
     } finally {
       setLoading(false);
     }
@@ -185,10 +193,7 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
       );
     } catch (err) {
       console.error("Помилка переміщення предмета:", err);
-      showMessage(
-        err?.message || "Не вдалося перемістити предмет.",
-        true
-      );
+      showMessage(err?.message || "Не вдалося перемістити предмет.", true);
     } finally {
       setBusyId(null);
     }
@@ -221,12 +226,11 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
           ? `Знято: ${row.item?.name || "предмет"}`
           : `Надіто: ${row.item?.name || "предмет"}`
       );
+
+      if (onProfileUpdate) await onProfileUpdate();
     } catch (err) {
       console.error("Помилка екіпірування:", err);
-      showMessage(
-        err?.message || "Не вдалося змінити екіпірування.",
-        true
-      );
+      showMessage(err?.message || "Не вдалося змінити екіпірування.", true);
     } finally {
       setBusyId(null);
     }
@@ -248,11 +252,7 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
     const available = Number(row.quantity || 1);
     const amount = Math.min(Math.max(1, quantity), available);
 
-    if (
-      !window.confirm(
-        `Продати «${row.item?.name || "предмет"}» у кількості ${amount}?`
-      )
-    ) {
+    if (!window.confirm(`Продати «${row.item?.name || "предмет"}» у кількості ${amount}?`)) {
       return;
     }
 
@@ -261,27 +261,19 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
     setMessage("");
 
     try {
-      const { error: rpcError } = await supabase.rpc(
-        "sell_inventory_item",
-        {
-          p_player_item_id: row.id,
-          p_quantity: amount,
-        }
-      );
+      const { error: rpcError } = await supabase.rpc("sell_inventory_item", {
+        p_player_item_id: row.id,
+        p_quantity: amount,
+      });
 
       if (rpcError) throw rpcError;
 
       await loadInventory();
       if (onProfileUpdate) await onProfileUpdate();
-
       showMessage("Предмет продано. Баланс оновлено.");
     } catch (err) {
       console.error("Помилка продажу:", err);
-      showMessage(
-        err?.message ||
-          "Продаж не вдався. Перевір назви параметрів функції sell_inventory_item у Supabase.",
-        true
-      );
+      showMessage(err?.message || "Не вдалося продати предмет.", true);
     } finally {
       setBusyId(null);
     }
@@ -308,13 +300,9 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
       0
     );
 
-    if (
-      !window.confirm(
-        `Продати ${selected.length} позицій рідкості «${RARITY_LABELS[rarity]}»? Орієнтовна вартість: ${formatNumber(total)} монет.`
-      )
-    ) {
-      return;
-    }
+    if (!window.confirm(
+      `Продати ${selected.length} позицій рідкості «${RARITY_LABELS[rarity]}»? Орієнтовна вартість: ${formatNumber(total)} монет.`
+    )) return;
 
     setBusyId("bulk");
     setError("");
@@ -322,14 +310,10 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
 
     try {
       for (const row of selected) {
-        const { error: rpcError } = await supabase.rpc(
-          "sell_inventory_item",
-          {
-            p_player_item_id: row.id,
-            p_quantity: Math.max(1, Number(row.quantity || 1)),
-          }
-        );
-
+        const { error: rpcError } = await supabase.rpc("sell_inventory_item", {
+          p_player_item_id: row.id,
+          p_quantity: Math.max(1, Number(row.quantity || 1)),
+        });
         if (rpcError) throw rpcError;
       }
 
@@ -339,11 +323,7 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
     } catch (err) {
       console.error("Помилка масового продажу:", err);
       await loadInventory();
-      showMessage(
-        err?.message ||
-          "Не вдалося завершити масовий продаж. Перевір функцію продажу в Supabase.",
-        true
-      );
+      showMessage(err?.message || "Не вдалося завершити масовий продаж.", true);
     } finally {
       setBusyId(null);
     }
@@ -359,13 +339,9 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
       return;
     }
 
-    if (
-      !window.confirm(
-        `Продати всі ${selected.length} позицій сумки? Екіпіровані предмети залишаться.`
-      )
-    ) {
-      return;
-    }
+    if (!window.confirm(
+      `Продати всі ${selected.length} позицій сумки? Екіпіровані предмети залишаться.`
+    )) return;
 
     setBusyId("bulk");
     setError("");
@@ -373,14 +349,10 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
 
     try {
       for (const row of selected) {
-        const { error: rpcError } = await supabase.rpc(
-          "sell_inventory_item",
-          {
-            p_player_item_id: row.id,
-            p_quantity: Math.max(1, Number(row.quantity || 1)),
-          }
-        );
-
+        const { error: rpcError } = await supabase.rpc("sell_inventory_item", {
+          p_player_item_id: row.id,
+          p_quantity: Math.max(1, Number(row.quantity || 1)),
+        });
         if (rpcError) throw rpcError;
       }
 
@@ -390,11 +362,7 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
     } catch (err) {
       console.error("Помилка продажу речей:", err);
       await loadInventory();
-      showMessage(
-        err?.message ||
-          "Масовий продаж перервано. Перевір стан інвентаря та баланс.",
-        true
-      );
+      showMessage(err?.message || "Масовий продаж перервано.", true);
     } finally {
       setBusyId(null);
     }
@@ -425,29 +393,22 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
       }
 
       const { data: availableItems, error: itemsError } = await query;
-
       if (itemsError) throw itemsError;
 
       if (!availableItems?.length) {
-        showMessage(
-          "У таблиці items немає активних предметів потрібного типу.",
-          true
-        );
+        showMessage("У таблиці items немає активних предметів потрібного типу.", true);
         return;
       }
 
-      const chosen =
-        availableItems[Math.floor(Math.random() * availableItems.length)];
+      const chosen = availableItems[Math.floor(Math.random() * availableItems.length)];
 
-      const { error: insertError } = await supabase
-        .from("player_items")
-        .insert({
-          user_id: userId,
-          item_id: chosen.id,
-          quantity: 1,
-          is_equipped: false,
-          storage_location: itemType === "equipment" ? "bag" : "chest",
-        });
+      const { error: insertError } = await supabase.from("player_items").insert({
+        user_id: userId,
+        item_id: chosen.id,
+        quantity: 1,
+        is_equipped: false,
+        storage_location: itemType === "equipment" ? "bag" : "chest",
+      });
 
       if (insertError) throw insertError;
 
@@ -455,10 +416,7 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
       showMessage(`Тестовий предмет додано: ${chosen.name}`);
     } catch (err) {
       console.error("Помилка тестового предмета:", err);
-      showMessage(
-        err?.message || "Не вдалося додати тестовий предмет.",
-        true
-      );
+      showMessage(err?.message || "Не вдалося додати тестовий предмет.", true);
     } finally {
       setBusyId(null);
     }
@@ -472,24 +430,44 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
     const isChest = location === "chest";
 
     return (
-      <article
-        className={`inventory-item ${rarity}`}
-        key={row.id}
-      >
+      <article className={`inventory-item ${rarity}`} key={row.id}>
         <div className="inventory-item-top">
-          <div className="inventory-item-icon" aria-hidden="true">
-            {getItemIcon(item)}
+          <div className="inventory-item-image">
+            {item.image_url && (
+              <img
+                className="inventory-item-img"
+                src={item.image_url}
+                alt={item.name || "Предмет спорядження"}
+                loading="lazy"
+                onError={(event) => {
+                  event.currentTarget.style.display = "none";
+                  const fallback = event.currentTarget.parentElement?.querySelector(
+                    ".inventory-item-image-fallback"
+                  );
+                  if (fallback) fallback.style.display = "flex";
+                }}
+              />
+            )}
+
+            <span
+              className="inventory-item-image-fallback"
+              aria-hidden="true"
+              style={{ display: item.image_url ? "none" : "flex" }}
+            >
+              {getItemIcon(item)}
+            </span>
           </div>
 
           <div className="inventory-item-details">
             <div className="inventory-item-name">
               {item.name || "Невідомий предмет"}
             </div>
-            <span className="inventory-rarity">
+            <span className={`inventory-rarity ${rarity}`}>
               {RARITY_LABELS[item.rarity] || getItemTypeLabel(item)}
             </span>
-            <span className="inventory-item-type">
-              {getItemTypeLabel(item)}
+            <span className="inventory-item-type">{getItemTypeLabel(item)}</span>
+            <span className="inventory-item-level">
+              Рівень {item.level || 1}
             </span>
           </div>
         </div>
@@ -505,18 +483,10 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
           Number(item.hp_bonus) !== 0 ||
           Number(item.speed_bonus) !== 0) && (
           <div className="inventory-stats">
-            {Number(item.attack_bonus) !== 0 && (
-              <span>⚔ +{item.attack_bonus}</span>
-            )}
-            {Number(item.defense_bonus) !== 0 && (
-              <span>🛡 +{item.defense_bonus}</span>
-            )}
-            {Number(item.hp_bonus) !== 0 && (
-              <span>♥ +{item.hp_bonus}</span>
-            )}
-            {Number(item.speed_bonus) !== 0 && (
-              <span>⚡ +{item.speed_bonus}</span>
-            )}
+            {Number(item.attack_bonus) !== 0 && <span>⚔ +{item.attack_bonus}</span>}
+            {Number(item.defense_bonus) !== 0 && <span>🛡 +{item.defense_bonus}</span>}
+            {Number(item.hp_bonus) !== 0 && <span>♥ +{item.hp_bonus}</span>}
+            {Number(item.speed_bonus) !== 0 && <span>⚡ +{item.speed_bonus}</span>}
           </div>
         )}
 
@@ -612,9 +582,7 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
         </div>
         <div className="inventory-hero-details">
           <div className="inventory-hero-name">
-            {currentPlayer?.display_name ||
-              currentPlayer?.username ||
-              "Мій герой"}
+            {currentPlayer?.display_name || currentPlayer?.username || "Мій герой"}
           </div>
           <div className="inventory-hero-info">
             Рівень {currentPlayer?.level || 1} · Шукач пригод
@@ -655,10 +623,7 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
       </nav>
 
       {(message || error) && (
-        <div
-          className={`inventory-notice ${error ? "error" : ""}`}
-          role="status"
-        >
+        <div className={`inventory-notice ${error ? "error" : ""}`} role="status">
           {error ? <AlertCircle size={16} /> : <Check size={16} />}
           <span>{error || message}</span>
           <button
@@ -713,128 +678,81 @@ export default function Inventory({ profile, player, onProfileUpdate }) {
             <div className="inventory-empty">
               <Backpack size={35} />
               <div className="inventory-empty-title">Сумка порожня</div>
-              <p>
-                Тут зберігатимуться знайдені предмети та екіпірування.
-              </p>
+              <p>Тут зберігатимуться знайдені предмети та екіпірування.</p>
             </div>
           )}
 
-          <div className="inventory-toolbar">
-  <button
-    className="inventory-btn"
-    onClick={sellAll}
-    disabled={!!busyId || loading || bag.length === 0}
-  >
-    <Coins size={14} />
-    Продати все
-  </button>
+          {isAdmin && (
+            <div className="inventory-toolbar">
+              <button
+                className="inventory-btn"
+                onClick={() => addTestItem("equipment")}
+                disabled={!!busyId || loading}
+              >
+                <Sword size={14} />
+                Додати спорядження
+              </button>
 
-  <button
-    className="inventory-btn"
-    onClick={loadInventory}
-    disabled={!!busyId || loading}
-  >
-    <RefreshCw size={14} />
-    Оновити
-  </button>
-</div>
+              <button
+                className="inventory-btn"
+                onClick={() => addTestItem("resource")}
+                disabled={!!busyId || loading}
+              >
+                   <Package size={14} />
+                Додати ресурс
+              </button>
 
-<div className="inventory-rarity-toolbar">
-  {Object.entries(RARITY_LABELS).map(([rarity, label]) => (
-    <button
-      key={rarity}
-      className={`inventory-btn ${RARITY_CLASSES[rarity]}`}
-      onClick={() => sellByRarity(rarity)}
-      disabled={!!busyId || loading}
-    >
-      Продати: {label}
-    </button>
-  ))}
-</div>
-</section>
-) : (
-<section className="inventory-section">
-  <div className="inventory-heading">
-    <div>
-      <h1>
-        <Box size={22} /> Сундук
-      </h1>
-      <p>Речі, які ти зберіг для майбутніх пригод.</p>
-    </div>
-  </div>
+              <button
+                className="inventory-btn"
+                onClick={() => addTestItem("potion")}
+                disabled={!!busyId || loading}
+              >
+                <FlaskConical size={14} />
+                Додати еліксир
+              </button>
+            </div>
+          )}
 
-  {loading ? (
-    <div className="inventory-empty">
-      <RefreshCw className="inventory-spinning" size={28} />
-      <div className="inventory-empty-title">
-        Завантажуємо сундук…
-      </div>
-    </div>
-  ) : chest.length ? (
-    <div className="inventory-grid">
-      {chest.map((row) => renderItem(row, "chest"))}
-    </div>
-  ) : (
-    <div className="inventory-empty">
-      <Box size={35} />
-      <div className="inventory-empty-title">Сундук порожній</div>
-      <p>Перемісти сюди предмети із сумки, щоб зберегти їх.</p>
-    </div>
-  )}
-</section>
-)}
+          <div className="inventory-admin-note">
+            <AlertCircle size={14} />
+            Очищення інвентаря вимкнено, щоб уникнути випадкової втрати речей.
+          </div>
+        </section>
+      ) : (
+        <section className="inventory-section">
+          <div className="inventory-heading">
+            <div>
+              <h1><Box size={22} /> Сундук</h1>
+              <p>Речі, які ти відклав на зберігання.</p>
+            </div>
+            <div className="inventory-capacity">
+              Предметів
+              <strong>{chest.length}</strong>
+            </div>
+          </div>
 
-{isAdmin && (
-  <section className="inventory-admin">
-    <h2>
-      <Sparkles size={19} />
-      Панель тестування інвентаря
-    </h2>
+          {loading ? (
+            <div className="inventory-empty">
+              <RefreshCw className="inventory-spinning" size={28} />
+               <div className="inventory-empty-title">Завантажуємо сундук…</div>
+            </div>
+          ) : chest.length ? (
+            <div className="inventory-grid">
+              {chest.map((row) => renderItem(row, "chest"))}
+            </div>
+          ) : (
+            <div className="inventory-empty">
+              <Box size={35} />
+              <div className="inventory-empty-title">Сундук порожній</div>
+              <p>Переміщуй сюди речі, які поки не потрібні.</p>
+            </div>
+          )}
+        </section>
+      )}
 
-    <p>
-      Ці кнопки додають випадкові активні предмети з таблиці items
-      до інвентаря поточного гравця.
-    </p>
-
-    <div className="inventory-toolbar">
-      <button
-        className="inventory-btn"
-        onClick={() => addTestItem("equipment")}
-        disabled={!!busyId || loading}
-      >
-        <Sword size={14} />
-        Додати спорядження
-      </button>
-
-      <button
-        className="inventory-btn"
-        onClick={() => addTestItem("resource")}
-        disabled={!!busyId || loading}
-      >
-        <Package size={14} />
-        Додати ресурс
-      </button>
-
-      <button
-        className="inventory-btn"
-        onClick={() => addTestItem("potion")}
-        disabled={!!busyId || loading}
-      >
-        <FlaskConical size={14} />
-        Додати еліксир
-      </button>
-    </div>
-
-    <div className="inventory-admin-note">
-      <AlertCircle size={14} />
-      Очищення інвентаря вимкнено, щоб уникнути випадкової втрати речей.
-    </div>
-  </section>
-)}
-
-<footer className="inventory-footer">
-  Хроніки Згаслого Світанку · Інвентар мандрівника
-</footer>
-</main>
-);
+      <footer className="inventory-footer">
+        Хроніки Згаслого Світанку · Інвентар мандрівника
+      </footer>
+    </main>
+  );
 }
