@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import {
   ArrowLeft,
@@ -7,12 +7,12 @@ import {
   ShoppingBag,
   Check,
   Coins,
-  Sparkles,
 } from "lucide-react";
 import "./Shop.css";
 
-
 const ASSET = "/equipment/";
+const SET_PRICE = 80;
+const PIECE_PRICE = 10;
 
 const WARRIOR_ITEMS = [
   {
@@ -65,10 +65,6 @@ const WARRIOR_ITEMS = [
   },
 ];
 
-
-const SET_PRICE = 80;
-const PIECE_PRICE = 10;
-
 const SETS = [
   {
     id: "warrior",
@@ -108,9 +104,12 @@ const SETS = [
   },
 ];
 
-
 function ItemImage({ src, alt, className = "" }) {
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
 
   return (
     <div className={`shop-item-image ${className}`}>
@@ -148,77 +147,140 @@ export default function Shop({
     setCrystals(Number(profile?.crystals ?? 0));
   }, [profile?.gold, profile?.crystals]);
 
-  
-const visibleSets = SETS;
+  useEffect(() => {
+    let cancelled = false;
 
+    async function loadInventory() {
+      if (!profile?.id) {
+        setOwnedNames([]);
+        return;
+      }
 
-  
-async function purchaseItem(item) {
-  if (busyItem) return;
+      const { data, error } = await supabase
+        .from("player_items")
+        .select("item:items(name)")
+        .eq("user_id", profile.id);
 
-  setBusyItem(item.id);
-  setMessage("");
+      if (error) {
+        console.error("Не удалось загрузить инвентарь:", error);
+        return;
+      }
 
-  try {
-    // Знаходимо предмет у твоїй таблиці Supabase
-    const { data: dbItem, error: findError } = await supabase
-      .from("items")
-      .select("id, name")
-      .ilike("name", item.name)
-      .limit(1)
-      .maybeSingle();
-
-    if (findError) throw findError;
-
-    if (!dbItem) {
-      throw new Error(
-        `Предмет «${item.name}» відсутній у таблиці items Supabase.`
-      );
+      if (!cancelled) {
+        setOwnedNames(
+          [...new Set((data || [])
+            .map((row) => row.item?.name)
+            .filter(Boolean))]
+        );
+      }
     }
 
-    // Купуємо предмет за золото
-    const { error: buyError } = await supabase.rpc(
-      "buy_game_item",
-      {
-        p_item_id: dbItem.id,
-        p_quantity: 1,
-        p_currency: "gold",
-      }
-    );
+    loadInventory();
 
-    if (buyError) throw buyError;
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id]);
 
-    // Позначаємо предмет придбаним у поточному інтерфейсі
-    setOwnedNames((prev) =>
-      prev.includes(item.name)
-        ? prev
-        : [...prev, item.name]
-    );
-
-    // Оновлюємо профіль та баланс
+  async function refreshAfterPurchase() {
     await onProfileUpdate?.();
 
-    setMessage(`Куплено: ${item.name}`);
-  } catch (error) {
-    setMessage(
-      error.message || "Не вдалося купити предмет."
-    );
-  } finally {
-    setBusyItem(null);
-  }
-}
-  
+    if (!profile?.id) return;
 
-  async function purchaseFullSet(set) {
-    if (!set.items.length) {
-      setMessage(
-        "Для этого комплекта предметы ещё не настроены в базе данных."
-      );
+    const { data, error } = await supabase
+      .from("player_items")
+      .select("item:items(name)")
+      .eq("user_id", profile.id);
+
+    if (error) {
+      console.error("Не удалось обновить инвентарь:", error);
       return;
     }
 
+    setOwnedNames(
+      [...new Set((data || [])
+        .map((row) => row.item?.name)
+        .filter(Boolean))]
+    );
+  }
+
+  async function findDatabaseItems(items) {
+    const results = [];
+
+    for (const item of items) {
+      const { data, error } = await supabase
+        .from("items")
+        .select("id, name")
+        .ilike("name", item.name)
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data) {
+        throw new Error(
+          `Предмет «${item.name}» отсутствует в таблице items.`
+        );
+      }
+
+      results.push(data);
+    }
+
+    return results;
+  }
+
+  async function buyItems(items, price, busyKey, successText) {
     if (busyItem) return;
 
+    if (!profile?.id) {
+      setMessage("Войди в игру, чтобы покупать предметы.");
+      return;
+    }
+
+    if (!items.length) {
+      setMessage("В этом комплекте пока нет предметов.");
+      return;
+    }
+
+    setBusyItem(busyKey);
+    setMessage("");
+
+    try {
+      const databaseItems = await findDatabaseItems(items);
+
+      const { error } = await supabase.rpc("buy_shop_items", {
+        p_item_ids: databaseItems.map((item) => item.id),
+        p_price: price,
+      });
+
+      if (error) throw error;
+
+      setMessage(successText);
+      await refreshAfterPurchase();
+    } catch (error) {
+      console.error("Ошибка покупки:", error);
+      setMessage(error.message || "Не удалось совершить покупку.");
+      await onProfileUpdate?.();
+    } finally {
+      setBusyItem(null);
+    }
+  }
+
+  async function purchaseItem(item) {
+    if (ownedNames.includes(item.name)) {
+      setMessage("Этот предмет уже есть в твоей сумке.");
+      return;
+    }
+
+    await buyItems(
+      [item],
+      PIECE_PRICE,
+      item.id,
+      `Куплено: ${item.name}`
+    );
+  }
+
+  async function purchaseFullSet(set) {
     const remainingItems = set.items.filter(
       (item) => !ownedNames.includes(item.name)
     );
@@ -228,58 +290,12 @@ async function purchaseItem(item) {
       return;
     }
 
-    /*
-     * Это последовательная покупка отдельных предметов, а не одна
-     * атомарная операция. Если нужна гарантированная покупка комплекта
-     * за 80 золота одной транзакцией, потребуется серверная RPC-функция.
-     */
-    setBusyItem("full-set");
-    setMessage("");
-
-    let bought = 0;
-
-    try {
-      for (const item of remainingItems) {
-        const { data: dbItem, error: findError } = await supabase
-          .from("items")
-          .select("id, name")
-          .ilike("name", item.name)
-          .limit(1)
-          .maybeSingle();
-
-        if (findError) throw findError;
-
-        if (!dbItem) {
-          throw new Error(
-            `В базе нет предмета «${item.name}». Куплено до ошибки: ${bought}.`
-          );
-        }
-
-        const { error: buyError } = await supabase.rpc(
-          "buy_game_item",
-          {
-            p_item_id: dbItem.id,
-            p_quantity: 1,
-            p_currency: "gold",
-          }
-        );
-
-        if (buyError) throw buyError;
-
-        bought += 1;
-        setOwnedNames((prev) =>
-          prev.includes(item.name) ? prev : [...prev, item.name]
-        );
-      }
-
-      setMessage("Комплект приобретён!");
-      await onProfileUpdate?.();
-    } catch (error) {
-      setMessage(error.message || "Не удалось купить комплект.");
-      await onProfileUpdate?.();
-    } finally {
-      setBusyItem(null);
-    }
+    await buyItems(
+      remainingItems,
+      SET_PRICE,
+      "full-set",
+      `Комплект «${set.title}» приобретён!`
+    );
   }
 
   return (
@@ -287,6 +303,7 @@ async function purchaseItem(item) {
       <header className="titan-shop-header">
         {selectedSet ? (
           <button
+            type="button"
             className="shop-back"
             onClick={() => {
               setSelectedSet(null);
@@ -319,7 +336,7 @@ async function purchaseItem(item) {
         <section className="shop-sets">
           <h3>🛡 Комплекты снаряжения</h3>
 
-          {visibleSets.map((set) => (
+          {SETS.map((set) => (
             <button
               type="button"
               className="shop-set-card"
@@ -330,6 +347,7 @@ async function purchaseItem(item) {
               }}
             >
               <ItemImage src={set.image} alt={set.title} />
+
               <div className="shop-set-info">
                 <strong>{set.title}</strong>
                 <span>{set.rarity}</span>
@@ -338,6 +356,7 @@ async function purchaseItem(item) {
                   <Coins size={15} /> {set.price} золота
                 </b>
               </div>
+
               <ArrowLeft size={18} className="shop-set-arrow" />
             </button>
           ))}
@@ -355,6 +374,7 @@ async function purchaseItem(item) {
           </div>
 
           <button
+            type="button"
             className="shop-buy-full"
             disabled={
               busyItem !== null ||
@@ -368,74 +388,89 @@ async function purchaseItem(item) {
             <ShoppingBag size={18} />
             {busyItem === "full-set"
               ? "Покупка..."
-              : "Купить все вещи за 🪙 80 золота"}
+              : `Купить комплект за 🪙 ${SET_PRICE} золота`}
           </button>
 
-          
-              {!selectedSet.items.length ? (
-  <p className="shop-empty">
-    Предметы этого комплекта пока не добавлены.
-  </p>
-) : (
-  <div className="shop-item-list">
-    {selectedSet.items.map((item) => {
-      const owned = ownedNames.includes(item.name);
+          {selectedSet.items.length === 0 ? (
+            <p className="shop-empty">
+              Предметы этого комплекта пока не добавлены.
+            </p>
+          ) : (
+            <div className="shop-item-list">
+              {selectedSet.items.map((item) => {
+                const owned = ownedNames.includes(item.name);
 
-      return (
-        <article className="shop-piece" key={item.id}>
-          <ItemImage src={item.image} alt={item.name} />
+                return (
+                  <article className="shop-piece" key={item.id}>
+                    <ItemImage src={item.image} alt={item.name} />
 
-          <div className="shop-piece-info">
-            <strong>{item.name}</strong>
-            <span className="shop-common">★ Обычный</span>
-            <small>{item.stats}</small>
-          </div>
+                    <div className="shop-piece-info">
+                      <strong>{item.name}</strong>
+                      <span className="shop-common">
+                        ★ Обычный
+                      </span>
+                      <small>{item.stats}</small>
+                    </div>
 
-          <button
-            className={`shop-buy-piece ${owned ? "is-owned" : ""}`}
-            disabled={busyItem !== null || owned}
-            onClick={() => purchaseItem(item)}
-          >
-            {owned ? (
-              <>
-                <Check size={16} />
-                Куплено
-              </>
-            ) : busyItem === item.id ? (
-              "Покупка..."
-            ) : (
-              `🪙 ${PIECE_PRICE} золота`
-            )}
-          </button>
-        </article>
-      );
-    })}
-  </div>
-)}
+                    <button
+                      type="button"
+                      className={`shop-buy-piece ${
+                        owned ? "is-owned" : ""
+                      }`}
+                      disabled={busyItem !== null || owned}
+                      onClick={() => purchaseItem(item)}
+                    >
+                      {owned ? (
+                        <>
+                          <Check size={16} /> Куплено
+                        </>
+                      ) : busyItem === item.id ? (
+                        "Покупка..."
+                      ) : (
+                        `🪙 ${PIECE_PRICE} золота`
+                      )}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          )}
 
-<footer className="shop-footer">
-  <button
-    type="button"
-    onClick={() => {
-      setSelectedSet(null);
-      setMessage("");
-    }}
-  >
-    <Shield size={16} /> Комплекты
-  </button>
+          <footer className="shop-footer">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedSet(null);
+                setMessage("");
+              }}
+            >
+              <Shield size={16} /> Комплекты
+            </button>
 
-  <button type="button" onClick={() => onNavigate?.("hero")}>
-    Мой герой
-  </button>
+            <button
+              type="button"
+              onClick={() => onNavigate?.("hero")}
+            >
+              Мой герой
+            </button>
 
-  <button type="button" onClick={() => onNavigate?.("clan")}>
-    Мой клан
-  </button>
+            <button
+              type="button"
+              onClick={() => onNavigate?.("clan")}
+            >
+              Мой клан
+            </button>
 
-  <button type="button" onClick={() => onNavigate?.("home")}>
-    На главную
-  </button>
-  </footer>
+            <button
+              type="button"
+              onClick={() => onNavigate?.("home")}
+            >
+              На главную
+            </button>
+          </footer>
+        </section>
+      )}
     </div>
   );
- }
+    }
+              
