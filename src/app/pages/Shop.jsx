@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { supabase } from "../lib/supabase";
-import { EQUIPMENT_DATABASE, EQUIPMENT_RARITIES } from "../game/items";
+import { EQUIPMENT_DATABASE, EQUIPMENT_RARITIES } from "../game/items.js";
 
 export default function Shop({ profile, subsection, onProfileUpdate }) {
   const [buyingId, setBuyingId] = useState(null);
   const [message, setMessage] = useState("");
 
-  // Визначаємо поточний раритет із вкладеного меню (якщо subsection не вибрано — показуємо звичайні)
+  // Визначаємо поточний раритет із вкладеного меню (якщо subsection порожній — беремо common)
   const currentRarityKey = subsection || "common";
   const currentRarityInfo =
     EQUIPMENT_RARITIES[currentRarityKey] || EQUIPMENT_RARITIES.common;
@@ -18,7 +18,10 @@ export default function Shop({ profile, subsection, onProfileUpdate }) {
 
   // Функція купівлі предмета
   async function handleBuy(item) {
-    if (!profile) return;
+    if (!profile) {
+      setMessage("❌ Помилка: профіль гравця не знайдено.");
+      return;
+    }
 
     setMessage("");
     setBuyingId(item.id);
@@ -32,12 +35,12 @@ export default function Shop({ profile, subsection, onProfileUpdate }) {
       const costCrystals = item.priceCrystals || 0;
 
       if (playerGold < costGold) {
-        setMessage(`❌ Недостатньо золота! Потрібно 🪙 ${costGold}`);
+        setMessage(`❌ Недостатньо золота! Потрібно 🪙 ${costGold.toLocaleString()}`);
         return;
       }
 
       if (playerCrystals < costCrystals) {
-        setMessage(`❌ Недостатньо кристалів! Потрібно 💎 ${costCrystals}`);
+        setMessage(`❌ Недостатньо кристалів! Потрібно 💎 ${costCrystals.toLocaleString()}`);
         return;
       }
 
@@ -80,7 +83,7 @@ export default function Shop({ profile, subsection, onProfileUpdate }) {
 
       setMessage(`✅ Успішно куплено: ${item.name}!`);
 
-      // Оновлюємо дані гравця в шапці (золото/кристали)
+      // Оновлюємо дані гравця у шапці
       if (onProfileUpdate) {
         onProfileUpdate();
       }
@@ -94,6 +97,7 @@ export default function Shop({ profile, subsection, onProfileUpdate }) {
 
   return (
     <div style={styles.container}>
+      {/* Шапка категорії */}
       <div style={styles.header}>
         <h2 style={{ ...styles.title, color: currentRarityInfo.color }}>
           {currentRarityInfo.label}
@@ -103,11 +107,13 @@ export default function Shop({ profile, subsection, onProfileUpdate }) {
         </p>
       </div>
 
+      {/* Повідомлення про купівлю чи помилку */}
       {message && <div style={styles.messageBox}>{message}</div>}
 
+      {/* Список товарів */}
       {items.length === 0 ? (
         <div style={styles.empty}>
-          В цій категорії товарів поки немає. Ми додаємо нові речі!
+          В цій категорії товарів поки немає. Нові речі скоро з'являться!
         </div>
       ) : (
         <div style={styles.grid}>
@@ -126,15 +132,27 @@ export default function Shop({ profile, subsection, onProfileUpdate }) {
               >
                 {/* Картинка товару */}
                 <div style={styles.imageWrapper}>
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    style={styles.image}
-                    onError={(e) => {
-                      e.target.style.display = "none";
+                  {item.image ? (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      style={styles.image}
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                        if (e.target.nextSibling) {
+                          e.target.nextSibling.style.display = "block";
+                        }
+                      }}
+                    />
+                  ) : null}
+                  <span
+                    style={{
+                      ...styles.fallbackIcon,
+                      display: item.image ? "none" : "block",
                     }}
-                  />
-                  <span style={styles.fallbackIcon}>{item.icon}</span>
+                  >
+                    {item.icon || "⚔️"}
+                  </span>
                 </div>
 
                 {/* Назва та характеристики */}
@@ -143,25 +161,26 @@ export default function Shop({ profile, subsection, onProfileUpdate }) {
                 </div>
 
                 <div style={styles.stats}>
-                  {item.stats.attack && <div>⚔️ Атака: +{item.stats.attack}</div>}
-                  {item.stats.defense && <div>🛡️ Захист: +{item.stats.defense}</div>}
-                  {item.stats.hp && <div>❤️ Здоров'я: +{item.stats.hp}</div>}
-                  {item.stats.crit && <div>💥 Крит: +{item.stats.crit}%</div>}
+                  {item.stats?.attack ? <div>⚔️ Атака: +{item.stats.attack}</div> : null}
+                  {item.stats?.defense ? <div>🛡️ Захист: +{item.stats.defense}</div> : null}
+                  {item.stats?.hp ? <div>❤️ Здоров'я: +{item.stats.hp}</div> : null}
+                  {item.stats?.crit ? <div>💥 Крит: +{item.stats.crit}%</div> : null}
                 </div>
 
-                {/* Ціна та кнопка */}
+                {/* Ціна */}
                 <div style={styles.priceRow}>
                   {item.priceGold > 0 && <span>🪙 {item.priceGold.toLocaleString()}</span>}
                   {item.priceCrystals > 0 && <span>💎 {item.priceCrystals.toLocaleString()}</span>}
                 </div>
 
+                {/* Кнопка купівлі */}
                 <button
                   type="button"
                   disabled={isBuying}
                   onClick={() => handleBuy(item)}
                   style={styles.buyButton}
                 >
-                  {isBuying ? "Купівля..." : "Купити"}
+                  {isBuying ? "Зачекай..." : "Купити"}
                 </button>
               </div>
             );
@@ -173,35 +192,36 @@ export default function Shop({ profile, subsection, onProfileUpdate }) {
 }
 
 /* =========================================================
-   СТИЛІ МАГАЗИНУ
+   СТИЛІ
    ========================================================= */
 
 const styles = {
   container: {
-    padding: "10px 4px",
+    padding: "8px 2px",
   },
   header: {
     textAlign: "center",
-    marginBottom: "16px",
+    marginBottom: "14px",
   },
   title: {
     margin: "0 0 4px 0",
-    fontSize: "20px",
+    fontSize: "19px",
     fontWeight: "800",
   },
   subtitle: {
     margin: 0,
     fontSize: "12px",
-    opacity: 0.6,
+    opacity: 0.65,
   },
   messageBox: {
     padding: "10px",
     borderRadius: "8px",
-    background: "rgba(255, 255, 255, 0.1)",
-    border: "1px solid rgba(255, 255, 255, 0.2)",
+    background: "rgba(255, 255, 255, 0.08)",
+    border: "1px solid rgba(255, 255, 255, 0.18)",
     textAlign: "center",
     fontSize: "12px",
     marginBottom: "14px",
+    lineHeight: 1.4,
   },
   grid: {
     display: "grid",
@@ -209,18 +229,18 @@ const styles = {
     gap: "10px",
   },
   card: {
-    padding: "12px 10px",
+    padding: "12px 8px",
     borderRadius: "12px",
     border: "1px solid",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     textAlign: "center",
-    position: "relative",
+    boxSizing: "border-box",
   },
   imageWrapper: {
-    width: "54px",
-    height: "54px",
+    width: "50px",
+    height: "50px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -232,13 +252,10 @@ const styles = {
     height: "100%",
     objectFit: "contain",
     filter: "invert(0.9) drop-shadow(0px 3px 5px rgba(0,0,0,0.8))",
-    zIndex: 2,
   },
   fallbackIcon: {
-    position: "absolute",
-    fontSize: "30px",
-    zIndex: 1,
-    opacity: 0.5,
+    fontSize: "32px",
+    lineHeight: 1,
   },
   itemName: {
     fontSize: "13px",
@@ -256,10 +273,13 @@ const styles = {
   },
   priceRow: {
     display: "flex",
-    gap: "8px",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
     fontSize: "11px",
     fontWeight: "700",
     marginBottom: "8px",
+    flexWrap: "wrap",
   },
   buyButton: {
     width: "100%",
@@ -280,4 +300,4 @@ const styles = {
     fontSize: "13px",
   },
 };
-    
+          
