@@ -371,12 +371,7 @@ async function purchaseItem(item) {
               : "Купить все вещи за 🪙 80 золота"}
           </button>
 
-          {!selectedSet.items.length ? (
-            <p className="shop-empty">
-              Предметы этого комплекта пока не добавлены.
-            </p>
-          ) : (
-            <div className="shop-item-list">
+          
               {!selectedSet.items.length ? (
   <p className="shop-empty">
     Предметы этого комплекта пока не добавлены.
