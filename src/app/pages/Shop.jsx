@@ -1,290 +1,283 @@
-
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useState } from "react";
 import { supabase } from "../lib/supabase";
+import { EQUIPMENT_DATABASE, EQUIPMENT_RARITIES } from "../game/items";
 
-const categories = [
-  { id: "all", label: "Все", icon: "🛒" },
-  { id: "heroes", label: "Герої", icon: "🦸" },
-  { id: "equipment", label: "Спорядження", icon: "⚔️" },
-  { id: "pets", label: "Пети", icon: "🐾" },
-  { id: "resources", label: "Ресурси", icon: "💎" },
-  { id: "potions", label: "Зілля", icon: "🧪" },
-];
-
-const rarityNames = {
-  common: "Звичайний",
-  rare: "Рідкісний",
-  epic: "Епічний",
-  legendary: "Легендарний",
-};
-
-function getCategory(item) {
-  const type = String(item.item_type || "").toLowerCase();
-
-  if (/hero|геро/.test(type)) return "heroes";
-  if (/pet|пет|питом/.test(type)) return "pets";
-  if (/potion|consumable|зіл|elixir/.test(type)) return "potions";
-  if (/resource|material|ресурс|матеріал/.test(type)) return "resources";
-
-  return "equipment";
-}
-
-function getIcon(item) {
-  const type = String(item.item_type || "").toLowerCase();
-
-  if (/sword|weapon|меч|збро/.test(type)) return "⚔️";
-  if (/shield|armor|щит|брон/.test(type)) return "🛡️";
-  if (/pet|пет/.test(type)) return "🐾";
-  if (/potion|consumable|зіл/.test(type)) return "🧪";
-  if (/resource|material|ресурс/.test(type)) return "💎";
-
-  return "🎁";
-}
-
-function normalizeRarity(rarity) {
-  const value = String(rarity || "common").toLowerCase();
-
-  if (value.includes("legendary") || value.includes("легендар")) {
-    return "legendary";
-  }
-  if (value.includes("epic") || value.includes("епіч")) return "epic";
-  if (value.includes("rare") || value.includes("рідкіс")) return "rare";
-
-  return "common";
-}
-
-export default function Shop() {
-  const [category, setCategory] = useState("all");
-  const [gold, setGold] = useState(0);
-  const [crystals, setCrystals] = useState(0);
-  const [products, setProducts] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState(null);
+export default function Shop({ profile, subsection, onProfileUpdate }) {
+  const [buyingId, setBuyingId] = useState(null);
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [buying, setBuying] = useState(false);
 
-  const loadShop = useCallback(async () => {
-    setLoading(true);
+  // Визначаємо поточний раритет із вкладеного меню (якщо subsection не вибрано — показуємо звичайні)
+  const currentRarityKey = subsection || "common";
+  const currentRarityInfo =
+    EQUIPMENT_RARITIES[currentRarityKey] || EQUIPMENT_RARITIES.common;
 
-    try {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (authError) throw authError;
-      if (!user) throw new Error("Увійди в гру, щоб користуватися магазином.");
-
-      const [profileResult, itemsResult] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("gold, crystals")
-          .eq("id", user.id)
-          .single(),
-
-        supabase
-          .from("items")
-          .select(
-            "id, name, description, image_url, item_type, rarity, level, buy_price, sell_price, is_active"
-          )
-          .eq("is_active", true)
-          .order("buy_price", { ascending: true }),
-      ]);
-
-      if (profileResult.error) throw profileResult.error;
-      if (itemsResult.error) throw itemsResult.error;
-
-      setGold(Number(profileResult.data.gold) || 0);
-      setCrystals(Number(profileResult.data.crystals) || 0);
-
-      setProducts(
-        (itemsResult.data || []).map((item) => ({
-          ...item,
-          price: Number(item.buy_price) || 0,
-          currency: "gold",
-          category: getCategory(item),
-          icon: getIcon(item),
-          rarity: normalizeRarity(item.rarity),
-          stock: null,
-        }))
-      );
-    } catch (error) {
-      setMessage(`❌ ${error.message || "Не вдалося завантажити магазин"}`);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadShop();
-  }, [loadShop]);
-
-  const filteredProducts = useMemo(
-    () =>
-      category === "all"
-        ? products
-        : products.filter((product) => product.category === category),
-    [category, products]
+  // Фільтруємо предмети під вибрану категорію
+  const items = EQUIPMENT_DATABASE.filter(
+    (item) => item.rarity === currentRarityKey
   );
 
-  const buyProduct = async (product) => {
-    if (buying) return;
+  // Функція купівлі предмета
+  async function handleBuy(item) {
+    if (!profile) return;
 
-    setBuying(true);
     setMessage("");
+    setBuyingId(item.id);
 
     try {
-      const { data, error } = await supabase.rpc("buy_game_item", {
-        p_item_id: product.id,
-        p_quantity: 1,
-        p_currency: "gold",
-      });
+      // 1. Перевірка балансу
+      const playerGold = Number(profile.gold || 0);
+      const playerCrystals = Number(profile.crystals || 0);
 
-      if (error) throw error;
-      if (!data?.success) {
-        throw new Error("Покупка не підтверджена сервером");
+      const costGold = item.priceGold || 0;
+      const costCrystals = item.priceCrystals || 0;
+
+      if (playerGold < costGold) {
+        setMessage(`❌ Недостатньо золота! Потрібно 🪙 ${costGold}`);
+        return;
       }
 
-      setMessage(`✅ Придбано: ${product.name}`);
-      setSelectedProduct(null);
+      if (playerCrystals < costCrystals) {
+        setMessage(`❌ Недостатньо кристалів! Потрібно 💎 ${costCrystals}`);
+        return;
+      }
 
-      // Оновлюємо справжній баланс і каталог після покупки
-      await loadShop();
-    } catch (error) {
-      setMessage(`❌ ${error.message || "Помилка покупки"}`);
+      // 2. Списання ресурсів у Supabase
+      const newGold = playerGold - costGold;
+      const newCrystals = playerCrystals - costCrystals;
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          gold: newGold,
+          crystals: newCrystals,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", profile.id);
+
+      if (profileError) throw profileError;
+
+      // 3. Додавання предмета в інвентар (таблиця inventory)
+      const { error: invError } = await supabase.from("inventory").insert([
+        {
+          user_id: profile.id,
+          item_id: item.id,
+          item_name: item.name,
+          slot: item.slot,
+          rarity: item.rarity,
+          stats: item.stats,
+          is_equipped: false,
+        },
+      ]);
+
+      if (invError) {
+        // Повертаємо кошти, якщо інвентар не оновився
+        await supabase
+          .from("profiles")
+          .update({ gold: playerGold, crystals: playerCrystals })
+          .eq("id", profile.id);
+        throw invError;
+      }
+
+      setMessage(`✅ Успішно куплено: ${item.name}!`);
+
+      // Оновлюємо дані гравця в шапці (золото/кристали)
+      if (onProfileUpdate) {
+        onProfileUpdate();
+      }
+    } catch (err) {
+      console.error("Buy error:", err);
+      setMessage(`Помилка купівлі: ${err.message || "Невідома помилка"}`);
     } finally {
-      setBuying(false);
+      setBuyingId(null);
     }
-  };
-
-  // Використай ці змінні у своєму наявному JSX:
-  // gold, crystals, filteredProducts, categories,
-  // selectedProduct, setSelectedProduct, message,
-  // loading, buying, buyProduct.
+  }
 
   return (
-    <div className="page shop-page">
-      <header className="shop-header">
-        <div>
-          <h1>🛒 Магазин</h1>
-          <p>Все необхідне для твого героя</p>
-        </div>
-        <div className="wallet">
-          <div>💰 {gold.toLocaleString()}</div>
-          <div>💎 {crystals.toLocaleString()}</div>
-        </div>
-      </header>
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <h2 style={{ ...styles.title, color: currentRarityInfo.color }}>
+          {currentRarityInfo.label}
+        </h2>
+        <p style={styles.subtitle}>
+          Обери найкраще спорядження для підвищення характеристик
+        </p>
+      </div>
 
-      {message && <div className="shop-message">{message}</div>}
+      {message && <div style={styles.messageBox}>{message}</div>}
 
-      {loading ? (
-        <p>Завантаження магазину...</p>
+      {items.length === 0 ? (
+        <div style={styles.empty}>
+          В цій категорії товарів поки немає. Ми додаємо нові речі!
+        </div>
       ) : (
-        <>
-          <div className="categories">
-            {categories.map((item) => (
-              <button
+        <div style={styles.grid}>
+          {items.map((item) => {
+            const isBuying = buyingId === item.id;
+
+            return (
+              <div
                 key={item.id}
-                className={category === item.id ? "active" : ""}
-                onClick={() => setCategory(item.id)}
+                style={{
+                  ...styles.card,
+                  background: currentRarityInfo.bgGradient,
+                  borderColor: currentRarityInfo.borderColor,
+                  boxShadow: currentRarityInfo.glow,
+                }}
               >
-                {item.icon} {item.label}
-              </button>
-            ))}
-          </div>
+                {/* Картинка товару */}
+                <div style={styles.imageWrapper}>
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    style={styles.image}
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                    }}
+                  />
+                  <span style={styles.fallbackIcon}>{item.icon}</span>
+                </div>
 
-          <section className="products-section">
-            <div className="section-title">
-              <h2>🛍️ Товари</h2>
-              <span>{filteredProducts.length} доступно</span>
-            </div>
+                {/* Назва та характеристики */}
+                <div style={{ ...styles.itemName, color: currentRarityInfo.color }}>
+                  {item.name}
+                </div>
 
-            <div className="products-grid">
-              {filteredProducts.map((product) => (
+                <div style={styles.stats}>
+                  {item.stats.attack && <div>⚔️ Атака: +{item.stats.attack}</div>}
+                  {item.stats.defense && <div>🛡️ Захист: +{item.stats.defense}</div>}
+                  {item.stats.hp && <div>❤️ Здоров'я: +{item.stats.hp}</div>}
+                  {item.stats.crit && <div>💥 Крит: +{item.stats.crit}%</div>}
+                </div>
+
+                {/* Ціна та кнопка */}
+                <div style={styles.priceRow}>
+                  {item.priceGold > 0 && <span>🪙 {item.priceGold.toLocaleString()}</span>}
+                  {item.priceCrystals > 0 && <span>💎 {item.priceCrystals.toLocaleString()}</span>}
+                </div>
+
                 <button
-                  key={product.id}
-                  className={`product-card rarity-${product.rarity}`}
-                  onClick={() => setSelectedProduct(product)}
+                  type="button"
+                  disabled={isBuying}
+                  onClick={() => handleBuy(item)}
+                  style={styles.buyButton}
                 >
-                  <div className="product-image">
-                    {product.image_url ? (
-                      <img
-                        src={product.image_url}
-                        alt={product.name}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "contain",
-                        }}
-                      />
-                    ) : (
-                      <span>{product.icon}</span>
-                    )}
-                  </div>
-
-                  <div className="product-info">
-                    <span className="product-rarity">
-                      {rarityNames[product.rarity]}
-                    </span>
-                    <strong>{product.name}</strong>
-                    <p>{product.description || "Предмет для твого героя"}</p>
-                    <div className="product-price">
-                      💰 {product.price.toLocaleString()}
-                    </div>
-                  </div>
+                  {isBuying ? "Купівля..." : "Купити"}
                 </button>
-              ))}
-            </div>
-
-            {filteredProducts.length === 0 && (
-              <p>У цій категорії поки немає товарів.</p>
-            )}
-          </section>
-        </>
-      )}
-
-      {selectedProduct && (
-        <div
-          className="modal-overlay"
-          onClick={() => !buying && setSelectedProduct(null)}
-        >
-          <div
-            className="product-modal"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              className="close-button"
-              disabled={buying}
-              onClick={() => setSelectedProduct(null)}
-            >
-              ✕
-            </button>
-
-            <div className="modal-icon">{selectedProduct.icon}</div>
-            <span className={`modal-rarity ${selectedProduct.rarity}`}>
-              {rarityNames[selectedProduct.rarity]}
-            </span>
-            <h2>{selectedProduct.name}</h2>
-            <p>{selectedProduct.description || "Предмет для твого героя"}</p>
-
-            <div className="modal-price">
-              💰 {selectedProduct.price.toLocaleString()} золота
-            </div>
-
-            <button
-              className="buy-button"
-              disabled={buying || gold < selectedProduct.price}
-              onClick={() => buyProduct(selectedProduct)}
-            >
-              {buying
-                ? "Обробка покупки..."
-                : gold < selectedProduct.price
-                  ? "Недостатньо золота"
-                  : "🛒 КУПИТИ"}
-            </button>
-          </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
+
+/* =========================================================
+   СТИЛІ МАГАЗИНУ
+   ========================================================= */
+
+const styles = {
+  container: {
+    padding: "10px 4px",
+  },
+  header: {
+    textAlign: "center",
+    marginBottom: "16px",
+  },
+  title: {
+    margin: "0 0 4px 0",
+    fontSize: "20px",
+    fontWeight: "800",
+  },
+  subtitle: {
+    margin: 0,
+    fontSize: "12px",
+    opacity: 0.6,
+  },
+  messageBox: {
+    padding: "10px",
+    borderRadius: "8px",
+    background: "rgba(255, 255, 255, 0.1)",
+    border: "1px solid rgba(255, 255, 255, 0.2)",
+    textAlign: "center",
+    fontSize: "12px",
+    marginBottom: "14px",
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "10px",
+  },
+  card: {
+    padding: "12px 10px",
+    borderRadius: "12px",
+    border: "1px solid",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    textAlign: "center",
+    position: "relative",
+  },
+  imageWrapper: {
+    width: "54px",
+    height: "54px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: "8px",
+    position: "relative",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+    filter: "invert(0.9) drop-shadow(0px 3px 5px rgba(0,0,0,0.8))",
+    zIndex: 2,
+  },
+  fallbackIcon: {
+    position: "absolute",
+    fontSize: "30px",
+    zIndex: 1,
+    opacity: 0.5,
+  },
+  itemName: {
+    fontSize: "13px",
+    fontWeight: "700",
+    marginBottom: "6px",
+    lineHeight: 1.2,
+  },
+  stats: {
+    fontSize: "10px",
+    opacity: 0.85,
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    marginBottom: "10px",
+  },
+  priceRow: {
+    display: "flex",
+    gap: "8px",
+    fontSize: "11px",
+    fontWeight: "700",
+    marginBottom: "8px",
+  },
+  buyButton: {
+    width: "100%",
+    padding: "8px 0",
+    borderRadius: "6px",
+    border: "none",
+    background: "linear-gradient(135deg, #e45c91, #8c315e)",
+    color: "#fff",
+    fontSize: "12px",
+    fontWeight: "800",
+    cursor: "pointer",
+    marginTop: "auto",
+  },
+  empty: {
+    textAlign: "center",
+    padding: "30px 10px",
+    opacity: 0.5,
+    fontSize: "13px",
+  },
+};
+    
