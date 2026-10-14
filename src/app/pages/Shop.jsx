@@ -11,9 +11,6 @@ import {
 } from "lucide-react";
 import "./Shop.css";
 
-// Ціни в магазині
-const PIECE_PRICE = 10;
-const SET_PRICE = 80;
 
 const ASSET = "/equipment/";
 
@@ -380,62 +377,70 @@ async function purchaseItem(item) {
             </p>
           ) : (
             <div className="shop-item-list">
-              {selectedSet.items.map((item) => {
-                const owned = ownedNames.includes(item.name);
+              {!selectedSet.items.length ? (
+  <p className="shop-empty">
+    Предметы этого комплекта пока не добавлены.
+  </p>
+) : (
+  <div className="shop-item-list">
+    {selectedSet.items.map((item) => {
+      const owned = ownedNames.includes(item.name);
 
-                return (
-                  <article className="shop-piece" key={item.id}>
-                    <ItemImage src={item.image} alt={item.name} />
-                    <div className="shop-piece-info">
-                      <strong>{item.name}</strong>
-                      <span className="shop-common">
-                        ★ Обычный
-                      </span>
-                      <small>{item.stats}</small>
-                    </div>
+      return (
+        <article className="shop-piece" key={item.id}>
+          <ItemImage src={item.image} alt={item.name} />
 
-                    <button
-  className={`shop-buy-piece ${owned ? "is-owned" : ""}`}
-  disabled={busyItem !== null || owned}
-  onClick={() => purchaseItem(item)}
->
-  {owned ? (
-    <>
-      <Check size={16} />
-      Куплено
-    </>
-  ) : busyItem === item.id ? (
-    "Покупка..."
-  ) : (
-    `🪙 ${PIECE_PRICE} золота`
-  )}
-</button>
+          <div className="shop-piece-info">
+            <strong>{item.name}</strong>
+            <span className="shop-common">★ Обычный</span>
+            <small>{item.stats}</small>
+          </div>
 
-      
-      <footer className="shop-footer">
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedSet(null);
-            setMessage("");
-          }}
-        >
-          <Shield size={16} /> Комплекты
-        </button>
+          <button
+            className={`shop-buy-piece ${owned ? "is-owned" : ""}`}
+            disabled={busyItem !== null || owned}
+            onClick={() => purchaseItem(item)}
+          >
+            {owned ? (
+              <>
+                <Check size={16} />
+                Куплено
+              </>
+            ) : busyItem === item.id ? (
+              "Покупка..."
+            ) : (
+              `🪙 ${PIECE_PRICE} золота`
+            )}
+          </button>
+        </article>
+      );
+    })}
+  </div>
+)}
 
-        <button type="button" onClick={() => onNavigate?.("hero")}>
-          Мой герой
-        </button>
+<footer className="shop-footer">
+  <button
+    type="button"
+    onClick={() => {
+      setSelectedSet(null);
+      setMessage("");
+    }}
+  >
+    <Shield size={16} /> Комплекты
+  </button>
 
-        <button type="button" onClick={() => onNavigate?.("clan")}>
-          Мой клан
-        </button>
+  <button type="button" onClick={() => onNavigate?.("hero")}>
+    Мой герой
+  </button>
 
-        <button type="button" onClick={() => onNavigate?.("home")}>
-          На главную
-        </button>
-      </footer>
-    </div>
+  <button type="button" onClick={() => onNavigate?.("clan")}>
+    Мой клан
+  </button>
+
+  <button type="button" onClick={() => onNavigate?.("home")}>
+    На главную
+  </button>
+</footer>
+         </div>
   );
-}
-
+          }         
