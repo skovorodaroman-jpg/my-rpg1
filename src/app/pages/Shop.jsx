@@ -142,10 +142,9 @@ export default function Shop({
     setCrystals(Number(profile?.crystals ?? 0));
   }, [profile?.gold, profile?.crystals]);
 
-  const visibleSets = useMemo(() => {
-    if (!subsection || subsection === "sets") return SETS;
-    return SETS.filter((set) => set.id === subsection);
-  }, [subsection]);
+  
+const visibleSets = SETS;
+
 
   async function purchaseItem(item) {
     if (busyItem) return;
