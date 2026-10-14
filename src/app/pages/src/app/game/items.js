@@ -1,5 +1,6 @@
+
 /* =========================================================
-   СТИЛІ ТА РАРИТЕТНІСТЬ (Згідно з раритетами Битви Титанів)
+   РАРИТЕТНІСТЬ СПОРЯДЖЕННЯ
    ========================================================= */
 
 export const EQUIPMENT_RARITIES = {
@@ -70,12 +71,32 @@ export const EQUIPMENT_RARITIES = {
 };
 
 /* =========================================================
-   БАЗА СПОРЯДЖЕННЯ З КАРТИНКАМИ
-   (Векторні темні іконки у стилі фентезі RPG)
+   БАЗА СПОРЯДЖЕННЯ
    ========================================================= */
 
+const LOCAL_EQUIPMENT_IMAGE = "/equipment/206254753.jpeg";
+
 export const EQUIPMENT_DATABASE = [
-  // --- ЗВИЧАЙНІ (Common) ---
+  // --- ПОВНИЙ ЗВИЧАЙНИЙ КОМПЛЕКТ ВОЇНА ---
+  {
+    id: "common_warrior_set",
+    name: "Обычный комплект воина",
+    slot: "set",
+    rarity: "common",
+    priceGold: 500,
+    stats: {
+      attack: 15,
+      defense: 10,
+      hp: 40,
+    },
+    icon: "🛡️",
+    image: LOCAL_EQUIPMENT_IMAGE,
+    description:
+      "Простой комплект доспехов начинающего воина.",
+    isFullSet: true,
+  },
+
+  // --- ЗВИЧАЙНІ ПРЕДМЕТИ ---
   {
     id: "wooden_sword",
     name: "Деревянный меч",
@@ -84,7 +105,8 @@ export const EQUIPMENT_DATABASE = [
     priceGold: 100,
     stats: { attack: 5 },
     icon: "🗡️",
-    image: "https://game-icons.net/icons/000000/transparent/1x1/lorc/wooden-sword.svg",
+    image:
+      "https://game-icons.net/icons/000000/transparent/1x1/lorc/wooden-sword.svg",
   },
   {
     id: "cloth_shirt",
@@ -94,10 +116,11 @@ export const EQUIPMENT_DATABASE = [
     priceGold: 80,
     stats: { defense: 4, hp: 10 },
     icon: "👕",
-    image: "https://game-icons.net/icons/000000/transparent/1x1/lorc/cloth-jar.svg",
+    image:
+      "https://game-icons.net/icons/000000/transparent/1x1/lorc/cloth-jar.svg",
   },
 
-  // --- РІДКІСНІ (Rare) ---
+  // --- РІДКІСНІ ПРЕДМЕТИ ---
   {
     id: "iron_broadsword",
     name: "Железный палаш",
@@ -106,7 +129,8 @@ export const EQUIPMENT_DATABASE = [
     priceGold: 1500,
     stats: { attack: 25, crit: 2 },
     icon: "⚔️",
-    image: "https://game-icons.net/icons/000000/transparent/1x1/lorc/broadsword.svg",
+    image:
+      "https://game-icons.net/icons/000000/transparent/1x1/lorc/broadsword.svg",
   },
   {
     id: "steel_breastplate",
@@ -116,10 +140,11 @@ export const EQUIPMENT_DATABASE = [
     priceGold: 1200,
     stats: { defense: 20, hp: 60 },
     icon: "🛡️",
-    image: "https://game-icons.net/icons/000000/transparent/1x1/lorc/breastplate.svg",
+    image:
+      "https://game-icons.net/icons/000000/transparent/1x1/lorc/breastplate.svg",
   },
 
-  // --- ЕПІЧНІ (Epic) ---
+  // --- ЕПІЧНІ ПРЕДМЕТИ ---
   {
     id: "shadow_blade",
     name: "Клинок теней",
@@ -129,7 +154,8 @@ export const EQUIPMENT_DATABASE = [
     priceCrystals: 50,
     stats: { attack: 80, crit: 8 },
     icon: "🗡️",
-    image: "https://game-icons.net/icons/000000/transparent/1x1/lorc/dungeon-gate.svg",
+    image:
+      "https://game-icons.net/icons/000000/transparent/1x1/lorc/dungeon-gate.svg",
   },
   {
     id: "knight_helm",
@@ -140,10 +166,11 @@ export const EQUIPMENT_DATABASE = [
     priceCrystals: 40,
     stats: { defense: 55, hp: 150 },
     icon: "🪖",
-    image: "https://game-icons.net/icons/000000/transparent/1x1/lorc/knight-helmet.svg",
+    image:
+      "https://game-icons.net/icons/000000/transparent/1x1/lorc/knight-helmet.svg",
   },
 
-  // --- ЛЕГЕНДАРНІ (Legendary) ---
+  // --- ЛЕГЕНДАРНИЙ ПРЕДМЕТ ---
   {
     id: "dragon_slayer",
     name: "Губитель драконов",
@@ -153,10 +180,11 @@ export const EQUIPMENT_DATABASE = [
     priceCrystals: 250,
     stats: { attack: 250, crit: 15 },
     icon: "⚔️",
-    image: "https://game-icons.net/icons/000000/transparent/1x1/lorc/flaming-trident.svg",
+    image:
+      "https://game-icons.net/icons/000000/transparent/1x1/lorc/flaming-trident.svg",
   },
 
-  // --- ТИТАНІЧНІ (Titanic) ---
+  // --- ТИТАНІЧНИЙ ПРЕДМЕТ ---
   {
     id: "titanic_god_sword",
     name: "Меч Древнего Титана",
@@ -166,7 +194,25 @@ export const EQUIPMENT_DATABASE = [
     priceCrystals: 1000,
     stats: { attack: 750, crit: 30, hp: 500 },
     icon: "🔱",
-    image: "https://game-icons.net/icons/000000/transparent/1x1/lorc/warlord-helmet.svg",
+    image:
+      "https://game-icons.net/icons/000000/transparent/1x1/lorc/warlord-helmet.svg",
   },
 ];
-    
+
+/* =========================================================
+   СУМІСНІСТЬ З ІНШИМИ МОДУЛЯМИ
+   ========================================================= */
+
+// Якщо інші файли проєкту використовують цю назву:
+export const EQUIPMENT_ITEMS = EQUIPMENT_DATABASE;
+
+// Допоміжні функції
+export const getEquipmentById = (id) =>
+  EQUIPMENT_DATABASE.find((item) => item.id === id) ?? null;
+
+export const getEquipmentRarity = (rarity) =>
+  EQUIPMENT_RARITIES[rarity] ?? EQUIPMENT_RARITIES.common;
+
+export const getEquipmentByRarity = (rarity) =>
+  EQUIPMENT_DATABASE.filter((item) => item.rarity === rarity);
+     
