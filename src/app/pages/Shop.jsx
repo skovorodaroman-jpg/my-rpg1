@@ -402,21 +402,31 @@ const visibleSets = SETS;
         </section>
       )}
 
+      
       <footer className="shop-footer">
-        <button onClick={() => setSelectedSet(null)}>
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedSet(null);
+            setMessage("");
+          }}
+        >
           <Shield size={16} /> Комплекты
         </button>
-        <button onClick={() => onNavigate?.("hero")}>
+
+        <button type="button" onClick={() => onNavigate?.("hero")}>
           Мой герой
         </button>
-        <button onClick={() => onNavigate?.("clan")}>
+
+        <button type="button" onClick={() => onNavigate?.("clan")}>
           Мой клан
         </button>
-        <button onClick={() => onNavigate?.("home")}>
+
+        <button type="button" onClick={() => onNavigate?.("home")}>
           На главную
         </button>
       </footer>
     </div>
   );
-              }
-              
+}
+
