@@ -440,7 +440,7 @@ async function purchaseItem(item) {
   <button type="button" onClick={() => onNavigate?.("home")}>
     На главную
   </button>
-</footer>
-         </div>
+  </footer>
+    </div>
   );
-          }         
+ }
