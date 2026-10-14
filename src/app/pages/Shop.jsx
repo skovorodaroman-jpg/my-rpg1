@@ -146,56 +146,62 @@ export default function Shop({
 const visibleSets = SETS;
 
 
-  async function purchaseItem(item) {
-    if (busyItem) return;
+  
+async function purchaseItem(item) {
+  if (busyItem) return;
 
-    setBusyItem(item.id);
-    setMessage("");
+  setBusyItem(item.id);
+  setMessage("");
 
-    try {
-      /*
-       * ВАЖНО:
-       * Сопоставляем предмет с записью в Supabase по имени.
-       * buy_game_item самостоятельно проверяет баланс и списывает золото.
-       */
-      const { data: dbItem, error: findError } = await supabase
-        .from("items")
-        .select("id, name")
-        .ilike("name", item.name)
-        .limit(1)
-        .maybeSingle();
+  try {
+    // Знаходимо предмет у твоїй таблиці Supabase
+    const { data: dbItem, error: findError } = await supabase
+      .from("items")
+      .select("id, name")
+      .ilike("name", item.name)
+      .limit(1)
+      .maybeSingle();
 
-      if (findError) throw findError;
+    if (findError) throw findError;
 
-      if (!dbItem) {
-        throw new Error(
-          `Предмет «${item.name}» отсутствует в таблице items Supabase.`
-        );
-      }
-
-      const { error: buyError } = await supabase.rpc(
-        "buy_game_item",
-        {
-          p_item_id: dbItem.id,
-          p_quantity: 1,
-          p_currency: "gold",
-        }
+    if (!dbItem) {
+      throw new Error(
+        `Предмет «${item.name}» відсутній у таблиці items Supabase.`
       );
-
-      if (buyError) throw buyError;
-
-      setOwnedNames((prev) =>
-        prev.includes(item.name) ? prev : [...prev, item.name]
-      );
-
-      setMessage(`Куплено: ${item.name}`);
-      await onProfileUpdate?.();
-    } catch (error) {
-      setMessage(error.message || "Не удалось купить предмет.");
-    } finally {
-      setBusyItem(null);
     }
+
+    // Купуємо предмет за золото
+    const { error: buyError } = await supabase.rpc(
+      "buy_game_item",
+      {
+        p_item_id: dbItem.id,
+        p_quantity: 1,
+        p_currency: "gold",
+      }
+    );
+
+    if (buyError) throw buyError;
+
+    // Позначаємо предмет придбаним у поточному інтерфейсі
+    setOwnedNames((prev) =>
+      prev.includes(item.name)
+        ? prev
+        : [...prev, item.name]
+    );
+
+    // Оновлюємо профіль та баланс
+    await onProfileUpdate?.();
+
+    setMessage(`Куплено: ${item.name}`);
+  } catch (error) {
+    setMessage(
+      error.message || "Не вдалося купити предмет."
+    );
+  } finally {
+    setBusyItem(null);
   }
+}
+  
 
   async function purchaseFullSet(set) {
     if (!set.items.length) {
