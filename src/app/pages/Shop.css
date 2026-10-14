@@ -1,0 +1,273 @@
+
+.titan-shop {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 12px;
+  box-sizing: border-box;
+  color: #ead9bd;
+  background: #120e0b;
+  min-height: 100%;
+}
+
+.titan-shop button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.titan-shop button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.titan-shop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #59432b;
+}
+
+.titan-shop-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 18px;
+}
+
+.shop-wallet {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #f4c36b;
+}
+
+.shop-wallet span,
+.shop-set-info b {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.shop-back,
+.shop-footer button {
+  border: 1px solid #60472d;
+  border-radius: 8px;
+  padding: 8px;
+  color: #ead9bd;
+  background: #241a12;
+}
+
+.shop-sets h3 {
+  font-size: 16px;
+  margin: 16px 0 10px;
+}
+
+.shop-set-card {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  margin: 10px 0;
+  padding: 10px;
+  text-align: left;
+  color: #ead9bd;
+  background: linear-gradient(135deg, #2a2118, #17120e);
+  border: 1px solid #5d452b;
+  border-radius: 12px;
+}
+
+.shop-item-image {
+  flex-shrink: 0;
+  width: 84px;
+  height: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #bda17a;
+  background: #0d0b09;
+  border: 1px solid #705334;
+  border-radius: 8px;
+}
+
+.shop-item-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.shop-set-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.shop-set-info strong {
+  font-size: 15px;
+}
+
+.shop-set-info span,
+.shop-set-info small,
+.shop-piece-info small {
+  color: #b6a58e;
+  font-size: 12px;
+}
+
+.shop-set-info b {
+  color: #f5c56f;
+  font-size: 13px;
+}
+
+.shop-set-arrow {
+  transform: rotate(180deg);
+  flex-shrink: 0;
+}
+
+.shop-hero-art {
+  text-align: center;
+  padding: 14px 0;
+}
+
+.shop-hero-image {
+  width: 100%;
+  height: 230px;
+  border-radius: 12px;
+  background: radial-gradient(circle, #3b2b1b, #100c09);
+}
+
+.shop-hero-image img {
+  object-fit: contain;
+}
+
+.shop-hero-art h2 {
+  margin: 12px 0 4px;
+}
+
+.shop-hero-art p {
+  color: #b6a58e;
+  font-size: 13px;
+}
+
+.shop-buy-full {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 8px;
+  color: #241506;
+  font-weight: 800 !important;
+  background: linear-gradient(135deg, #f6d18b, #bb7929);
+  border: 1px solid #ffdf9e;
+  border-radius: 10px;
+}
+
+.shop-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.shop-piece {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px;
+  background: #1d1712;
+  border: 1px solid #493726;
+  border-radius: 10px;
+}
+
+.shop-piece .shop-item-image {
+  width: 64px;
+  height: 64px;
+}
+
+.shop-piece-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.shop-piece-info strong {
+  font-size: 13px;
+}
+
+.shop-common {
+  color: #c0c0c0;
+  font-size: 12px;
+}
+
+.shop-buy-piece {
+  max-width: 118px;
+  padding: 9px 7px;
+  color: #f5ce83;
+  background: #302216;
+  border: 1px solid #8d642e;
+  border-radius: 8px;
+  font-size: 12px !important;
+}
+
+.shop-buy-piece.is-owned {
+  color: #9ed7a2;
+  border-color: #3b7945;
+}
+
+.shop-message {
+  margin: 12px 0;
+  padding: 10px;
+  color: #f5d9a7;
+  background: #302216;
+  border: 1px solid #76562e;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.shop-empty {
+  padding: 15px;
+  text-align: center;
+  color: #b6a58e;
+}
+
+.shop-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 22px;
+  padding-top: 12px;
+  border-top: 1px solid #59432b;
+}
+
+.shop-footer button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+@media (max-width: 360px) {
+  .shop-piece {
+    flex-wrap: wrap;
+  }
+
+  .shop-piece-info {
+    min-width: calc(100% - 90px);
+  }
+
+  .shop-buy-piece {
+    width: 100%;
+    max-width: none;
+  }
+  }
