@@ -691,4 +691,72 @@
   .inventory-actions .inventory-btn {
     flex: 1;
   }
+  
+/* Зображення предметів */
+.inventory-item-image {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  flex: 0 0 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(212, 179, 130, 0.4);
+  border-radius: 10px;
+  background: linear-gradient(145deg, #30251b, #120e0b);
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.4);
+}
+
+.inventory-item-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  object-fit: contain;
+}
+
+.inventory-item-image-fallback {
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+}
+
+.inventory-item-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.inventory-item-details {
+  min-width: 0;
+  flex: 1;
+}
+
+.inventory-item-name {
+  overflow-wrap: anywhere;
+}
+
+.inventory-item-level {
+  display: block;
+  margin-top: 4px;
+  color: #b8a48b;
+  font-size: 11px;
+}
+
+@media (max-width: 360px) {
+  .inventory-item-image {
+    width: 62px;
+    height: 62px;
+    flex-basis: 62px;
+  }
+
+  .inventory-item-top {
+    gap: 8px;
+  }
+}
+  
   }
