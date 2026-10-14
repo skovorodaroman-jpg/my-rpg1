@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import {
   EQUIPMENT_DATABASE,
   EQUIPMENT_RARITIES,
-} from "../game/items.js";
+} from "./src/app/game/items.js";
 import {
   ShoppingCart,
   Coins,
