@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 import "./Shop.css";
 
+// Ціни в магазині
+const PIECE_PRICE = 10;
+const SET_PRICE = 80;
+
 const ASSET = "/equipment/";
 
 const WARRIOR_ITEMS = [
@@ -64,13 +68,17 @@ const WARRIOR_ITEMS = [
   },
 ];
 
+
+const SET_PRICE = 80;
+const PIECE_PRICE = 10;
+
 const SETS = [
   {
     id: "warrior",
     title: "Комплект воина",
     rarity: "Обычный",
     image: `${ASSET}206254753.jpeg`,
-    price: 80,
+    price: SET_PRICE,
     description: "Базовый комплект для начинающего бойца.",
     items: WARRIOR_ITEMS,
   },
@@ -78,30 +86,31 @@ const SETS = [
     id: "militia",
     title: "Комплект ополченца",
     rarity: "Обычный",
-    image: `${ASSET}206254753.jpeg`,
-    price: 160,
+    image: `${ASSET}ополченец.jpeg`,
+    price: SET_PRICE,
     description: "Снаряжение для защиты родных земель.",
     items: [],
   },
   {
     id: "hunter",
     title: "Комплект охотника",
-    rarity: "Редкий",
-    image: `${ASSET}206254753.jpeg`,
-    price: 320,
+    rarity: "Обычный",
+    image: `${ASSET}охотник.jpeg`,
+    price: SET_PRICE,
     description: "Снаряжение для быстрого и точного бойца.",
     items: [],
   },
   {
     id: "rogue",
     title: "Комплект разбойника",
-    rarity: "Редкий",
-    image: `${ASSET}206254753.jpeg`,
-    price: 500,
+    rarity: "Обычный",
+    image: `${ASSET}разбойник.jpeg`,
+    price: SET_PRICE,
     description: "Лёгкое снаряжение для ловкого бойца.",
     items: [],
   },
 ];
+
 
 function ItemImage({ src, alt, className = "" }) {
   const [failed, setFailed] = useState(false);
@@ -386,27 +395,21 @@ async function purchaseItem(item) {
                     </div>
 
                     <button
-                      className={`shop-buy-piece ${owned ? "is-owned" : ""}`}
-                      disabled={busyItem !== null || owned}
-                      onClick={() => purchaseItem(item)}
-                    >
-                      {owned ? (
-                        <>
-                          <Check size={16} /> Куплено
-                        </>
-                      ) : busyItem === item.id ? (
-                        "Покупка..."
-                      ) : (
-                        "🪙 10 золота"
-                      )}
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      )}
+  className={`shop-buy-piece ${owned ? "is-owned" : ""}`}
+  disabled={busyItem !== null || owned}
+  onClick={() => purchaseItem(item)}
+>
+  {owned ? (
+    <>
+      <Check size={16} />
+      Куплено
+    </>
+  ) : busyItem === item.id ? (
+    "Покупка..."
+  ) : (
+    `🪙 ${PIECE_PRICE} золота`
+  )}
+</button>
 
       
       <footer className="shop-footer">
