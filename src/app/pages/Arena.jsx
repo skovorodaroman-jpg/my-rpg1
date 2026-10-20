@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Shield,
   Trophy,
@@ -11,119 +12,335 @@ import {
   Circle,
   RefreshCw,
   ChevronRight,
-  Crown,
+  Zap,
+  Heart,
+  Play,
+  RotateCcw,
 } from "lucide-react";
+import { supabase } from "../lib/supabase";
 import "./Arena.css";
-
-const opponents = [
-  {
-    id: 1,
-    name: "Темний Вершник",
-    level: 28,
-    power: 46973,
-    league: "Ліга Тіней",
-    image:
-      "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=900&auto=format&fit=crop",
-    heroes: [
-      { name: "Аріан", level: 30 },
-      { name: "Луна", level: 29 },
-      { name: "Рей", level: 28 },
-    ],
-  },
-  {
-    id: 2,
-    name: "Вартовий Пітьми",
-    level: 31,
-    power: 52340,
-    league: "Ліга Тіней",
-    image:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=900&auto=format&fit=crop",
-    heroes: [
-      { name: "Луна", level: 31 },
-      { name: "Аріан", level: 30 },
-      { name: "Рей", level: 30 },
-    ],
-  },
-  {
-    id: 3,
-    name: "Світлоносний",
-    level: 27,
-    power: 43820,
-    league: "Ліга Світла",
-    image:
-      "https://images.unsplash.com/photo-1519074069444-1ba4fff66d16?w=900&auto=format&fit=crop",
-    heroes: [
-      { name: "Рей", level: 29 },
-      { name: "Луна", level: 28 },
-      { name: "Аріан", level: 27 },
-    ],
-  },
-];
 
 export default function Arena({
   username = "Рома",
-  playerPower = 64192,
-  playerLevel = 30,
-  rating = 1250,
-  gold = 8338,
-  silver = 2100000,
-  arenaTickets = 5,
+  playerPower = 0,
+  playerLevel = 1,
+  rating = 1000,
+  gold = 0,
+  silver = 0,
+  arenaTickets = 0,
+  energy = 0,
+  maxEnergy = 0,
   onAttack,
   onHome,
   onHeroes,
   onClan,
   onSettings,
 }) {
-  const [opponentIndex, setOpponentIndex] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [opponent, setOpponent] = useState(null);
+  const [loadingOpponent, setLoadingOpponent] = useState(false);
+  const [battleLoading, setBattleLoading] = useState(false);
+  const [runLoading, setRunLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [battleResult, setBattleResult] = useState(null);
+  const [runProgress, setRunProgress] = useState(null);
+  const [currentEnergy, setCurrentEnergy] = useState(energy);
+  const [currentGold, setCurrentGold] = useState(gold);
+  const [currentSilver, setCurrentSilver] = useState(silver);
 
-  const opponent = useMemo(
-    () => opponents[opponentIndex],
-    [opponentIndex]
-  );
+  useEffect(() => {
+    setCurrentEnergy(energy);
+  }, [energy]);
 
-  const changeOpponent = () => {
-    setLoading(true);
+  useEffect(() => {
+    setCurrentGold(gold);
+  }, [gold]);
 
-    setTimeout(() => {
-      setOpponentIndex((current) => (current + 1) % opponents.length);
-      setLoading(false);
-    }, 250);
+  useEffect(() => {
+    setCurrentSilver(silver);
+  }, [silver]);
+
+  const loadOpponent = useCallback(async () => {
+    setLoadingOpponent(true);
+    setMessage("");
+
+    try {
+      const { data, error } = await supabase.rpc("get_arena_opponent");
+
+      if (error) throw error;
+
+      // RPC може повертати JSON-об'єкт або масив з одним рядком.
+      const enemy = Array.isArray(data) ? data[0] : data;
+
+      if (!enemy?.id) {
+        throw new Error("Суперника не знайдено. Спробуй ще раз.");
+      }
+
+      setOpponent(enemy);
+      setBattleResult(null);
+    } catch (error) {
+      setMessage(error.message || "Не вдалося завантажити суперника.");
+    } finally {
+      setLoadingOpponent(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOpponent();
+  }, [loadOpponent]);
+
+  const getOpponentPower = (enemy) => {
+    if (!enemy) return 0;
+
+    return (
+      Number(enemy.power) ||
+      Number(enemy.base_attack || 0) + Number(enemy.base_defense || 0)
+    );
   };
 
-  const attack = () => {
-    if (onAttack) {
-      onAttack({
-        mode: "arena",
-        opponent,
-      });
+  const performSingleBattle = async () => {
+    if (!opponent || battleLoading) return;
+
+    setBattleLoading(true);
+    setMessage("");
+    setBattleResult(null);
+
+    try {
+      const { data: startData, error: startError } = await supabase.rpc(
+        "start_arena_battle",
+        { p_opponent_id: opponent.id }
+      );
+
+      if (startError) throw startError;
+
+      const battleId = startData?.battle_id;
+
+      if (!battleId) {
+        throw new Error("Сервер не повернув ID бою.");
+      }
+
+      const { data: resultData, error: resultError } = await supabase.rpc(
+        "finish_arena_battle",
+        { p_battle_id: battleId }
+      );
+
+      if (resultError) throw resultError;
+
+      setBattleResult(resultData);
+      setCurrentEnergy((previous) => Math.max(0, previous - 1));
+
+      if (resultData?.silver) {
+        setCurrentSilver((previous) => previous + Number(resultData.silver));
+      }
+
+      setMessage(
+        resultData?.result === "win"
+          ? `Перемога! +${Number(resultData.silver || 0).toLocaleString("uk-UA")} срібла`
+          : "Поразка. Спробуй іншого суперника."
+      );
+
+      if (onAttack) {
+        onAttack({
+          mode: "arena",
+          opponent,
+          result: resultData,
+        });
+      }
+
+      // Після бою показуємо наступного супротивника.
+      await loadOpponent();
+    } catch (error) {
+      setMessage(error.message || "Не вдалося провести бій.");
+    } finally {
+      setBattleLoading(false);
     }
   };
+
+  const runAllEnergyBattles = async () => {
+    if (runLoading) return;
+
+    setRunLoading(true);
+    setMessage("");
+    setRunProgress(null);
+
+    try {
+      // Створює серію та списує 1 золото за її запуск.
+      const { data: runData, error: runError } = await supabase.rpc(
+        "use_all_arena_energy"
+      );
+
+      if (runError) throw runError;
+
+      const runId = runData?.run_id;
+      const total = Number(runData?.total_battles || 0);
+
+      if (!runId || total <= 0) {
+        throw new Error("Немає енергії для запуску серії боїв.");
+      }
+
+      setCurrentGold(Number(runData.gold_remaining ?? currentGold - 1));
+
+      let completed = 0;
+      let wins = 0;
+      let losses = 0;
+
+      setRunProgress({
+        total,
+        completed: 0,
+        wins: 0,
+        losses: 0,
+      });
+
+      // Обробляємо серію порціями максимум по 5 боїв.
+      // Обмеження на кількість викликів захищає UI від нескінченного циклу.
+      for (let attempt = 0; attempt < 100 && completed < total; attempt++) {
+        const { data, error } = await supabase.rpc(
+          "process_arena_battle_run",
+          {
+            p_run_id: runId,
+            p_limit: 5,
+          }
+        );
+
+        if (error) throw error;
+
+        const processed = Number(data?.processed_now || 0);
+
+        if (processed <= 0 && data?.status !== "completed") {
+          throw new Error(
+            "Серія зупинилася без прогресу. Перевір енергію та статус боїв."
+          );
+        }
+
+        completed = Number(data?.completed_battles ?? completed + processed);
+
+        // RPC повертає кількість перемог/поразок саме в поточній порції.
+        wins += Number(data?.wins_now || 0);
+        losses += Number(data?.losses_now || 0);
+
+        setRunProgress({
+          total,
+          completed,
+          wins,
+          losses,
+        });
+
+        if (data?.status === "completed") break;
+      }
+
+      setCurrentEnergy(0);
+      setMessage(
+        `Серію завершено: перемог ${wins}, поразок ${losses}.`
+      );
+    } catch (error) {
+      setMessage(error.message || "Не вдалося завершити автоматичну серію.");
+    } finally {
+      setRunLoading(false);
+    }
+  };
+
+  const restoreAndFight = async () => {
+    if (runLoading) return;
+
+    setRunLoading(true);
+    setMessage("");
+
+    try {
+      // Коли пакетний режим відкрито — 5 відновлень,
+      // інакше виконуємо одне.
+      const times = arenaTickets >= 5 ? 5 : 1;
+
+      const { data: restoreData, error: restoreError } = await supabase.rpc(
+        "restore_arena_energy_batch",
+        { p_times: times }
+      );
+
+      if (restoreError) throw restoreError;
+
+      setCurrentEnergy(Number(restoreData?.energy || maxEnergy));
+      setCurrentGold(Number(restoreData?.gold_remaining ?? currentGold));
+
+      setMessage(
+        `Енергію відновлено ${times} раз${times === 1 ? "" : "ів"}. Запускаю бої…`
+      );
+
+      // Після відновлення запускаємо серію.
+      // Вона окремо списує 1 золото за запуск.
+      const { data: runData, error: runError } = await supabase.rpc(
+        "use_all_arena_energy"
+      );
+
+      if (runError) throw runError;
+
+      const runId = runData?.run_id;
+      const total = Number(runData?.total_battles || 0);
+
+      if (!runId || total <= 0) {
+        throw new Error("Енергію відновлено, але серію боїв не створено.");
+      }
+
+      setCurrentGold(Number(runData.gold_remaining ?? currentGold - 1));
+
+      let completed = 0;
+      let wins = 0;
+      let losses = 0;
+
+      setRunProgress({ total, completed: 0, wins: 0, losses: 0 });
+
+      for (let attempt = 0; attempt < 100 && completed < total; attempt++) {
+        const { data, error } = await supabase.rpc(
+          "process_arena_battle_run",
+          { p_run_id: runId, p_limit: 5 }
+        );
+
+        if (error) throw error;
+
+        const processed = Number(data?.processed_now || 0);
+
+        if (processed <= 0 && data?.status !== "completed") {
+          throw new Error("Автоматична серія зупинилася.");
+        }
+
+        completed = Number(data?.completed_battles ?? completed + processed);
+        wins += Number(data?.wins_now || 0);
+        losses += Number(data?.losses_now || 0);
+
+        setRunProgress({ total, completed, wins, losses });
+
+        if (data?.status === "completed") break;
+      }
+
+      setCurrentEnergy(0);
+      setMessage(`Готово! Перемог: ${wins}, поразок: ${losses}.`);
+    } catch (error) {
+      setMessage(error.message || "Не вдалося відновити енергію та провести бої.");
+    } finally {
+      setRunLoading(false);
+    }
+  };
+
+  const opponentName = opponent?.name || "Пошук суперника";
+  const opponentLevel = Number(opponent?.level || 1);
+  const opponentPower = getOpponentPower(opponent);
 
   return (
     <div className="arena-page">
       <main className="arena-container">
-
-        {/* HEADER */}
         <header className="arena-header">
-          <div className="arena-title">
-            Арена
-          </div>
+          <div className="arena-title">Арена</div>
 
           <div className="arena-header-resources">
             <span>
               <Trophy size={13} />
-              {rating.toLocaleString("uk-UA")}
+              {Number(rating).toLocaleString("uk-UA")}
             </span>
 
             <span>
-              <Sword size={13} />
-              {arenaTickets}
+              <Zap size={13} />
+              {currentEnergy}/{maxEnergy}
             </span>
           </div>
         </header>
 
-        {/* LEAGUE */}
         <section className="arena-league">
           <div className="league-left">
             <Shield size={15} />
@@ -132,115 +349,157 @@ export default function Arena({
 
           <div className="league-right">
             <Trophy size={14} />
-            <span>970 місце</span>
+            <span>Рейтинг арени</span>
           </div>
         </section>
 
-        {/* DESCRIPTION */}
         <div className="arena-subtitle">
           Перемагай суперників та отримуй нагороди!
         </div>
 
-        {/* OPPONENT */}
         <section className="opponent-section">
-
           <div className="opponent-header">
             <div className="opponent-name">
               <span className="enemy-dot">●</span>
-              {opponent.name}
+              {opponentName}
             </div>
 
             <div className="opponent-power">
               Міць: <Sword size={13} />
-              {opponent.power.toLocaleString("uk-UA")}
+              {opponentPower.toLocaleString("uk-UA")}
             </div>
           </div>
 
-          {/* IMAGE */}
           <div className="opponent-image-wrapper">
-            <img
-              src={opponent.image}
-              alt={opponent.name}
-              className="opponent-image"
-            />
+            {opponent?.image_url ? (
+              <img
+                src={opponent.image_url}
+                alt={opponentName}
+                className="opponent-image"
+              />
+            ) : (
+              <div className="opponent-image opponent-image-placeholder">
+                <Shield size={54} />
+              </div>
+            )}
 
             <div className="image-overlay">
               <div className="opponent-level">
-                Рівень {opponent.level}
+                Рівень {opponentLevel}
               </div>
             </div>
           </div>
 
-          {/* THREE HEROES */}
+          {/* Один супротивник — без команди з трьох героїв */}
           <div className="arena-team">
-            {opponent.heroes.map((hero, index) => (
-              <div className="arena-hero" key={`${hero.name}-${index}`}>
-                <div className="hero-avatar">
-                  <User size={19} />
-                </div>
-
-                <div className="hero-name">
-                  {hero.name}
-                </div>
-
-                <div className="hero-level">
-                  Ур. {hero.level}
-                </div>
+            <div className="arena-hero">
+              <div className="hero-avatar">
+                <User size={19} />
               </div>
-            ))}
+              <div className="hero-name">{opponentName}</div>
+              <div className="hero-level">Ур. {opponentLevel}</div>
+            </div>
           </div>
 
-          {/* ATTACK */}
           <div className="attack-wrapper">
             <button
               className="attack-button"
-              onClick={attack}
+              onClick={performSingleBattle}
+              disabled={!opponent || battleLoading || currentEnergy <= 0}
             >
               <Sword size={15} />
-              Атакувати
+              {battleLoading ? "Бій..." : "Атакувати"}
             </button>
           </div>
 
-          {/* CHANGE OPPONENT */}
           <button
             className="change-opponent"
-            onClick={changeOpponent}
-            disabled={loading}
+            onClick={loadOpponent}
+            disabled={loadingOpponent || battleLoading || runLoading}
           >
             <RefreshCw
               size={12}
-              className={loading ? "rotate-icon" : ""}
+              className={loadingOpponent ? "rotate-icon" : ""}
             />
-
-            {loading
-              ? "Пошук..."
-              : "Змінити суперника"}
+            {loadingOpponent ? "Пошук..." : "Змінити суперника"}
           </button>
         </section>
 
-        {/* MY POWER */}
+        {battleResult && (
+          <section className="arena-result">
+            <strong>
+              {battleResult.result === "win" ? "Перемога!" : "Поразка"}
+            </strong>
+            <div>
+              Нагорода: {Number(battleResult.silver || 0).toLocaleString("uk-UA")} срібла
+            </div>
+            <div>
+              Досвід: {Number(battleResult.experience || 0).toLocaleString("uk-UA")}
+            </div>
+          </section>
+        )}
+
         <section className="my-power">
           <div className="my-power-title">
             Моя міць:
             <Sword size={14} />
-            {playerPower.toLocaleString("uk-UA")}
+            {Number(playerPower).toLocaleString("uk-UA")}
           </div>
 
           <div className="my-power-hint">
-            • Чим сильніший суперник, тим більша
-            нагорода за перемогу!
+            • Сильніший суперник може принести більшу нагороду.
           </div>
         </section>
 
-        {/* NAVIGATION */}
-        <nav className="arena-navigation">
+        <section className="arena-auto">
+          <h3>Автоматичні бої</h3>
 
+          <button
+            className="attack-button"
+            onClick={runAllEnergyBattles}
+            disabled={runLoading || currentEnergy <= 0}
+          >
+            <Play size={15} />
+            {runLoading ? "Проводжу бої..." : "Використати всю енергію"}
+          </button>
+
+          <button
+            className="change-opponent"
+            onClick={restoreAndFight}
+            disabled={runLoading}
+          >
+            <RotateCcw size={13} />
+            Відновити й провести бої
+          </button>
+
+          {runProgress && (
+            <div className="arena-run-progress">
+              <div>
+                Прогрес: {runProgress.completed}/{runProgress.total}
+              </div>
+              <div>
+                Перемог: {runProgress.wins} · Поразок: {runProgress.losses}
+              </div>
+              <progress
+                value={runProgress.completed}
+                max={runProgress.total || 1}
+              />
+            </div>
+          )}
+
+          {message && (
+            <div className="arena-message" role="status">
+              {message}
+            </div>
+          )}
+        </section>
+
+        <nav className="arena-navigation">
           <button onClick={onHeroes}>
             <span>
               <User size={15} />
-              Мої герої
+              Мій герой
             </span>
-
             <ChevronRight size={14} />
           </button>
 
@@ -249,10 +508,7 @@ export default function Arena({
               <Users size={15} />
               Мій клан
             </span>
-
-            <span className="plus">
-              +
-            </span>
+            <ChevronRight size={14} />
           </button>
 
           <button onClick={onHome}>
@@ -260,86 +516,39 @@ export default function Arena({
               <Home size={15} />
               На головну
             </span>
-
             <ChevronRight size={14} />
           </button>
-
         </nav>
 
-        {/* PROFILE */}
         <section className="arena-profile">
-
           <div className="profile-top">
             <div className="profile-name">
               <User size={14} />
               {username}
             </div>
 
-            <button
-              className="settings-button"
-              onClick={onSettings}
-            >
+            <button className="settings-button" onClick={onSettings}>
               <Settings size={13} />
               Налаштування
             </button>
           </div>
 
           <div className="profile-resources">
-
             <span>
               <Circle size={11} fill="currentColor" />
               {playerLevel}
             </span>
-
             <span>
               <Coins size={12} />
-              {gold.toLocaleString("uk-UA")}
+              {Number(currentGold).toLocaleString("uk-UA")}
             </span>
-
             <span>
-              ⚪
-              {formatNumber(silver)}
+              ⚪ {formatNumber(Number(currentSilver))}
             </span>
-
           </div>
-
         </section>
 
-        {/* PROMOTIONS */}
-        <section className="arena-promotions">
-
-          <div className="promo-title">
-            АКЦІЇ
-          </div>
-
-          <div className="promo-item">
-            <span className="promo-icon">◆</span>
-
-            <span>
-              <strong>Особлива пропозиція</strong>
-              <br />
-              Знижка 50% на кільця!
-              <span className="promo-time">
-                {" "}Залишилось: 12 годин
-              </span>
-            </span>
-          </div>
-
-          <div className="promo-item">
-            <span className="promo-icon">◆</span>
-
-            <span>
-              <strong>Персональна акція</strong>
-              <br />
-              До кінця: 2 дні
-            </span>
-          </div>
-
-        </section>
-
-        {/* FOOTER */}
         <footer className="arena-footer">
-
           <div className="footer-links">
             <button>Чат</button>
             <span>|</span>
@@ -350,16 +559,12 @@ export default function Arena({
             <button>Інше</button>
           </div>
 
-          <div className="online">
-            Онлайн: 2 054
-          </div>
+          <div className="online">Онлайн: —</div>
 
           <div className="copyright">
             © 2026 «Хроніки Згаслого Світанку»
           </div>
-
         </footer>
-
       </main>
     </div>
   );
@@ -376,3 +581,4 @@ function formatNumber(number) {
 
   return number.toLocaleString("uk-UA");
     }
+        
