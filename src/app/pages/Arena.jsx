@@ -1,584 +1,381 @@
 
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  Shield,
-  Trophy,
-  Sword,
-  User,
-  Users,
-  Home,
-  Settings,
-  Coins,
-  Circle,
-  RefreshCw,
-  ChevronRight,
-  Zap,
-  Heart,
-  Play,
-  RotateCcw,
-} from "lucide-react";
 import { supabase } from "../lib/supabase";
+import {
+  Swords,
+  Shield,
+  Heart,
+  Trophy,
+  Zap,
+  ChevronLeft,
+  User,
+  RefreshCw,
+} from "lucide-react";
 import "./Arena.css";
 
-export default function Arena({
-  username = "Рома",
-  playerPower = 0,
-  playerLevel = 1,
-  rating = 1000,
-  gold = 0,
-  silver = 0,
-  arenaTickets = 0,
-  energy = 0,
-  maxEnergy = 0,
-  onAttack,
-  onHome,
-  onHeroes,
-  onClan,
-  onSettings,
-}) {
-  const [opponent, setOpponent] = useState(null);
-  const [loadingOpponent, setLoadingOpponent] = useState(false);
-  const [battleLoading, setBattleLoading] = useState(false);
-  const [runLoading, setRunLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [battleResult, setBattleResult] = useState(null);
-  const [runProgress, setRunProgress] = useState(null);
-  const [currentEnergy, setCurrentEnergy] = useState(energy);
-  const [currentGold, setCurrentGold] = useState(gold);
-  const [currentSilver, setCurrentSilver] = useState(silver);
+const DEMO_ENEMIES = [
+  { id: "enemy-1", name: "Рембу", level: 28, power: 48037, hp: 9800, luck: 55, armor: 1420 },
+  { id: "enemy-2", name: "Figvam", level: 27, power: 46606, hp: 9200, luck: 48, armor: 1300 },
+  { id: "enemy-3", name: "Темний Вершник", level: 32, power: 61200, hp: 14000, luck: 82, armor: 2100 },
+  { id: "enemy-4", name: "Кривавий Страж", level: 35, power: 70300, hp: 16600, luck: 65, armor: 2700 },
+];
 
-  useEffect(() => {
-    setCurrentEnergy(energy);
-  }, [energy]);
+const number = (value) =>
+  Number(value || 0).toLocaleString("uk-UA");
 
-  useEffect(() => {
-    setCurrentGold(gold);
-  }, [gold]);
+function getPower(profile) {
+  // Якщо в профілі вже є power, використовуємо його.
+  // Інакше — умовна потужність за рівнем.
+  return Number(profile?.power || (Number(profile?.level || 1) * 1600 + 10000));
+}
 
-  useEffect(() => {
-    setCurrentSilver(silver);
-  }, [silver]);
+function getStats(profile) {
+  return {
+    power: getPower(profile),
+    hp: Number(profile?.hp || 10000),
+    luck: Number(profile?.luck || 50),
+    armor: Number(profile?.armor || 1000),
+  };
+}
 
-  const loadOpponent = useCallback(async () => {
-    setLoadingOpponent(true);
-    setMessage("");
+export default function Arena() {
+  const [hero, setHero] = useState(null);
+  const [enemies, setEnemies] = useState(DEMO_ENEMIES);
+  const [selectedEnemy, setSelectedEnemy] = useState(null);
+  const [battle, setBattle] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [attacking, setAttacking] = useState(false);
+  const [error, setError] = useState("");
+  const [rank, setRank] = useState(1000);
+  const [battleCount, setBattleCount] = useState(0);
+
+  const loadArena = useCallback(async () => {
+    setLoading(true);
+    setError("");
 
     try {
-      const { data, error } = await supabase.rpc("get_arena_opponent");
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-      if (error) throw error;
+      if (authError) throw authError;
+      if (!user) throw new Error("Спочатку увійди у свій акаунт.");
 
-      // RPC може повертати JSON-об'єкт або масив з одним рядком.
-      const enemy = Array.isArray(data) ? data[0] : data;
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
 
-      if (!enemy?.id) {
-        throw new Error("Суперника не знайдено. Спробуй ще раз.");
+      if (profileError) throw profileError;
+
+      setHero(profile);
+
+      // Підтягуємо інших гравців. Якщо RLS не дозволяє читати
+      // чужі профілі або список порожній — використовуємо демо-ворогів.
+      const { data: players, error: playersError } = await supabase
+        .from("profiles")
+        .select("*")
+        .neq("id", user.id)
+        .order("level", { ascending: false })
+        .limit(8);
+
+      if (!playersError && players?.length) {
+        const mapped = players.map((player, index) => {
+          const stats = getStats(player);
+
+          return {
+            id: player.id,
+            name: player.display_name || player.username || `Гравець ${index + 1}`,
+            level: Number(player.level || 1),
+            power: stats.power,
+            hp: stats.hp,
+            luck: stats.luck,
+            armor: stats.armor,
+            profile: player,
+          };
+        });
+
+        setEnemies(mapped);
+      } else {
+        setEnemies(DEMO_ENEMIES);
       }
-
-      setOpponent(enemy);
-      setBattleResult(null);
-    } catch (error) {
-      setMessage(error.message || "Не вдалося завантажити суперника.");
+    } catch (err) {
+      setError(err.message || "Не вдалося завантажити арену.");
     } finally {
-      setLoadingOpponent(false);
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadOpponent();
-  }, [loadOpponent]);
+    loadArena();
+  }, [loadArena]);
 
-  const getOpponentPower = (enemy) => {
-    if (!enemy) return 0;
+  const attack = async (enemy) => {
+    if (!hero || attacking) return;
 
-    return (
-      Number(enemy.power) ||
-      Number(enemy.base_attack || 0) + Number(enemy.base_defense || 0)
-    );
-  };
+    const energy = Number(hero.energy ?? 0);
 
-  const performSingleBattle = async () => {
-    if (!opponent || battleLoading) return;
-
-    setBattleLoading(true);
-    setMessage("");
-    setBattleResult(null);
-
-    try {
-      const { data: startData, error: startError } = await supabase.rpc(
-        "start_arena_battle",
-        { p_opponent_id: opponent.id }
-      );
-
-      if (startError) throw startError;
-
-      const battleId = startData?.battle_id;
-
-      if (!battleId) {
-        throw new Error("Сервер не повернув ID бою.");
-      }
-
-      const { data: resultData, error: resultError } = await supabase.rpc(
-        "finish_arena_battle",
-        { p_battle_id: battleId }
-      );
-
-      if (resultError) throw resultError;
-
-      setBattleResult(resultData);
-      setCurrentEnergy((previous) => Math.max(0, previous - 1));
-
-      if (resultData?.silver) {
-        setCurrentSilver((previous) => previous + Number(resultData.silver));
-      }
-
-      setMessage(
-        resultData?.result === "win"
-          ? `Перемога! +${Number(resultData.silver || 0).toLocaleString("uk-UA")} срібла`
-          : "Поразка. Спробуй іншого суперника."
-      );
-
-      if (onAttack) {
-        onAttack({
-          mode: "arena",
-          opponent,
-          result: resultData,
-        });
-      }
-
-      // Після бою показуємо наступного супротивника.
-      await loadOpponent();
-    } catch (error) {
-      setMessage(error.message || "Не вдалося провести бій.");
-    } finally {
-      setBattleLoading(false);
-    }
-  };
-
-  const runAllEnergyBattles = async () => {
-    if (runLoading) return;
-
-    setRunLoading(true);
-    setMessage("");
-    setRunProgress(null);
-
-    try {
-      // Створює серію та списує 1 золото за її запуск.
-      const { data: runData, error: runError } = await supabase.rpc(
-        "use_all_arena_energy"
-      );
-
-      if (runError) throw runError;
-
-      const runId = runData?.run_id;
-      const total = Number(runData?.total_battles || 0);
-
-      if (!runId || total <= 0) {
-        throw new Error("Немає енергії для запуску серії боїв.");
-      }
-
-      setCurrentGold(Number(runData.gold_remaining ?? currentGold - 1));
-
-      let completed = 0;
-      let wins = 0;
-      let losses = 0;
-
-      setRunProgress({
-        total,
-        completed: 0,
-        wins: 0,
-        losses: 0,
+    if (energy <= 0) {
+      setBattle({
+        win: false,
+        title: "Немає енергії",
+        message: "Енергія закінчилася. Віднови її, щоб продовжити бої.",
       });
-
-      // Обробляємо серію порціями максимум по 5 боїв.
-      // Обмеження на кількість викликів захищає UI від нескінченного циклу.
-      for (let attempt = 0; attempt < 100 && completed < total; attempt++) {
-        const { data, error } = await supabase.rpc(
-          "process_arena_battle_run",
-          {
-            p_run_id: runId,
-            p_limit: 5,
-          }
-        );
-
-        if (error) throw error;
-
-        const processed = Number(data?.processed_now || 0);
-
-        if (processed <= 0 && data?.status !== "completed") {
-          throw new Error(
-            "Серія зупинилася без прогресу. Перевір енергію та статус боїв."
-          );
-        }
-
-        completed = Number(data?.completed_battles ?? completed + processed);
-
-        // RPC повертає кількість перемог/поразок саме в поточній порції.
-        wins += Number(data?.wins_now || 0);
-        losses += Number(data?.losses_now || 0);
-
-        setRunProgress({
-          total,
-          completed,
-          wins,
-          losses,
-        });
-
-        if (data?.status === "completed") break;
-      }
-
-      setCurrentEnergy(0);
-      setMessage(
-        `Серію завершено: перемог ${wins}, поразок ${losses}.`
-      );
-    } catch (error) {
-      setMessage(error.message || "Не вдалося завершити автоматичну серію.");
-    } finally {
-      setRunLoading(false);
+      return;
     }
-  };
 
-  const restoreAndFight = async () => {
-    if (runLoading) return;
-
-    setRunLoading(true);
-    setMessage("");
+    setAttacking(true);
+    setSelectedEnemy(enemy);
+    setBattle(null);
+    setError("");
 
     try {
-      // Коли пакетний режим відкрито — 5 відновлень,
-      // інакше виконуємо одне.
-      const times = arenaTickets >= 5 ? 5 : 1;
+      const my = getStats(hero);
+      const foe = getStats(enemy);
 
-      const { data: restoreData, error: restoreError } = await supabase.rpc(
-        "restore_arena_energy_batch",
-        { p_times: times }
-      );
+      // Бойовий рейтинг. Удача додає випадковий бонус.
+      const myScore =
+        my.power +
+        my.armor * 2 +
+        my.luck * 35 +
+        Math.random() * my.power * 0.12;
 
-      if (restoreError) throw restoreError;
+      const foeScore =
+        foe.power +
+        foe.armor * 2 +
+        foe.luck * 35 +
+        Math.random() * foe.power * 0.12;
 
-      setCurrentEnergy(Number(restoreData?.energy || maxEnergy));
-      setCurrentGold(Number(restoreData?.gold_remaining ?? currentGold));
+      const win = myScore >= foeScore;
+      const goldReward = win ? Math.round(500 + foe.power * 0.012) : 0;
+      const expReward = win ? Math.round(foe.power * 0.004) : 25;
 
-      setMessage(
-        `Енергію відновлено ${times} раз${times === 1 ? "" : "ів"}. Запускаю бої…`
-      );
+      const newEnergy = Math.max(0, energy - 1);
+      const newGold = Number(hero.gold || 0) + goldReward;
+      const newExperience = Number(hero.experience || 0) + expReward;
 
-      // Після відновлення запускаємо серію.
-      // Вона окремо списує 1 золото за запуск.
-      const { data: runData, error: runError } = await supabase.rpc(
-        "use_all_arena_energy"
-      );
+      // Зберігаємо ресурси в існуючому профілі.
+      const { data: updatedProfile, error: updateError } = await supabase
+        .from("profiles")
+        .update({
+          energy: newEnergy,
+          gold: newGold,
+          experience: newExperience,
+        })
+        .eq("id", hero.id)
+        .select("*")
+        .single();
 
-      if (runError) throw runError;
+      if (updateError) throw updateError;
 
-      const runId = runData?.run_id;
-      const total = Number(runData?.total_battles || 0);
+      setHero(updatedProfile);
+      setBattleCount((count) => count + 1);
 
-      if (!runId || total <= 0) {
-        throw new Error("Енергію відновлено, але серію боїв не створено.");
-      }
+      // Рейтинг тут поки локальний: для справжньої таблиці ліги
+      // потрібна серверна логіка та відповідне поле/таблиця.
+      if (win) setRank((current) => Math.max(1, current - 1));
 
-      setCurrentGold(Number(runData.gold_remaining ?? currentGold - 1));
-
-      let completed = 0;
-      let wins = 0;
-      let losses = 0;
-
-      setRunProgress({ total, completed: 0, wins: 0, losses: 0 });
-
-      for (let attempt = 0; attempt < 100 && completed < total; attempt++) {
-        const { data, error } = await supabase.rpc(
-          "process_arena_battle_run",
-          { p_run_id: runId, p_limit: 5 }
-        );
-
-        if (error) throw error;
-
-        const processed = Number(data?.processed_now || 0);
-
-        if (processed <= 0 && data?.status !== "completed") {
-          throw new Error("Автоматична серія зупинилася.");
-        }
-
-        completed = Number(data?.completed_battles ?? completed + processed);
-        wins += Number(data?.wins_now || 0);
-        losses += Number(data?.losses_now || 0);
-
-        setRunProgress({ total, completed, wins, losses });
-
-        if (data?.status === "completed") break;
-      }
-
-      setCurrentEnergy(0);
-      setMessage(`Готово! Перемог: ${wins}, поразок: ${losses}.`);
-    } catch (error) {
-      setMessage(error.message || "Не вдалося відновити енергію та провести бої.");
+      setBattle({
+        win,
+        title: win ? "Перемога!" : "Поразка",
+        message: win
+          ? `Ти переміг ${enemy.name}!`
+          : `${enemy.name} виявився сильнішим цього разу.`,
+        goldReward,
+        expReward,
+        myScore: Math.round(myScore),
+        foeScore: Math.round(foeScore),
+      });
+    } catch (err) {
+      setError(err.message || "Не вдалося зберегти результат бою.");
     } finally {
-      setRunLoading(false);
+      setAttacking(false);
     }
   };
 
-  const opponentName = opponent?.name || "Пошук суперника";
-  const opponentLevel = Number(opponent?.level || 1);
-  const opponentPower = getOpponentPower(opponent);
+  if (loading) {
+    return (
+      <div className="arena-loading">
+        <RefreshCw className="arena-spin" />
+        <p>Завантаження арени...</p>
+      </div>
+    );
+  }
+
+  const heroStats = getStats(hero);
 
   return (
     <div className="arena-page">
-      <main className="arena-container">
-        <header className="arena-header">
-          <div className="arena-title">Арена</div>
-
-          <div className="arena-header-resources">
-            <span>
-              <Trophy size={13} />
-              {Number(rating).toLocaleString("uk-UA")}
-            </span>
-
-            <span>
-              <Zap size={13} />
-              {currentEnergy}/{maxEnergy}
-            </span>
+      <div className="arena-top">
+        <div className="arena-brand">
+          <Swords size={24} />
+          <div>
+            <strong>АРЕНА</strong>
+            <small>ЛІГА ВОЇНІВ</small>
           </div>
-        </header>
-
-        <section className="arena-league">
-          <div className="league-left">
-            <Shield size={15} />
-            <span>Ліга Світла</span>
-          </div>
-
-          <div className="league-right">
-            <Trophy size={14} />
-            <span>Рейтинг арени</span>
-          </div>
-        </section>
-
-        <div className="arena-subtitle">
-          Перемагай суперників та отримуй нагороди!
         </div>
 
-        <section className="opponent-section">
-          <div className="opponent-header">
-            <div className="opponent-name">
-              <span className="enemy-dot">●</span>
-              {opponentName}
+        <div className="arena-currency">
+          <span><Zap size={14} /> {hero?.energy ?? 0}</span>
+          <span>◉ {number(hero?.gold)}</span>
+        </div>
+      </div>
+
+      <div className="arena-league">
+        <span><Shield size={15} /> Ліга обраних</span>
+        <strong><Trophy size={15} /> {rank} місце</strong>
+      </div>
+
+      {!selectedEnemy && (
+        <>
+          <section className="arena-hero-card">
+            <div className="arena-overline">ТВІЙ ЧЕМПІОН</div>
+            <div className="arena-hero-avatar"><User size={42} /></div>
+
+            <h2>{hero?.display_name || hero?.username || "Мій герой"}</h2>
+            <div className="arena-level">РІВЕНЬ {hero?.level || 1}</div>
+
+            <div className="arena-power">
+              <Swords size={17} />
+              МОЩЬ <b>{number(heroStats.power)}</b>
             </div>
 
-            <div className="opponent-power">
-              Міць: <Sword size={13} />
-              {opponentPower.toLocaleString("uk-UA")}
+            <div className="arena-stats">
+              <Stat icon={<Heart />} label="Життя" value={heroStats.hp} />
+              <Stat icon={<Zap />} label="Удача" value={heroStats.luck} />
+              <Stat icon={<Shield />} label="Броня" value={heroStats.armor} />
             </div>
-          </div>
 
-          <div className="opponent-image-wrapper">
-            {opponent?.image_url ? (
-              <img
-                src={opponent.image_url}
-                alt={opponentName}
-                className="opponent-image"
-              />
-            ) : (
-              <div className="opponent-image opponent-image-placeholder">
-                <Shield size={54} />
-              </div>
-            )}
-
-            <div className="image-overlay">
-              <div className="opponent-level">
-                Рівень {opponentLevel}
-              </div>
-            </div>
-          </div>
-
-          {/* Один супротивник — без команди з трьох героїв */}
-          <div className="arena-team">
-            <div className="arena-hero">
-              <div className="hero-avatar">
-                <User size={19} />
-              </div>
-              <div className="hero-name">{opponentName}</div>
-              <div className="hero-level">Ур. {opponentLevel}</div>
-            </div>
-          </div>
-
-          <div className="attack-wrapper">
             <button
-              className="attack-button"
-              onClick={performSingleBattle}
-              disabled={!opponent || battleLoading || currentEnergy <= 0}
+              className="arena-primary"
+              onClick={() => setSelectedEnemy(enemies[0] || null)}
             >
-              <Sword size={15} />
-              {battleLoading ? "Бій..." : "Атакувати"}
+              ОБРАТИ СУПРОТИВНИКА <span>›</span>
             </button>
-          </div>
-
-          <button
-            className="change-opponent"
-            onClick={loadOpponent}
-            disabled={loadingOpponent || battleLoading || runLoading}
-          >
-            <RefreshCw
-              size={12}
-              className={loadingOpponent ? "rotate-icon" : ""}
-            />
-            {loadingOpponent ? "Пошук..." : "Змінити суперника"}
-          </button>
-        </section>
-
-        {battleResult && (
-          <section className="arena-result">
-            <strong>
-              {battleResult.result === "win" ? "Перемога!" : "Поразка"}
-            </strong>
-            <div>
-              Нагорода: {Number(battleResult.silver || 0).toLocaleString("uk-UA")} срібла
-            </div>
-            <div>
-              Досвід: {Number(battleResult.experience || 0).toLocaleString("uk-UA")}
-            </div>
           </section>
-        )}
 
-        <section className="my-power">
-          <div className="my-power-title">
-            Моя міць:
-            <Sword size={14} />
-            {Number(playerPower).toLocaleString("uk-UA")}
+          <div className="arena-summary">
+            <div><small>ЗОЛОТО</small><b>◉ {number(hero?.gold)}</b></div>
+            <div><small>ДОСВІД</small><b>✧ {number(hero?.experience)}</b></div>
+            <div><small>БОЇ</small><b>{battleCount}</b></div>
           </div>
+        </>
+      )}
 
-          <div className="my-power-hint">
-            • Сильніший суперник може принести більшу нагороду.
-          </div>
-        </section>
-
-        <section className="arena-auto">
-          <h3>Автоматичні бої</h3>
-
-          <button
-            className="attack-button"
-            onClick={runAllEnergyBattles}
-            disabled={runLoading || currentEnergy <= 0}
-          >
-            <Play size={15} />
-            {runLoading ? "Проводжу бої..." : "Використати всю енергію"}
+      {selectedEnemy && (
+        <section className="arena-fight-view">
+          <button className="arena-back" onClick={() => {
+            setSelectedEnemy(null);
+            setBattle(null);
+          }}>
+            <ChevronLeft size={18} /> До списку ворогів
           </button>
 
-          <button
-            className="change-opponent"
-            onClick={restoreAndFight}
-            disabled={runLoading}
-          >
-            <RotateCcw size={13} />
-            Відновити й провести бої
-          </button>
+          <div className="arena-versus">
+            <div className="arena-fighter">
+              <div className="arena-figure"><User size={35} /></div>
+              <b>{hero?.display_name || hero?.username || "Герой"}</b>
+              <small>Мощь {number(heroStats.power)}</small>
+            </div>
+            <div className="arena-vs">VS</div>
+            <div className="arena-fighter">
+              <div className="arena-figure enemy-figure"><Shield size={35} /></div>
+              <b>{selectedEnemy.name}</b>
+              <small>Мощь {number(selectedEnemy.power)}</small>
+            </div>
+          </div>
 
-          {runProgress && (
-            <div className="arena-run-progress">
-              <div>
-                Прогрес: {runProgress.completed}/{runProgress.total}
-              </div>
-              <div>
-                Перемог: {runProgress.wins} · Поразок: {runProgress.losses}
-              </div>
-              <progress
-                value={runProgress.completed}
-                max={runProgress.total || 1}
-              />
+          {battle && (
+            <div className={`arena-result ${battle.win ? "is-win" : "is-loss"}`}>
+              <h2>{battle.title}</h2>
+              <p>{battle.message}</p>
+              {battle.goldReward > 0 && (
+                <div className="arena-reward">
+                  +{number(battle.goldReward)} золота · +{number(battle.expReward)} досвіду
+                </div>
+              )}
+              {battle.myScore && (
+                <small>
+                  Твій бойовий рейтинг: {number(battle.myScore)}<br />
+                  Рейтинг ворога: {number(battle.foeScore)}
+                </small>
+              )}
             </div>
           )}
 
-          {message && (
-            <div className="arena-message" role="status">
-              {message}
-            </div>
-          )}
-        </section>
-
-        <nav className="arena-navigation">
-          <button onClick={onHeroes}>
-            <span>
-              <User size={15} />
-              Мій герой
-            </span>
-            <ChevronRight size={14} />
+          <button
+            className="arena-primary arena-attack"
+            disabled={attacking || Number(hero?.energy ?? 0) <= 0}
+            onClick={() => attack(selectedEnemy)}
+          >
+            {attacking ? "БІЙ..." : "⚔ АТАКУВАТИ"}
           </button>
 
-          <button onClick={onClan}>
-            <span>
-              <Users size={15} />
-              Мій клан
-            </span>
-            <ChevronRight size={14} />
-          </button>
-
-          <button onClick={onHome}>
-            <span>
-              <Home size={15} />
-              На головну
-            </span>
-            <ChevronRight size={14} />
-          </button>
-        </nav>
-
-        <section className="arena-profile">
-          <div className="profile-top">
-            <div className="profile-name">
-              <User size={14} />
-              {username}
-            </div>
-
-            <button className="settings-button" onClick={onSettings}>
-              <Settings size={13} />
-              Налаштування
-            </button>
-          </div>
-
-          <div className="profile-resources">
-            <span>
-              <Circle size={11} fill="currentColor" />
-              {playerLevel}
-            </span>
-            <span>
-              <Coins size={12} />
-              {Number(currentGold).toLocaleString("uk-UA")}
-            </span>
-            <span>
-              ⚪ {formatNumber(Number(currentSilver))}
-            </span>
+          <div className="arena-energy-note">
+            <Zap size={14} /> Кожна атака витрачає 1 енергію.
           </div>
         </section>
+      )}
 
-        <footer className="arena-footer">
-          <div className="footer-links">
-            <button>Чат</button>
-            <span>|</span>
-            <button>Рейтинг</button>
-            <span>|</span>
-            <button>Коментарі</button>
-            <span>|</span>
-            <button>Інше</button>
+      {!selectedEnemy && (
+        <section className="arena-enemies">
+          <div className="arena-section-title">
+            <h3>СУПРОТИВНИКИ</h3>
+            <span>{enemies.length} воїнів</span>
           </div>
 
-          <div className="online">Онлайн: —</div>
+          {enemies.map((enemy) => (
+            <EnemyCard
+              key={enemy.id}
+              enemy={enemy}
+              onAttack={() => {
+                setSelectedEnemy(enemy);
+                setBattle(null);
+              }}
+            />
+          ))}
+        </section>
+      )}
 
-          <div className="copyright">
-            © 2026 «Хроніки Згаслого Світанку»
-          </div>
-        </footer>
-      </main>
+      {error && <div className="arena-error">{error}</div>}
+
+      <div className="arena-bottom-note">
+        Чим сильніший супротивник, тим більше нагорода за перемогу.
+      </div>
     </div>
   );
 }
 
-function formatNumber(number) {
-  if (number >= 1000000) {
-    return `${(number / 1000000).toFixed(1)}M`;
-  }
+function Stat({ icon, label, value }) {
+  return (
+    <div className="arena-stat">
+      <span>{icon}</span>
+      <small>{label}</small>
+      <b>{number(value)}</b>
+    </div>
+  );
+}
 
-  if (number >= 1000) {
-    return `${Math.floor(number / 1000)}k`;
-  }
+function EnemyCard({ enemy, onAttack }) {
+  return (
+    <article className="arena-enemy-card">
+      <div className="arena-enemy-avatar"><Shield size={25} /></div>
 
-  return number.toLocaleString("uk-UA");
-    }
-        
+      <div className="arena-enemy-info">
+        <b>{enemy.name}</b>
+        <small>Рівень {enemy.level} · ⚔ {number(enemy.power)}</small>
+        <div className="arena-enemy-stats">
+          <span><Heart size={12} /> {number(enemy.hp)}</span>
+          <span><Zap size={12} /> {enemy.luck}</span>
+          <span><Shield size={12} /> {number(enemy.armor)}</span>
+        </div>
+      </div>
+
+      <button className="arena-small-attack" onClick={onAttack}>
+        Атакувати
+      </button>
+    </article>
+  );
+}
