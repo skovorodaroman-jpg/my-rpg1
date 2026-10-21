@@ -1,56 +1,567 @@
 
-.arena-image-placeholder {
+.arena-page {
+  width: 100%;
+  max-width: 520px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding-bottom: 24px;
+  color: #ead4b3;
+  background: #15100d;
+  font-family: Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+.arena-page * {
+  box-sizing: border-box;
+}
+
+.arena-page button {
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.arena-page button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* Верхня панель */
+
+.arena-top {
+  min-height: 62px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: #211812;
-  color: #c7a77b;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 15px;
+  background: #1e1712;
+  border-bottom: 1px solid #62462a;
 }
 
-.arena-result,
-.arena-auto {
-  margin-top: 14px;
-  padding: 14px;
-  border: 1px solid rgba(212, 179, 130, 0.25);
-  border-radius: 12px;
-  background: rgba(29, 23, 20, 0.92);
-  color: #e8d5bd;
+.arena-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #d9a45d;
 }
 
-.arena-auto h3 {
-  margin: 0 0 12px;
-  color: #d4b382;
-}
-
-.arena-auto .attack-button,
-.arena-auto .change-opponent {
-  width: 100%;
-  margin-top: 8px;
-}
-
-.arena-run-progress {
-  margin-top: 12px;
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.arena-run-progress progress {
+.arena-brand strong {
   display: block;
-  width: 100%;
-  height: 10px;
-  margin-top: 6px;
-  accent-color: #d4b382;
+  font-size: 15px;
+  letter-spacing: 2px;
 }
 
-.arena-message {
-  margin-top: 10px;
-  color: #f0c987;
+.arena-brand small {
+  display: block;
+  margin-top: 3px;
+  color: #99816a;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+}
+
+.arena-currency {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #d8b77f;
+}
+
+.arena-currency span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* Ліга та герой */
+
+.arena-league {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: #2a2119;
+  border-bottom: 1px solid #4d3927;
+  color: #e8ad59;
+  font-size: 13px;
+}
+
+.arena-league span,
+.arena-league strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.arena-league strong {
+  white-space: nowrap;
+}
+
+.arena-hero-card {
+  margin: 14px;
+  padding: 20px 14px 16px;
+  text-align: center;
+  border: 1px solid #654a30;
+  border-radius: 5px;
+  background:
+    radial-gradient(ellipse at 50% 0%, #45301f 0%, #261a12 48%, #1b130e 100%);
+  box-shadow: inset 0 0 22px #100a07;
+}
+
+.arena-overline {
+  color: #a88a65;
+  font-size: 10px;
+  letter-spacing: 3px;
+}
+
+.arena-hero-avatar {
+  width: 82px;
+  height: 82px;
+  margin: 13px auto 8px;
+  display: grid;
+  place-items: center;
+  color: #e7bc76;
+  border: 2px solid #936a3c;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #493421, #17100b);
+  box-shadow: 0 0 18px #a16d3533;
+}
+
+.arena-hero-card h2 {
+  margin: 7px 0;
+  color: #f1d5a9;
+  font-size: 21px;
+}
+
+.arena-level {
+  color: #b89159;
+  font-size: 10px;
+  letter-spacing: 2px;
+}
+
+.arena-power {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  margin: 15px 0;
+  color: #dca65d;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.arena-power b {
+  color: #f2d5a3;
+  font-size: 22px;
+  letter-spacing: 0;
+}
+
+/* Характеристики */
+
+.arena-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin: 14px 0;
+}
+
+.arena-stat {
+  min-width: 0;
+  padding: 10px 3px;
+  border: 1px solid #493522;
+  border-radius: 4px;
+  background: #1a120d;
+}
+
+.arena-stat > span {
+  display: flex;
+  justify-content: center;
+  color: #d9a25a;
+}
+
+.arena-stat svg {
+  width: 17px;
+  height: 17px;
+}
+
+.arena-stat small {
+  display: block;
+  margin: 5px 0;
+  color: #a58c70;
+  font-size: 11px;
+}
+
+.arena-stat b {
+  display: block;
+  color: #e9d1ad;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+/* Кнопки */
+
+.arena-primary,
+.arena-small-attack {
+  color: #ffe0ad;
+  border: 1px solid #a47a43;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #986b3c, #50341d);
+  box-shadow: inset 0 1px #c59a62;
+  font-weight: bold;
+}
+
+.arena-primary {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 13px;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+}
+
+.arena-primary:active,
+.arena-small-attack:active {
+  transform: translateY(1px);
+  filter: brightness(1.15);
+}
+
+.arena-primary span {
+  float: right;
+  font-size: 20px;
+  line-height: 12px;
+}
+
+/* Ресурси */
+
+.arena-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 14px;
+  padding: 12px 4px;
+  border: 1px solid #44311f;
+  background: #1d140e;
+}
+
+.arena-summary > div {
+  text-align: center;
+}
+
+.arena-summary small {
+  display: block;
+  margin-bottom: 5px;
+  color: #9f8566;
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+.arena-summary b {
+  color: #e5bd7f;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* Список супротивників */
+
+.arena-enemies {
+  padding: 0 10px;
+}
+
+.arena-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 4px 9px;
+}
+
+.arena-section-title h3 {
+  margin: 0;
+  color: #c99b5c;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+}
+
+.arena-section-title span {
+  color: #90775c;
+  font-size: 11px;
+}
+
+.arena-enemy-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  margin-bottom: 8px;
+  padding: 11px 9px;
+  border: 1px solid #493522;
+  border-radius: 4px;
+  background: linear-gradient(110deg, #2b2017, #19110c);
+}
+
+.arena-enemy-avatar {
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  color: #c69a5c;
+  border: 1px solid #65492d;
+  border-radius: 4px;
+  background: #17100b;
+}
+
+.arena-enemy-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.arena-enemy-info > b {
+  display: block;
+  margin-bottom: 5px;
+  color: #e6c18b;
   font-size: 13px;
   overflow-wrap: anywhere;
 }
 
-.arena-auto button:disabled,
-.attack-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+.arena-enemy-info > small {
+  display: block;
+  color: #a58a6a;
+  font-size: 10px;
 }
+
+.arena-enemy-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  color: #b9a084;
+  font-size: 10px;
+}
+
+.arena-enemy-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.arena-small-attack {
+  flex: 0 0 auto;
+  padding: 9px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Екран бою */
+
+.arena-fight-view {
+  padding: 12px 14px;
+}
+
+.arena-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-bottom: 14px;
+  padding: 7px 0;
+  color: #d8a35d;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+}
+
+.arena-versus {
+  display: grid;
+  grid-template-columns: 1fr 35px 1fr;
+  align-items: center;
+  gap: 5px;
+  padding: 17px 8px;
+  border: 1px solid #4c3623;
+  border-radius: 5px;
+  background: radial-gradient(ellipse at center, #342317, #1c130e);
+}
+
+.arena-fighter {
+  min-width: 0;
+  text-align: center;
+}
+
+.arena-figure {
+  width: 65px;
+  height: 65px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 9px;
+  color: #dfb06b;
+  border: 1px solid #78562f;
+  border-radius: 50%;
+  background: #20150e;
+}
+
+.enemy-figure {
+  color: #bc7962;
+  border-color: #754332;
+}
+
+.arena-fighter b {
+  display: block;
+  color: #e8c594;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.arena-fighter small {
+  display: block;
+  margin-top: 6px;
+  color: #a38a6d;
+  font-size: 10px;
+}
+
+.arena-vs {
+  color: #b47b42;
+  text-align: center;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.arena-attack {
+  margin-top: 13px;
+  min-height: 48px;
+  font-size: 14px;
+}
+
+.arena-energy-note {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  color: #9d8262;
+  font-size: 11px;
+}
+
+/* Результат */
+
+.arena-result {
+  margin: 13px 0;
+  padding: 14px 10px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.arena-result h2 {
+  margin: 0 0 7px;
+  font-size: 18px;
+}
+
+.arena-result p {
+  margin: 5px 0;
+  font-size: 13px;
+}
+
+.arena-result small {
+  display: block;
+  margin-top: 9px;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.arena-reward {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.arena-result.is-win {
+  color: #d1e4a1;
+  border: 1px solid #627a3e;
+  background: #25301d;
+}
+
+.arena-result.is-loss {
+  color: #e6a18a;
+  border: 1px solid #824535;
+  background: #351b16;
+}
+
+/* Повідомлення та завантаження */
+
+.arena-bottom-note {
+  margin: 15px 14px 0;
+  padding: 10px;
+  border-left: 2px solid #9b692e;
+  background: #21170f;
+  color: #b77b38;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.arena-error {
+  margin: 12px 14px;
+  padding: 11px;
+  border: 1px solid #824535;
+  border-radius: 4px;
+  background: #351b16;
+  color: #e6a18a;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.arena-loading {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #cba16a;
+  background: #15100d;
+}
+
+.arena-loading p {
+  font-size: 13px;
+}
+
+.arena-spin {
+  animation: arena-spin 1s linear infinite;
+}
+
+@keyframes arena-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Дуже вузькі телефони */
+
+@media (max-width: 360px) {
+  .arena-top {
+    padding: 9px;
+  }
+
+  .arena-currency {
+    gap: 6px;
+    font-size: 10px;
+  }
+
+  .arena-enemy-card {
+    gap: 6px;
+    padding: 8px 6px;
+  }
+
+  .arena-enemy-avatar {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .arena-small-attack {
+    padding: 8px 6px;
+    font-size: 10px;
+  }
+
+  .arena-enemy-stats {
+    gap: 5px;
+  }
+  }
+  
