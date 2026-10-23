@@ -1,0 +1,198 @@
+
+.league-page {
+  max-width: 480px;
+  margin: auto;
+  padding: 12px;
+  color: #e8d2af;
+  background: #15100c;
+  font-family: Arial, sans-serif;
+}
+
+.league-header {
+  padding: 8px 0 16px;
+  border-bottom: 1px solid #503a26;
+}
+
+.league-back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0;
+  color: #d9a45d;
+  border: 0;
+  background: transparent;
+}
+
+.league-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 5px;
+  color: #e9b56b;
+  font-size: 22px;
+}
+
+.league-header p {
+  color: #a28a6d;
+  font-size: 12px;
+}
+
+.league-position {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  margin: 14px 0;
+  padding: 20px;
+  border: 1px solid #654a30;
+  background: radial-gradient(#3b2b1d, #21160f);
+}
+
+.league-position small {
+  color: #a78b68;
+  letter-spacing: 2px;
+}
+
+.league-position strong {
+  color: #f0c783;
+  font-size: 35px;
+}
+
+.league-position span {
+  color: #c4a27b;
+  font-size: 13px;
+}
+
+.league-rules,
+.league-daily-reward,
+.league-monthly {
+  margin: 12px 0;
+  padding: 13px;
+  border: 1px solid #493522;
+  background: #21170f;
+}
+
+.league-page h2 {
+  margin-top: 0;
+  color: #d9a45d;
+  font-size: 14px;
+}
+
+.league-rules p,
+.league-monthly p {
+  color: #b9a084;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.league-rules b {
+  color: #e5bd82;
+}
+
+.league-daily-reward {
+  line-height: 1.8;
+}
+
+.league-daily-reward small {
+  display: block;
+  margin-top: 5px;
+  color: #9c8467;
+  font-size: 11px;
+}
+
+.league-daily-reward button {
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px;
+  color: #ffe0ad;
+  border: 1px solid #a47a43;
+  background: linear-gradient(#986b3c, #50341d);
+}
+
+.league-daily-reward button:disabled {
+  opacity: 0.5;
+}
+
+.league-player-list {
+  margin-top: 18px;
+}
+
+.league-player-list > h2 {
+  padding: 0 4px;
+}
+
+.league-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 7px 0;
+  padding: 10px 8px;
+  border: 1px solid #493522;
+  background: #251a12;
+}
+
+.league-player-rank {
+  min-width: 36px;
+  color: #d7a15b;
+  font-size: 12px;
+}
+
+.league-player-avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #c89a5c;
+  background: #17100b;
+  border: 1px solid #60452c;
+}
+
+.league-player-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.league-player-info b {
+  display: block;
+  color: #e5c18d;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.league-player-info small {
+  display: block;
+  margin-top: 5px;
+  color: #a38a6c;
+  font-size: 10px;
+}
+
+.league-player button {
+  display: grid;
+  place-items: center;
+  width: 35px;
+  height: 35px;
+  color: #f0c17b;
+  border: 1px solid #79542f;
+  background: #392619;
+}
+
+.league-player button:disabled {
+  opacity: 0.35;
+}
+
+.league-empty {
+  color: #998269;
+  font-size: 12px;
+}
+
+@media (max-width: 360px) {
+  .league-player {
+    gap: 5px;
+    padding: 8px 5px;
+  }
+
+  .league-player-rank {
+    min-width: 30px;
+    font-size: 10px;
+  }
+  }
