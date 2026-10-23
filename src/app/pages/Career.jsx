@@ -13,49 +13,52 @@ import {
   Shield,
   AlertCircle,
   CheckCircle2,
+  Gift,
+  LockKeyhole,
 } from "lucide-react";
 
-const COLORS = {
+const C = {
   bg: "#120E0B",
   panel: "#1D1714",
   panel2: "#211811",
   border: "#493729",
   gold: "#E8A23B",
+  goldLight: "#F0C37C",
   text: "#F0DFCA",
   muted: "#A99A89",
   green: "#8BCB8B",
   red: "#E78C78",
 };
 
-function formatRemaining(value) {
+function formatRemaining(value, now = Date.now()) {
   if (!value) return "";
-  const ms = new Date(value).getTime() - Date.now();
+  const ms = new Date(value).getTime() - now;
   if (ms <= 0) return "Доступно зараз";
 
-  const hours = Math.floor(ms / 3600000);
-  const minutes = Math.floor((ms % 3600000) / 60000);
-  const seconds = Math.floor((ms % 60000) / 1000);
+  const total = Math.ceil(ms / 1000);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
 
   return `${hours}г ${minutes}хв ${seconds}с`;
 }
 
 function Panel({ children, style = {} }) {
   return (
-    <section
-      style={{
-        background: COLORS.panel,
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: 14,
-        padding: 14,
-        ...style,
-      }}
-    >
+    <section style={{
+      background: C.panel,
+      border: `1px solid ${C.border}`,
+      borderRadius: 14,
+      padding: 14,
+      minWidth: 0,
+      ...style,
+    }}>
       {children}
     </section>
   );
 }
 
-function ActionButton({
+function Button({
   children,
   onClick,
   disabled = false,
@@ -68,23 +71,39 @@ function ActionButton({
       disabled={disabled}
       style={{
         width: "100%",
-        minHeight: 44,
+        minHeight: 45,
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
         gap: 8,
-        padding: "10px 12px",
+        padding: "11px 12px",
         borderRadius: 10,
-        border: `1px solid ${secondary ? COLORS.border : "#9C6B2F"}`,
-        background: secondary ? "#211811" : "#6E451F",
-        color: disabled ? "#766858" : COLORS.text,
+        border: `1px solid ${
+          secondary ? C.border : "#A87331"
+        }`,
+        background: disabled
+          ? "#29231D"
+          : secondary
+            ? "linear-gradient(135deg, #30241A, #211811)"
+            : "linear-gradient(135deg, #B97827, #75451C)",
+        color: disabled ? "#817364" : C.text,
+        fontSize: 13,
         fontWeight: 800,
         cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.65 : 1,
+        opacity: disabled ? 0.7 : 1,
       }}
     >
       {children}
     </button>
+  );
+}
+
+function SectionTitle({ icon: Icon, children }) {
+  return (
+    <div style={S.sectionTitle}>
+      <Icon size={19} color={C.gold} />
+      <h2 style={S.sectionHeading}>{children}</h2>
+    </div>
   );
 }
 
@@ -103,6 +122,7 @@ export default function Career() {
 
     setCareer(data?.career ?? null);
     setProfile(data?.profile ?? null);
+    return data;
   }, []);
 
   useEffect(() => {
@@ -110,7 +130,6 @@ export default function Career() {
 
     async function init() {
       try {
-        setLoading(true);
         const { data, error } = await supabase.rpc("career_get_state");
         if (error) throw error;
 
@@ -133,6 +152,7 @@ export default function Career() {
     init();
 
     const timer = setInterval(() => setNow(Date.now()), 1000);
+
     return () => {
       alive = false;
       clearInterval(timer);
@@ -140,24 +160,36 @@ export default function Career() {
   }, []);
 
   async function perform(action, successText) {
+    if (busy) return;
+
     try {
       setBusy(true);
       setMessage(null);
 
-      const { data, error } = await supabase.rpc(action.name, action.args || {});
+      const { data, error } = await supabase.rpc(
+        action.name,
+        action.args || {}
+      );
+
       if (error) throw error;
 
       await loadCareer();
 
       setMessage({
         type: "success",
-        text: typeof successText === "function" ? successText(data) : successText,
+        text:
+          typeof successText === "function"
+            ? successText(data)
+            : successText,
       });
+
+      return data;
     } catch (error) {
       setMessage({
         type: "error",
         text: error.message || "Сталася помилка.",
       });
+      return null;
     } finally {
       setBusy(false);
     }
@@ -165,8 +197,8 @@ export default function Career() {
 
   if (loading) {
     return (
-      <div style={styles.center}>
-        <RefreshCw size={26} color={COLORS.gold} />
+      <div style={S.center}>
+        <RefreshCw size={26} color={C.gold} />
         <p>Завантажуємо кар’єру…</p>
       </div>
     );
@@ -174,43 +206,73 @@ export default function Career() {
 
   if (!career) {
     return (
-      <div style={styles.page}>
-        <Panel>Не вдалося отримати дані кар’єри. Онови сторінку.</Panel>
-      </div>
+      <main style={S.page}>
+        <Panel>
+          <AlertCircle size={22} color={C.red} />
+          <p>Не вдалося завантажити кар’єру.</p>
+          <Button
+            onClick={async () => {
+              try {
+                setLoading(true);
+                setMessage(null);
+                await loadCareer();
+              } catch (error) {
+                setMessage({
+                  type: "error",
+                  text: error.message || "Помилка завантаження.",
+                });
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            <RefreshCw size={16} />
+            Спробувати ще раз
+          </Button>
+        </Panel>
+      </main>
     );
   }
 
-  const chapter = Number(career.chapter || 1);
-  const rank = Number(career.current_rank || 100);
-  const fightsUsed = Number(career.fights_used || 0);
+  // Сумісність із реальними колонками та старими ключами RPC.
+  const chapter = Number(career.chapter ?? 1);
+  const rank = Number(career.place ?? career.current_rank ?? 100);
+  const fightsUsed = Number(
+    career.battles_used ?? career.fights_used ?? 0
+  );
   const fightsLeft = Math.max(0, 5 - fightsUsed);
-  const won = Boolean(career.chapter_won);
-  const retryAt = career.retry_at;
-  const retryRemaining =
-    retryAt && new Date(retryAt).getTime() > now
-      ? formatRemaining(retryAt)
-      : null;
+  const won = rank === 1 || Boolean(career.chapter_won);
 
-  const claimed = Array.isArray(career.banners_claimed)
-    ? career.banners_claimed
-    : [];
+  const retryAt = career.locked_until ?? career.retry_at ?? null;
+  const retryLocked =
+    Boolean(retryAt) && new Date(retryAt).getTime() > now;
 
-  const attemptsToday =
-    career.attempts_date === new Date().toISOString().slice(0, 10)
-      ? Number(career.attempts_today || 0)
-      : 0;
+  const earlyUnlocks = Number(
+    career.early_unlocks_today ?? career.attempts_today ?? 0
+  );
 
-  const retryCost = (attemptsToday + 1) * 10;
+  const retryCost = retryLocked ? (earlyUnlocks + 1) * 10 : 0;
   const canFight = !won && fightsUsed < 5 && !busy;
   const canRetry = !won && fightsUsed >= 5 && !busy;
 
+  const claimed = Array.isArray(career.banners_claimed)
+    ? career.banners_claimed.map(Number)
+    : [];
+
+  const stardust = Number(
+    profile?.stardust ?? career.stardust ?? 0
+  );
+
+  const gold = Number(profile?.gold ?? 0);
+
   return (
-    <main style={styles.page}>
-      <header style={styles.heading}>
-        <div style={styles.eyebrow}>ШЛЯХ ДО ВЕРШИНИ</div>
-        <h1 style={styles.title}>Кар’єра</h1>
-        <p style={styles.subtitle}>
-          Пройди турнір глави, посідай перше місце та відкривай нові випробування.
+    <main style={S.page}>
+      <header style={S.header}>
+        <div style={S.eyebrow}>ШЛЯХ ДО ВЕРШИНИ</div>
+        <h1 style={S.title}>Кар’єра</h1>
+        <p style={S.subtitle}>
+          Пройди турнір глави, здобудь перше місце та відкрий
+          нові випробування Ельдари.
         </p>
       </header>
 
@@ -218,178 +280,247 @@ export default function Career() {
         <div
           role="status"
           style={{
-            ...styles.message,
-            borderColor: message.type === "error" ? "#75443A" : "#45643D",
-            color: message.type === "error" ? COLORS.red : COLORS.green,
+            ...S.message,
+            borderColor:
+              message.type === "error" ? "#75443A" : "#45643D",
+            color:
+              message.type === "error" ? C.red : C.green,
           }}
         >
           {message.type === "error" ? (
-            <AlertCircle size={18} />
+            <AlertCircle size={19} />
           ) : (
-            <CheckCircle2 size={18} />
+            <CheckCircle2 size={19} />
           )}
-          <span>{message.text}</span>
+          <span style={{ flex: 1, overflowWrap: "anywhere" }}>
+            {message.text}
+          </span>
           <button
             type="button"
             onClick={() => setMessage(null)}
-            style={styles.closeMessage}
-            aria-label="Закрити"
+            aria-label="Закрити повідомлення"
+            style={S.closeMessage}
           >
             ×
           </button>
         </div>
       )}
 
-      <Panel style={styles.heroPanel}>
-        <div style={styles.heroTop}>
-          <div>
-            <div style={styles.eyebrow}>ПОТОЧНИЙ ТУРНІР</div>
-            <h2 style={styles.chapterTitle}>Глава {chapter}</h2>
-            <p style={styles.subtitle}>
+      {/* ГОЛОВНИЙ ТУРНІР */}
+      <Panel style={S.heroPanel}>
+        <div style={S.heroTop}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={S.eyebrow}>ПОТОЧНИЙ ТУРНІР</div>
+            <h2 style={S.chapterTitle}>Глава {chapter}</h2>
+            <p style={S.subtitle}>
               {won
-                ? "Перемога! Наступна глава чекає на тебе."
-                : "П’ять боїв, щоб здобути перше місце."}
+                ? "Перше місце здобуто. Наступна глава чекає!"
+                : "Використай п’ять боїв, щоб посісти перше місце."}
             </p>
           </div>
 
-          <div style={styles.rankBadge}>
-            <Trophy size={25} color={COLORS.gold} />
-            <strong>{rank}</strong>
-            <span>МІСЦЕ</span>
+          <div style={S.rankBadge}>
+            <Trophy size={25} color={C.gold} />
+            <strong style={S.rankNumber}>{rank}</strong>
+            <span style={S.rankLabel}>МІСЦЕ</span>
           </div>
         </div>
 
-        <div style={styles.progressHeader}>
+        <div style={S.progressHeader}>
           <span>Прогрес турніру</span>
           <strong>{fightsUsed} / 5 боїв</strong>
         </div>
 
-        <div style={styles.fightProgress}>
+        <div style={S.fightProgress}>
           {[1, 2, 3, 4, 5].map((n) => (
             <div
               key={n}
               style={{
-                ...styles.progressSegment,
-                background: n <= fightsUsed ? COLORS.gold : "#493729",
+                ...S.progressSegment,
+                background: n <= fightsUsed ? C.gold : "#493729",
               }}
             />
           ))}
         </div>
 
-        <div style={styles.statsRow}>
-          <div style={styles.statBox}>
-            <Swords size={19} color={COLORS.gold} />
-            <strong>{fightsLeft}</strong>
-            <span>боїв залишилось</span>
+        <div style={S.statsRow}>
+          <div style={S.statBox}>
+            <Swords size={20} color={C.gold} />
+            <strong style={S.statNumber}>{fightsLeft}</strong>
+            <span style={S.statLabel}>боїв залишилось</span>
           </div>
-          <div style={styles.statBox}>
-            <Shield size={19} color={COLORS.gold} />
-            <strong>{chapter}</strong>
-            <span>поточна глава</span>
+
+          <div style={S.statBox}>
+            <Shield size={20} color={C.gold} />
+            <strong style={S.statNumber}>{chapter}</strong>
+            <span style={S.statLabel}>поточна глава</span>
           </div>
-          <div style={styles.statBox}>
-            <Sparkles size={19} color={COLORS.gold} />
-            <strong>{Number(career.stardust || 0)}</strong>
-            <span>зоряний пил</span>
+
+          <div style={S.statBox}>
+            <Sparkles size={20} color={C.gold} />
+            <strong style={S.statNumber}>
+              {stardust.toLocaleString("uk-UA")}
+            </strong>
+            <span style={S.statLabel}>зоряний пил</span>
           </div>
         </div>
 
+        <div style={S.balanceBar}>
+          <Coins size={17} color={C.gold} />
+          <span>Твоє золото</span>
+          <strong>{gold.toLocaleString("uk-UA")}</strong>
+        </div>
+
         {won ? (
-          <div style={styles.victoryBox}>
-            <Trophy size={26} color={COLORS.gold} />
-            <h3 style={{ margin: "8px 0" }}>Перше місце здобуто!</h3>
-            <p style={styles.subtitle}>
-              Усі три вимпели сьогодні можна забрати безкоштовно.
+          <div style={S.victoryBox}>
+            <Trophy size={30} color={C.gold} />
+            <h3 style={S.boxTitle}>Перше місце здобуто!</h3>
+            <p style={S.subtitle}>
+              Відкрий наступну главу. Твій новий турнір
+              розпочнеться зі 100-го місця.
             </p>
-            <ActionButton
+            <Button
               disabled={busy}
               onClick={() =>
                 perform(
                   { name: "career_next_chapter" },
-                  "Відкрито наступну главу!"
+                  "Наступну главу відкрито!"
                 )
               }
             >
-              Відкрити главу {chapter + 1}
+              {busy ? "Зачекай..." : `Відкрити главу ${chapter + 1}`}
               <ChevronRight size={18} />
-            </ActionButton>
+            </Button>
           </div>
         ) : fightsUsed >= 5 ? (
-          <div style={styles.retryBox}>
-            <Clock3 size={22} color={COLORS.gold} />
-            <h3 style={{ margin: "8px 0" }}>Турнір завершено</h3>
-            <p style={styles.subtitle}>
-              {retryRemaining
-                ? `Безкоштовна спроба буде доступна через ${retryRemaining}.`
-                : "Можна розпочати нову спробу."}
+          <div style={S.retryBox}>
+            <Clock3 size={25} color={C.gold} />
+            <h3 style={S.boxTitle}>Турнір завершено</h3>
+
+            <p style={S.subtitle}>
+              {retryLocked
+                ? `Безкоштовне відкриття буде доступне через ${formatRemaining(
+                    retryAt,
+                    now
+                  )}.`
+                : "Можна розпочати нову спробу безкоштовно."}
             </p>
-            <ActionButton
+
+            <Button
               disabled={!canRetry}
               onClick={() =>
                 perform(
                   { name: "career_open_retry" },
-                  (data) => `Нову спробу відкрито. Витрачено ${data.cost} золота.`
+                  (data) =>
+                    data?.paid
+                      ? `Спробу відкрито достроково. Витрачено ${
+                          data.cost ?? 0
+                        } золота.`
+                      : "Нову спробу відкрито безкоштовно!"
                 )
               }
             >
-              <Coins size={18} />
-              Відкрити за {retryCost} золота
-            </ActionButton>
-            <p style={styles.smallNote}>
-              Ціна зростає на 10 золота з кожним платним відкриттям протягом доби.
-            </p>
+              {retryLocked ? (
+                <Coins size={18} />
+              ) : (
+                <RefreshCw size={18} />
+              )}
+              {retryLocked
+                ? `Достроково відкрити за ${retryCost} золота`
+                : "Відкрити безкоштовно"}
+            </Button>
+
+            {retryLocked && (
+              <p style={S.smallNote}>
+                Кожне платне відкриття коштує на 10 золота більше
+                за попереднє протягом ігрової доби.
+              </p>
+            )}
           </div>
         ) : (
-          <ActionButton
-            disabled={!canFight}
-            onClick={() =>
-              perform(
-                { name: "career_fight" },
-                (data) =>
-                  data.chapter_won
-                    ? "Перемога! Ти посів перше місце й відкрив наступну главу."
-                    : `${data.won ? "Перемога в бою!" : "Бій програно."} Місце: ${data.rank}. Отримано ${data.silver_reward} срібла та ${data.experience_reward} досвіду.`
-              )
-            }
-          >
-            <Swords size={19} />
-            Провести бій
-          </ActionButton>
+          <div>
+            <Button
+              disabled={!canFight}
+              onClick={() =>
+                perform(
+                  { name: "career_fight" },
+                  (data) => {
+                    const newRank = data?.place ?? data?.rank ?? rank;
+                    const battleWon = Boolean(data?.won);
+
+                    if (data?.chapter_won || Number(newRank) === 1) {
+                      return "Перше місце здобуто! Тепер можеш відкрити наступну главу.";
+                    }
+
+                    return `${
+                      battleWon ? "Перемога в бою!" : "Бій завершено."
+                    } Місце: ${newRank}. Отримано ${
+                      data?.silver_reward ?? 0
+                    } срібла та ${
+                      data?.experience_reward ?? 0
+                    } досвіду.`;
+                  }
+                )
+              }
+            >
+              <Swords size={19} />
+              {busy ? "Бій триває..." : "Провести бій"}
+            </Button>
+            <p style={S.smallNote}>
+              Після п’ятого бою без першого місця доведеться
+              чекати 8 годин або відкрити спробу достроково.
+            </p>
+          </div>
         )}
       </Panel>
 
-      <section style={styles.section}>
-        <div style={styles.sectionHeading}>
-          <Flag size={19} color={COLORS.gold} />
-          <h2>Щоденні вимпели</h2>
-        </div>
-        <p style={styles.subtitle}>
-          Нагороди залежать від глави. Вимпели оновлюються щодня за часом,
-          налаштованим на сервері.
+      {/* ЩОДЕННІ ВИМПЕЛИ */}
+      <section style={S.section}>
+        <SectionTitle icon={Flag}>Щоденні вимпели</SectionTitle>
+        <p style={S.subtitle}>
+          Отримуй срібло, досвід і зоряний пил. Нагороди
+          збільшуються з кожною главою. Вимпели оновлюються
+          щодня о 10:00 за київським часом.
         </p>
 
-        <div style={styles.bannerGrid}>
+        <div style={S.bannerGrid}>
           {[1, 2, 3].map((number) => {
             const isClaimed = claimed.includes(number);
-            const cost = won ? 0 : number === 1 ? 0 : number === 2 ? 10 : 50;
+            const cost = won
+              ? 0
+              : number === 1
+                ? 0
+                : number === 2
+                  ? 10
+                  : 50;
 
             return (
-              <Panel key={number} style={styles.bannerCard}>
-                <div style={styles.bannerIcon}>
-                  <Flag size={29} color={COLORS.gold} />
+              <Panel key={number} style={S.bannerCard}>
+                <div style={S.bannerIcon}>
+                  <Flag size={28} color={C.gold} />
+                  <span style={S.bannerNumber}>{number}</span>
                 </div>
-                <h3 style={styles.bannerTitle}>Вимпел {number}</h3>
-                <div style={styles.bannerCost}>
+
+                <h3 style={S.bannerTitle}>Вимпел {number}</h3>
+
+                <div
+                  style={{
+                    ...S.bannerCost,
+                    color: isClaimed ? C.green : C.gold,
+                  }}
+                >
                   {isClaimed
                     ? "Отримано"
                     : cost === 0
-                    ? "Безкоштовно"
-                    : `${cost} золота`}
+                      ? "Безкоштовно"
+                      : `${cost} золота`}
                 </div>
-                <p style={styles.bannerDescription}>
-                  Випадкова нагорода
+
+                <p style={S.bannerDescription}>
+                  Срібло · досвід · зоряний пил
                 </p>
-                <ActionButton
+
+                <Button
                   secondary
                   disabled={busy || isClaimed}
                   onClick={() =>
@@ -399,7 +530,11 @@ export default function Career() {
                         args: { p_banner: number },
                       },
                       (data) =>
-                        `Вимпел отримано: +${data.silver} срібла, +${data.experience} досвіду, +${data.stardust} зоряного пилу.`
+                        `Вимпел отримано: +${data?.silver ?? 0} срібла, +${
+                          data?.experience ?? 0
+                        } досвіду, +${
+                          data?.stardust ?? 0
+                        } зоряного пилу.`
                     )
                   }
                 >
@@ -409,41 +544,57 @@ export default function Career() {
                       Отримано
                     </>
                   ) : (
-                    "Відкрити"
+                    <>
+                      <Gift size={16} />
+                      {busy ? "Зачекай..." : "Забрати"}
+                    </>
                   )}
-                </ActionButton>
+                </Button>
               </Panel>
             );
           })}
         </div>
+
+        {won && (
+          <div style={S.freeBannerNote}>
+            <Trophy size={17} color={C.gold} />
+            Перше місце дає право забрати всі три вимпели
+            безкоштовно.
+          </div>
+        )}
       </section>
 
+      {/* ПРАВИЛА */}
       <Panel>
-        <h2 style={styles.infoTitle}>Правила кар’єри</h2>
-        <ul style={styles.rules}>
-          <li>Нова глава починається зі 100-го місця.</li>
-          <li>На турнір дається п’ять боїв.</li>
-          <li>Перше місце відкриває наступну главу.</li>
-          <li>Після п’яти боїв без перемоги повторна спроба доступна через 8 годин.</li>
-          <li>Повторне відкриття коштує 10, 20, 30 золота й далі за зростанням.</li>
+        <SectionTitle icon={LockKeyhole}>Правила кар’єри</SectionTitle>
+        <ul style={S.rules}>
+          <li>Кожна нова глава починається зі 100-го місця.</li>
+          <li>На один турнір дається п’ять боїв.</li>
+          <li>Перше місце дозволяє перейти до наступної глави.</li>
+          <li>Якщо п’ять боїв завершено без перемоги, починається очікування 8 годин.</li>
+          <li>Дострокове відкриття коштує 10, 20, 30 золота й далі.</li>
+          <li>Перший вимпел безкоштовний; другий коштує 10, третій — 50 золота.</li>
+          <li>Після першого місця всі три вимпели безкоштовні.</li>
+          <li>Щоденні вимпели оновлюються о 10:00 за київським часом.</li>
         </ul>
       </Panel>
 
-      <div style={styles.footer}>
+      <div style={S.footer}>
         Глава {chapter} · Прогрес зберігається на сервері
       </div>
     </main>
   );
 }
 
-const styles = {
+const S = {
   page: {
     width: "100%",
     maxWidth: 760,
     margin: "0 auto",
-    padding: "4px 0 28px",
-    color: COLORS.text,
+    padding: "8px 12px 28px",
+    color: C.text,
     boxSizing: "border-box",
+    fontFamily: "inherit",
   },
   center: {
     minHeight: 240,
@@ -452,26 +603,36 @@ const styles = {
     justifyContent: "center",
     alignItems: "center",
     gap: 12,
-    color: COLORS.muted,
+    color: C.muted,
   },
-  heading: { marginBottom: 16 },
+  header: { marginBottom: 18 },
   eyebrow: {
     color: "#B99A70",
     fontSize: 10,
     fontWeight: 900,
     letterSpacing: 1.8,
   },
-  title: { fontSize: 28, margin: "5px 0", color: COLORS.text },
-  chapterTitle: { fontSize: 24, margin: "7px 0", color: COLORS.text },
+  title: {
+    fontSize: 29,
+    margin: "6px 0",
+    color: C.text,
+    fontWeight: 900,
+  },
+  chapterTitle: {
+    fontSize: 25,
+    margin: "7px 0",
+    color: C.goldLight,
+    fontWeight: 900,
+  },
   subtitle: {
-    color: COLORS.muted,
+    color: C.muted,
     fontSize: 12,
-    lineHeight: 1.6,
-    margin: "6px 0 12px",
+    lineHeight: 1.65,
+    margin: "7px 0 12px",
   },
   heroPanel: {
     background: "linear-gradient(145deg, #261C13, #1D1714)",
-    marginBottom: 20,
+    marginBottom: 22,
   },
   heroTop: {
     display: "flex",
@@ -480,17 +641,32 @@ const styles = {
     gap: 12,
   },
   rankBadge: {
-    minWidth: 82,
+    flexShrink: 0,
+    width: 84,
+    minHeight: 100,
     display: "flex",
     flexDirection: "column",
+    justifyContent: "center",
     alignItems: "center",
-    gap: 4,
-    padding: 12,
+    gap: 5,
+    padding: 8,
     border: "1px solid #80603A",
-    borderRadius: 12,
+    borderRadius: 13,
     background: "#302116",
+    boxSizing: "border-box",
   },
-  rankBadgeStrong: { fontSize: 26 },
+  rankNumber: {
+    fontSize: 29,
+    lineHeight: 1.1,
+    color: C.goldLight,
+    fontWeight: 900,
+  },
+  rankLabel: {
+    fontSize: 9,
+    letterSpacing: 1.3,
+    color: C.muted,
+    fontWeight: 800,
+  },
   progressHeader: {
     display: "flex",
     justifyContent: "space-between",
@@ -498,7 +674,7 @@ const styles = {
     marginTop: 20,
     marginBottom: 9,
     fontSize: 12,
-    color: COLORS.muted,
+    color: C.muted,
   },
   fightProgress: { display: "flex", gap: 5 },
   progressSegment: { height: 7, flex: 1, borderRadius: 10 },
@@ -509,14 +685,36 @@ const styles = {
     margin: "16px 0",
   },
   statBox: {
+    minWidth: 0,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 5,
+    gap: 6,
     padding: "12px 4px",
     borderRadius: 10,
-    background: COLORS.panel2,
+    background: C.panel2,
     textAlign: "center",
+  },
+  statNumber: {
+    fontSize: 19,
+    fontWeight: 900,
+    overflowWrap: "anywhere",
+  },
+  statLabel: {
+    color: C.muted,
+    fontSize: 10,
+    lineHeight: 1.4,
+  },
+  balanceBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "10px 12px",
+    marginBottom: 14,
+    borderRadius: 9,
+    background: "#19130F",
+    color: C.muted,
+    fontSize: 12,
   },
   victoryBox: {
     marginTop: 10,
@@ -529,69 +727,120 @@ const styles = {
   retryBox: {
     marginTop: 10,
     padding: 14,
-    border: `1px solid ${COLORS.border}`,
+    border: `1px solid ${C.border}`,
     borderRadius: 12,
-    background: COLORS.panel2,
+    background: C.panel2,
     textAlign: "center",
   },
-  smallNote: { fontSize: 10, color: COLORS.muted, lineHeight: 1.5 },
-  section: { margin: "22px 0" },
-  sectionHeading: {
+  boxTitle: {
+    fontSize: 16,
+    margin: "9px 0",
+    color: C.goldLight,
+  },
+  smallNote: {
+    fontSize: 10,
+    color: C.muted,
+    lineHeight: 1.6,
+    margin: "10px 2px 0",
+  },
+  section: { margin: "24px 0" },
+  sectionTitle: {
     display: "flex",
     alignItems: "center",
     gap: 9,
     marginBottom: 7,
+  },
+  sectionHeading: {
+    fontSize: 16,
+    margin: 0,
+    color: C.text,
   },
   bannerGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
     gap: 8,
   },
-  bannerCard: { padding: "12px 8px", textAlign: "center" },
+  bannerCard: {
+    padding: "12px 8px",
+    textAlign: "center",
+  },
   bannerIcon: {
-    width: 52,
-    height: 52,
-    display: "grid",
-    placeItems: "center",
-    margin: "0 auto 7px",
-    border: "1px solid #60472E",
-    borderRadius: 12,
-    background: "#302116",
+        width: 54,
+    height: 54,
+    margin: "0 auto 10px",
+    borderRadius: 16,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "linear-gradient(145deg, #3A2A1B, #211710)",
+    border: "1px solid #75532D",
+    color: "#E8A23B",
+    fontSize: 25,
   },
-  bannerTitle: { fontSize: 13, margin: "6px 0", color: COLORS.text },
-  bannerCost: { color: COLORS.gold, fontSize: 11, fontWeight: 800 },
-  bannerDescription: { color: COLORS.muted, fontSize: 10, minHeight: 24 },
-  infoTitle: { fontSize: 16, marginTop: 0 },
-  rules: {
-    paddingLeft: 18,
-    marginBottom: 0,
-    color: COLORS.muted,
+  bannerTitle: {
+    fontSize: 13,
+    fontWeight: 800,
+    color: "#F3DFC0",
+    marginBottom: 6,
+  },
+  bannerReward: {
     fontSize: 12,
-    lineHeight: 1.9,
+    color: "#C9B69A",
+    lineHeight: 1.5,
+    marginBottom: 10,
   },
-  message: {
+  bannerButton: {
+    width: "100%",
+    padding: "10px 6px",
+    borderRadius: 10,
+    border: "1px solid #A87532",
+    background: "linear-gradient(180deg, #D99A3C, #A96A20)",
+    color: "#1A1008",
+    fontWeight: 800,
+    fontSize: 12,
+    cursor: "pointer",
+  },
+  bannerButtonDisabled: {
+    opacity: 0.45,
+    cursor: "not-allowed",
+  },
+  bannerStatus: {
+    fontSize: 11,
+    color: "#83D6A0",
+    marginTop: 7,
+    fontWeight: 700,
+  },
+  sectionTitle: {
     display: "flex",
     alignItems: "center",
     gap: 8,
+    fontSize: 16,
+    fontWeight: 900,
+    color: "#F3DFC0",
     marginBottom: 12,
-    padding: 11,
-    border: "1px solid",
-    borderRadius: 10,
-    background: COLORS.panel2,
+  },
+  infoText: {
+    color: "#BDA98D",
     fontSize: 12,
+    lineHeight: 1.6,
   },
-  closeMessage: {
-    marginLeft: "auto",
-    border: 0,
-    background: "transparent",
-    color: COLORS.muted,
-    fontSize: 20,
+  error: {
+    padding: 12,
+    borderRadius: 12,
+    background: "rgba(180, 50, 40, 0.15)",
+    border: "1px solid rgba(220, 80, 65, 0.4)",
+    color: "#FFAAA0",
+    fontSize: 13,
+    marginBottom: 12,
   },
-  footer: {
-    padding: 16,
-    textAlign: "center",
-    color: COLORS.muted,
-    fontSize: 10,
+  success: {
+    padding: 12,
+    borderRadius: 12,
+    background: "rgba(50, 150, 90, 0.12)",
+    border: "1px solid rgba(90, 200, 130, 0.35)",
+    color: "#9DE5B4",
+    fontSize: 13,
+    marginBottom: 12,
   },
 };
-    
+   
