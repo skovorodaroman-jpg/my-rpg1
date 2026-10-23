@@ -7,6 +7,7 @@ import Inventory from "./pages/Inventory";
 import Pets from "./pages/Pets";
 import Battle from "./pages/Battle";
 import Arena from "./pages/Arena";
+import League from "./pages/League";
 import Mine from "./pages/Mine";
 import Shop from "./pages/Shop";
 import Forge from "./pages/Forge";
@@ -256,6 +257,7 @@ const PAGE_COMPONENTS = {
 bag: Inventory,
 chest: Inventory,
   arena: Arena,
+   league: League,
   colosseum: Colosseum,
   cave: Cave,
   adventures: Adventures,
@@ -944,17 +946,35 @@ function navigateTo(nextSection, nextSubsection = null) {
       return null;
     }
 
-    return (
-      <CurrentPage
-        key={`${section}-${subsection || ""}`}
-        profile={profile}
-        player={profile}
-        section={section}
-        subsection={subsection}
-        onNavigate={navigateTo}
-         onProfileUpdate={() => loadProfile(profile.id)}
-      />
-    );
+ return section === "arena" ? (
+  <Arena
+    key="arena"
+    profile={profile}
+    player={profile}
+    onNavigate={navigateTo}
+    onOpenLeague={() => navigateTo("league")}
+    onProfileUpdate={() => loadProfile(profile.id)}
+  />
+) : section === "league" ? (
+  <League
+    key="league"
+    profile={profile}
+    player={profile}
+    onNavigate={navigateTo}
+    onBack={() => navigateTo("arena")}
+    onProfileUpdate={() => loadProfile(profile.id)}
+  />
+) : (
+  <CurrentPage
+    key={`${section}-${subsection || ""}`}
+    profile={profile}
+    player={profile}
+    section={section}
+    subsection={subsection}
+    onNavigate={navigateTo}
+    onProfileUpdate={() => loadProfile(profile.id)}
+  />
+);
   })()}
 
   {profileError && (
