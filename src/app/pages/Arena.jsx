@@ -1,237 +1,440 @@
 
-import React, { useState } from "react";
-import { Swords, Shield, Heart, Zap, Trophy } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Swords,
+  Shield,
+  Heart,
+  Zap,
+  Trophy,
+  RefreshCw,
+  ChevronRight,
+  ArrowLeft,
+  Skull,
+} from "lucide-react";
 import "./Arena.css";
+
+const clamp = (value, min, max) =>
+  Math.max(min, Math.min(max, value));
+
+function getNumber(...values) {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number) && number > 0) return number;
+  }
+  return null;
+}
+
+function createHero(hero = {}) {
+  const level = getNumber(hero.level, hero.lvl) || 1;
+  const maxHp =
+    getNumber(hero.max_hp, hero.max_health, hero.maxHealth) ||
+    100 + level * 15;
+
+  return {
+    name:
+      hero.display_name ||
+      hero.username ||
+      hero.name ||
+      "Мій герой",
+    level,
+    hp: maxHp,
+    maxHp,
+    attack:
+      getNumber(
+        hero.attack,
+        hero.attack_power,
+        hero.power_attack,
+        hero.damage
+      ) || 15 + level * 3,
+    defense:
+      getNumber(
+        hero.defense,
+        hero.defense_power,
+        hero.defense_bonus
+      ) || 5 + level * 2,
+    avatar: hero.avatar_url || hero.avatar || null,
+  };
+}
+
+function createEnemy(heroLevel, suppliedEnemy, number) {
+  const enemyLevel =
+    getNumber(suppliedEnemy?.level, suppliedEnemy?.lvl) ||
+    Math.max(1, heroLevel + (number % 3) - 1);
+
+  const maxHp =
+    getNumber(
+      suppliedEnemy?.max_hp,
+      suppliedEnemy?.max_health,
+      suppliedEnemy?.maxHealth,
+      suppliedEnemy?.hp
+    ) || 90 + enemyLevel * 13;
+
+  return {
+    name:
+      suppliedEnemy?.display_name ||
+      suppliedEnemy?.name ||
+      ["Темний лицар", "Вартовий руїн", "Воїн тіней"][
+        (number - 1) % 3
+      ],
+    level: enemyLevel,
+    hp: maxHp,
+    maxHp,
+    attack:
+      getNumber(
+        suppliedEnemy?.attack,
+        suppliedEnemy?.attack_power,
+        suppliedEnemy?.damage
+      ) || 12 + enemyLevel * 2,
+    defense:
+      getNumber(
+        suppliedEnemy?.defense,
+        suppliedEnemy?.defense_power
+      ) || 4 + enemyLevel,
+    avatar: suppliedEnemy?.avatar_url || null,
+  };
+}
+
+function HealthBar({ value, max, enemy = false }) {
+  const percent = max > 0 ? clamp((value / max) * 100, 0, 100) : 0;
+
+  return (
+    <div className={`arena-health ${enemy ? "enemy-health" : ""}`}>
+      <div className="arena-health-track">
+        <div
+          className="arena-health-fill"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <div className="arena-health-label">
+        <span>
+          <Heart size={13} />
+          Здоров'я
+        </span>
+        <strong>
+          {Math.ceil(value)} / {max}
+        </strong>
+      </div>
+    </div>
+  );
+}
 
 export default function Arena({
   hero,
-  enemy,
+  profile,
+  player,
+  enemy: suppliedEnemy,
   leagueName = "Ліга обраних",
   onOpenLeague,
   onFight,
   onRecover,
+  onNavigate,
+  onProfileUpdate,
 }) {
-  const [battleResult, setBattleResult] = useState(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [totalBattles, setTotalBattles] = useState(0);
-  const [restClicks, setRestClicks] = useState(0);
-  const [batchEnabled, setBatchEnabled] = useState(false);
-  const [showBatchResult, setShowBatchResult] = useState(false);
+  const sourceHero = hero || profile || player || {};
+  const heroKey = sourceHero.id || sourceHero.username || "default";
 
-  const energy = Number(hero?.energy || 0);
-  const gold = Number(hero?.gold || 0);
-  const potionPrice = restClicks >= 25 ? 4 : 1;
+  const baseHero = useMemo(
+    () => createHero(sourceHero),
+    [heroKey, sourceHero.level, sourceHero.display_name,
+      sourceHero.username, sourceHero.max_hp, sourceHero.avatar_url]
+  );
 
-  const fmt = (n) => Number(n || 0).toLocaleString("uk-UA");
+  const [round, setRound] = useState(1);
+  const [heroHp, setHeroHp] = useState(baseHero.maxHp);
+  const [enemyNumber, setEnemyNumber] = useState(1);
+  const [enemyHp, setEnemyHp] = useState(null);
+  const [battleLog, setBattleLog] = useState([
+    "Ти виходиш на арену. Обери момент для атаки!",
+  ]);
+  const [busy, setBusy] = useState(false);
 
-  async function fight(count = 1) {
-    if (!enemy || !onFight) return;
+  const enemy = useMemo(
+    () => createEnemy(
+      baseHero.level,
+      suppliedEnemy,
+      enemyNumber
+    ),
+    [baseHero.level, suppliedEnemy, enemyNumber]
+  );
 
-    setBattleResult(null);
-    setShowBatchResult(false);
+  const currentEnemyHp = enemyHp ?? enemy.maxHp;
+  const heroAlive = heroHp > 0;
+  const enemyAlive = currentEnemyHp > 0;
+  const battleFinished = !heroAlive || !enemyAlive;
 
-    try {
-      // onFight має виконувати бій на сервері та повертати результат.
-      const result = await onFight(enemy, count);
+  useEffect(() => {
+    setHeroHp(baseHero.maxHp);
+    setEnemyHp(null);
+    setEnemyNumber(1);
+    setRound(1);
+    setBusy(false);
+    setBattleLog(["Ти виходиш на арену. Обери момент для атаки!"]);
+  }, [heroKey]);
 
-      setBattleResult(result);
-      setTotalBattles((prev) => prev + Number(result?.battles || count));
-      setShowBatchResult(count > 1);
-    } catch (err) {
-      setBattleResult({
-        win: false,
-        message: err?.message || "Не вдалося провести бій.",
-      });
-    }
+  function addLog(messages) {
+    setBattleLog((previous) => [...messages, ...previous].slice(0, 8));
   }
 
-  async function useAllEnergy() {
-    if (energy <= 0 || gold < 1) return;
+  function attack() {
+    if (busy || battleFinished) return;
 
-    // Сервер повинен списати 1 золото і провести бої на всю енергію.
-    await fight(energy);
-  }
+    setBusy(true);
 
-  async function recoverAndFight(multiplier = 1) {
-    if (!onRecover) return;
+    const damageToEnemy = Math.max(
+      1,
+      Math.floor(
+        baseHero.attack * (0.8 + Math.random() * 0.4) -
+        enemy.defense * 0.45
+      )
+    );
 
-    const price = potionPrice * multiplier;
+    const nextEnemyHp = Math.max(0, currentEnemyHp - damageToEnemy);
 
-    if (gold < price) {
-      setBattleResult({ win: false, message: "Недостатньо золота." });
+    const messages = [
+      `Ти завдаєш ${damageToEnemy} од. шкоди!`,
+    ];
+
+    setEnemyHp(nextEnemyHp);
+
+    if (nextEnemyHp <= 0) {
+      messages.unshift(`🏆 Перемога! ${enemy.name} переможений.`);
+      addLog(messages);
+      setRound((value) => value + 1);
+      setBusy(false);
+
+      if (typeof onFight === "function") {
+        try {
+          onFight({ hero: baseHero, enemy, result: "win" });
+        } catch (error) {
+          console.error("Помилка обробки бою:", error);
+        }
+      }
       return;
     }
 
-    try {
-      // Сервер відновлює HP та енергію і проводить задану кількість циклів.
-      const result = await onRecover({
-        cycles: multiplier,
-        price,
-      });
+    const damageToHero = Math.max(
+      1,
+      Math.floor(
+        enemy.attack * (0.8 + Math.random() * 0.4) -
+        baseHero.defense * 0.4
+      )
+    );
 
-      setBattleResult(result);
-      setTotalBattles((prev) => prev + Number(result?.battles || 0));
-      setRestClicks((prev) => prev + multiplier);
+    const nextHeroHp = Math.max(0, heroHp - damageToHero);
+    setHeroHp(nextHeroHp);
+    messages.push(`${enemy.name} завдає тобі ${damageToHero} од. шкоди!`);
 
-      if (restClicks + multiplier >= 5) {
-        setBatchEnabled(true);
+    if (nextHeroHp <= 0) {
+      messages.push("☠️ Тебе переможено. Віднови здоров'я та спробуй ще.");
+    }
+
+    addLog(messages);
+    setRound((value) => value + 1);
+    setBusy(false);
+
+    if (typeof onFight === "function" && nextHeroHp <= 0) {
+      try {
+        onFight({ hero: baseHero, enemy, result: "loss" });
+      } catch (error) {
+        console.error("Помилка обробки бою:", error);
       }
-    } catch (err) {
-      setBattleResult({
-        win: false,
-        message: err?.message || "Не вдалося відновити героя.",
-      });
     }
   }
 
-  if (!hero || !enemy) {
-    return <div className="arena-page">Завантаження арени...</div>;
+  function recover() {
+    const restoredHp = baseHero.maxHp;
+
+    setHeroHp(restoredHp);
+    setEnemyHp(null);
+    setRound(1);
+    setBusy(false);
+    setBattleLog(["Здоров'я відновлено. Ти готовий до нового бою!"]);
+
+    if (typeof onRecover === "function") {
+      try {
+        onRecover();
+      } catch (error) {
+        console.error("Помилка відновлення:", error);
+      }
+    }
+  }
+
+  function nextEnemy() {
+    if (heroHp <= 0) {
+      recover();
+      return;
+    }
+
+    setEnemyNumber((value) => value + 1);
+    setEnemyHp(null);
+    setRound(1);
+    setBusy(false);
+    setBattleLog(["Новий супротивник виходить на арену!"]);
   }
 
   return (
     <main className="arena-page">
-      <div className="arena-heading">
-        <Swords />
-        <h1>Арена</h1>
-      </div>
-
-      <p className="arena-description">
-        Унікальні поля битв. Перемагай ворогів і отримуй срібло та досвід.
-      </p>
-
-      {/* Кнопка переходу до окремої сторінки Ліги */}
-      <button className="arena-league-link" onClick={onOpenLeague}>
-        <Trophy size={17} />
-        {leagueName}
-        <span>›</span>
-      </button>
-
-      {/* Завжди один поточний супротивник */}
-      <section className="arena-enemy">
-        <div className="arena-enemy-faction">
-          Фракція ворога: {enemy.faction || "Протилежна"}
-        </div>
-
-        <div className="arena-enemy-art">
-          {enemy.image ? (
-            <img src={enemy.image} alt={enemy.name} />
-          ) : (
-            <Shield size={70} />
-          )}
-        </div>
-
-        <h2>{enemy.name}</h2>
-        <div className="arena-enemy-power">
-          <Swords size={15} /> Мощь: {fmt(enemy.power)}
-        </div>
-
-        <div className="arena-enemy-stats">
-          <span><Heart /> {fmt(enemy.hp)}</span>
-          <span><Zap /> {fmt(enemy.luck)}</span>
-          <span><Shield /> {fmt(enemy.armor)}</span>
-        </div>
-
+      <header className="arena-header">
         <button
-          className="arena-details-link"
-          onClick={() => setDetailsOpen((v) => !v)}
+          type="button"
+          className="arena-back"
+          onClick={() => {
+            if (typeof onNavigate === "function") onNavigate("home");
+          }}
+          aria-label="На головну"
         >
-          {detailsOpen ? "Сховати деталі бою" : "Деталі бою"}
+          <ArrowLeft size={19} />
         </button>
 
-        {detailsOpen && (
-          <div className="arena-details">
-            <p>Супротивник: {enemy.name}</p>
-            <p>Мощь: {fmt(enemy.power)}</p>
-            <p>Життя: {fmt(enemy.hp)}</p>
-            <p>Удача: {fmt(enemy.luck)}</p>
-            <p>Броня: {fmt(enemy.armor)}</p>
-          </div>
+        <div className="arena-heading">
+          <span className="arena-eyebrow">ВИПРОБУВАННЯ СИЛИ</span>
+          <h1>АРЕНА</h1>
+          <p>Перемагай. Ставай сильнішим.</p>
+        </div>
+
+        <div className="arena-header-icon">
+          <Swords size={25} />
+        </div>
+      </header>
+
+      <section className="arena-league">
+        <div className="arena-league-icon">
+          <Trophy size={22} />
+        </div>
+        <div className="arena-league-info">
+          <span>ТВОЯ ЛІГА</span>
+          <strong>{leagueName}</strong>
+        </div>
+        {onOpenLeague && (
+          <button
+            type="button"
+            className="arena-league-button"
+            onClick={onOpenLeague}
+            aria-label="Відкрити лігу"
+          >
+            <ChevronRight size={20} />
+          </button>
         )}
       </section>
 
-      {/* Нагорода та звичайна атака */}
-      <section className="arena-reward">
-        <h3>Нагорода за перемогу</h3>
-        <div>◉ Срібло: {fmt(enemy.silverReward)}</div>
-        <div>✧ Досвід: {fmt(enemy.expReward)}</div>
+      <section className="arena-battle-card">
+        <div className="arena-battle-top">
+          <span className="arena-battle-tag">
+            <span className="arena-live-dot" />
+            {battleFinished ? "БІЙ ЗАВЕРШЕНО" : "БОЙОВА ЗОНА"}
+          </span>
+          <span className="arena-round">РАУНД {round}</span>
+        </div>
 
-        <button
-          className="arena-attack"
-          disabled={energy <= 0}
-          onClick={() => fight(1)}
-        >
-          Атакувати
-        </button>
+        <div className="arena-combatants">
+          <div className="arena-combatant">
+            <div className="arena-avatar hero-avatar">
+              {baseHero.avatar ? (
+                <img src={baseHero.avatar} alt={baseHero.name} />
+              ) : (
+                <Shield size={43} />
+              )}
+              <span className="arena-level">{baseHero.level}</span>
+            </div>
 
-        {/* Після першої атаки доступна оплата всієї енергії */}
-        {totalBattles > 0 && (
-          <button
-            className="arena-energy-button"
-            disabled={energy <= 0 || gold < 1}
-            onClick={useAllEnergy}
-          >
-            Використати всю енергію за 1 золото
-          </button>
-        )}
+            <h3>{baseHero.name}</h3>
+            <span className="arena-role">ТВІЙ ГЕРОЙ</span>
 
-        {showBatchResult && (
-          <div className="arena-batch-result">
-            Проведено боїв: {totalBattles}
+            <HealthBar value={heroHp} max={baseHero.maxHp} />
+
+            <div className="arena-stats">
+              <span><Swords size={14} /> {baseHero.attack}</span>
+              <span><Shield size={14} /> {baseHero.defense}</span>
+            </div>
           </div>
-        )}
-      </section>
 
-      {/* Автоматичне відновлення */}
-      {totalBattles > 0 && (
-        <section className="arena-recovery">
-          <h3>Відновлення</h3>
-          <p>Життя та енергія відновлюються до 100%.</p>
+          <div className="arena-vs">
+            <div className="arena-vs-line" />
+            <span>VS</span>
+            <div className="arena-vs-line" />
+          </div>
 
-          <button
-            className="arena-recover"
-            disabled={gold < potionPrice}
-            onClick={() => recoverAndFight(1)}
-          >
-            Відновити та провести бої · {potionPrice} золота
-          </button>
+          <div className="arena-combatant">
+            <div className="arena-avatar enemy-avatar">
+              {enemy.avatar ? (
+                <img src={enemy.avatar} alt={enemy.name} />
+              ) : (
+                <Skull size={43} />
+              )}
+              <span className="arena-level">{enemy.level}</span>
+            </div>
 
-          {batchEnabled && (
+            <h3>{enemy.name}</h3>
+            <span className="arena-role">СУПРОТИВНИК</span>
+
+            <HealthBar
+              value={currentEnemyHp}
+              max={enemy.maxHp}
+              enemy
+            />
+
+            <div className="arena-stats">
+              <span><Swords size={14} /> {enemy.attack}</span>
+              <span><Shield size={14} /> {enemy.defense}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="arena-action-area">
+          {!battleFinished ? (
             <button
-              className="arena-recover arena-recover-batch"
-              disabled={gold < potionPrice * 5}
-              onClick={() => recoverAndFight(5)}
+              type="button"
+              className="arena-fight-button"
+              onClick={attack}
+              disabled={busy}
             >
-              5 відновлень і боїв · {potionPrice * 5} золота
+              <Swords size={20} />
+              БИТИСЯ
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="arena-fight-button"
+              onClick={heroAlive ? nextEnemy : recover}
+            >
+              {heroAlive ? <Swords size={20} /> : <RefreshCw size={20} />}
+              {heroAlive ? "НАСТУПНИЙ СУПРОТИВНИК" : "ВІДНОВИТИ ЗДОРОВ'Я"}
             </button>
           )}
 
-          <small>
-            Виконано відновлень: {restClicks}/25
-          </small>
+          <button
+            type="button"
+            className="arena-recover-button"
+            onClick={recover}
+          >
+            <Heart size={17} />
+            Відновити здоров'я
+          </button>
+        </div>
+      </section>
 
-          {restClicks >= 25 && (
-            <p className="arena-price-warning">
-              Ціна відновлення збільшена у 4 рази до кінця доби.
-            </p>
-          )}
-        </section>
-      )}
+      <section className="arena-log-card">
+        <div className="arena-section-title">
+          <Zap size={18} />
+          <h2>ЖУРНАЛ БОЮ</h2>
+        </div>
 
-      {battleResult && (
-        <section className={`arena-result ${battleResult.win ? "win" : "loss"}`}>
-          <h3>{battleResult.win ? "Перемога!" : "Результат бою"}</h3>
-          <p>{battleResult.message}</p>
-          {battleResult.silver && <p>Срібло: +{fmt(battleResult.silver)}</p>}
-          {battleResult.experience && <p>Досвід: +{fmt(battleResult.experience)}</p>}
-          {battleResult.battles && <p>Боїв: {fmt(battleResult.battles)}</p>}
-        </section>
-      )}
+        <div className="arena-log-list" aria-live="polite">
+          {battleLog.map((message, index) => (
+            <div
+              className={`arena-log-entry ${index === 0 ? "latest" : ""}`}
+              key={`${message}-${index}`}
+            >
+              <span className="arena-log-marker" />
+              <p>{message}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-      <footer className="arena-footer">
-        <span><Heart size={14} /> HP: {fmt(hero.hp)}</span>
-        <span><Zap size={14} /> Енергія: {energy}</span>
-        <span>◉ {fmt(gold)} золота</span>
-      </footer>
+      <p className="arena-footer">
+        Кожна перемога наближає тебе до вершини.
+      </p>
     </main>
   );
-      }
+                        }
