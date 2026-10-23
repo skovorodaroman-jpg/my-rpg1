@@ -7,95 +7,35 @@ import {
   Zap,
   Trophy,
   RefreshCw,
-  ChevronRight,
   ArrowLeft,
   Skull,
+  Coins,
+  Sparkles,
+  Backpack,
 } from "lucide-react";
+import { supabase } from "../lib/supabase";
 import "./Arena.css";
 
-const clamp = (value, min, max) =>
-  Math.max(min, Math.min(max, value));
-
-function getNumber(...values) {
-  for (const value of values) {
-    const number = Number(value);
-    if (Number.isFinite(number) && number > 0) return number;
-  }
-  return null;
+function number(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
-function createHero(hero = {}) {
-  const level = getNumber(hero.level, hero.lvl) || 1;
-  const maxHp =
-    getNumber(hero.max_hp, hero.max_health, hero.maxHealth) ||
-    100 + level * 15;
-
+function makeEnemy(level, number) {
+  const names = ["Темний лицар", "Вартовий руїн", "Воїн тіней"];
   return {
-    name:
-      hero.display_name ||
-      hero.username ||
-      hero.name ||
-      "Мій герой",
+    name: names[(number - 1) % names.length],
     level,
-    hp: maxHp,
-    maxHp,
-    attack:
-      getNumber(
-        hero.attack,
-        hero.attack_power,
-        hero.power_attack,
-        hero.damage
-      ) || 15 + level * 3,
-    defense:
-      getNumber(
-        hero.defense,
-        hero.defense_power,
-        hero.defense_bonus
-      ) || 5 + level * 2,
-    avatar: hero.avatar_url || hero.avatar || null,
-  };
-}
-
-function createEnemy(heroLevel, suppliedEnemy, number) {
-  const enemyLevel =
-    getNumber(suppliedEnemy?.level, suppliedEnemy?.lvl) ||
-    Math.max(1, heroLevel + (number % 3) - 1);
-
-  const maxHp =
-    getNumber(
-      suppliedEnemy?.max_hp,
-      suppliedEnemy?.max_health,
-      suppliedEnemy?.maxHealth,
-      suppliedEnemy?.hp
-    ) || 90 + enemyLevel * 13;
-
-  return {
-    name:
-      suppliedEnemy?.display_name ||
-      suppliedEnemy?.name ||
-      ["Темний лицар", "Вартовий руїн", "Воїн тіней"][
-        (number - 1) % 3
-      ],
-    level: enemyLevel,
-    hp: maxHp,
-    maxHp,
-    attack:
-      getNumber(
-        suppliedEnemy?.attack,
-        suppliedEnemy?.attack_power,
-        suppliedEnemy?.damage
-      ) || 12 + enemyLevel * 2,
-    defense:
-      getNumber(
-        suppliedEnemy?.defense,
-        suppliedEnemy?.defense_power
-      ) || 4 + enemyLevel,
-    avatar: suppliedEnemy?.avatar_url || null,
+    maxHp: 90 + level * 13,
+    attack: 12 + level * 2,
+    defense: 4 + level,
   };
 }
 
 function HealthBar({ value, max, enemy = false }) {
-  const percent = max > 0 ? clamp((value / max) * 100, 0, 100) : 0;
+  const percent = max > 0
+    ? Math.max(0, Math.min(100, value / max * 100))
+    : 0;
 
   return (
     <div className={`arena-health ${enemy ? "enemy-health" : ""}`}>
@@ -106,13 +46,8 @@ function HealthBar({ value, max, enemy = false }) {
         />
       </div>
       <div className="arena-health-label">
-        <span>
-          <Heart size={13} />
-          Здоров'я
-        </span>
-        <strong>
-          {Math.ceil(value)} / {max}
-        </strong>
+        <span><Heart size={13} /> Здоров'я</span>
+        <strong>{Math.ceil(value)} / {max}</strong>
       </div>
     </div>
   );
@@ -122,153 +57,106 @@ export default function Arena({
   hero,
   profile,
   player,
-  enemy: suppliedEnemy,
   leagueName = "Ліга обраних",
   onOpenLeague,
-  onFight,
-  onRecover,
   onNavigate,
   onProfileUpdate,
 }) {
-  const sourceHero = hero || profile || player || {};
-  const heroKey = sourceHero.id || sourceHero.username || "default";
+  const source = hero || profile || player || {};
+  const level = Math.max(1, number(source.level, 1));
+  const name =
+    source.display_name ||
+    source.username ||
+    source.name ||
+    "Мій герой";
 
-  const baseHero = useMemo(
-    () => createHero(sourceHero),
-    [heroKey, sourceHero.level, sourceHero.display_name,
-      sourceHero.username, sourceHero.max_hp, sourceHero.avatar_url]
+  const maxHp = Math.max(
+    1,
+    number(source.max_hp, number(source.max_health, 100 + level * 15))
   );
 
-  const [round, setRound] = useState(1);
-  const [heroHp, setHeroHp] = useState(baseHero.maxHp);
+  const attack = number(source.attack, 15 + level * 3);
+  const defense = number(source.defense, 5 + level * 2);
+
   const [enemyNumber, setEnemyNumber] = useState(1);
   const [enemyHp, setEnemyHp] = useState(null);
-  const [battleLog, setBattleLog] = useState([
-    "Ти виходиш на арену. Обери момент для атаки!",
-  ]);
+  const [heroHp, setHeroHp] = useState(maxHp);
   const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const [battleLog, setBattleLog] = useState([
+    "Ти виходиш на арену. Час довести свою силу!",
+  ]);
 
+  const enemyLevel = Math.max(1, level + ((enemyNumber % 3) - 1));
   const enemy = useMemo(
-    () => createEnemy(
-      baseHero.level,
-      suppliedEnemy,
-      enemyNumber
-    ),
-    [baseHero.level, suppliedEnemy, enemyNumber]
+    () => makeEnemy(enemyLevel, enemyNumber),
+    [enemyLevel, enemyNumber]
   );
 
   const currentEnemyHp = enemyHp ?? enemy.maxHp;
-  const heroAlive = heroHp > 0;
-  const enemyAlive = currentEnemyHp > 0;
-  const battleFinished = !heroAlive || !enemyAlive;
+  const finished = Boolean(result);
 
   useEffect(() => {
-    setHeroHp(baseHero.maxHp);
-    setEnemyHp(null);
-    setEnemyNumber(1);
-    setRound(1);
-    setBusy(false);
-    setBattleLog(["Ти виходиш на арену. Обери момент для атаки!"]);
-  }, [heroKey]);
+    setHeroHp(maxHp);
+  }, [maxHp]);
 
-  function addLog(messages) {
-    setBattleLog((previous) => [...messages, ...previous].slice(0, 8));
-  }
-
-  function attack() {
-    if (busy || battleFinished) return;
+  async function fight() {
+    if (busy || finished) return;
 
     setBusy(true);
+    setError("");
+    setResult(null);
 
-    const damageToEnemy = Math.max(
-      1,
-      Math.floor(
-        baseHero.attack * (0.8 + Math.random() * 0.4) -
-        enemy.defense * 0.45
-      )
-    );
+    try {
+      const { data, error: rpcError } = await supabase.rpc(
+        "arena_fight",
+        { p_enemy_level: enemy.level }
+      );
 
-    const nextEnemyHp = Math.max(0, currentEnemyHp - damageToEnemy);
+      if (rpcError) throw rpcError;
 
-    const messages = [
-      `Ти завдаєш ${damageToEnemy} од. шкоди!`,
-    ];
+      const outcome = typeof data === "string" ? JSON.parse(data) : data;
 
-    setEnemyHp(nextEnemyHp);
+      setResult(outcome);
+      setEnemyHp(outcome.result === "win" ? 0 : enemy.maxHp);
+      setHeroHp(outcome.result === "win" ? maxHp : Math.max(0, heroHp - 1));
 
-    if (nextEnemyHp <= 0) {
-      messages.unshift(`🏆 Перемога! ${enemy.name} переможений.`);
-      addLog(messages);
-      setRound((value) => value + 1);
+      const messages = [
+        outcome.result === "win"
+          ? `🏆 Перемога! ${enemy.name} переможений.`
+          : `☠️ Поразка! ${enemy.name} переміг у цьому бою.`,
+        `⚡ Витрачено енергії: ${outcome.energy_spent}`,
+        `🪙 Срібло: +${outcome.silver_reward}`,
+        `✨ Досвід: +${outcome.xp_reward}`,
+      ];
+
+      if (outcome.item_name) {
+        messages.push(`🎁 Знайдено предмет: ${outcome.item_name}`);
+      }
+
+      setBattleLog(messages);
+      if (typeof onProfileUpdate === "function") {
+        await onProfileUpdate();
+      }
+    } catch (e) {
+      console.error("Помилка бою на арені:", e);
+      setError(
+        e?.message?.includes("Недостатньо енергії")
+          ? "Недостатньо енергії. Для бою потрібно 50."
+          : e?.message || "Не вдалося провести бій. Спробуй ще раз."
+      );
+    } finally {
       setBusy(false);
-
-      if (typeof onFight === "function") {
-        try {
-          onFight({ hero: baseHero, enemy, result: "win" });
-        } catch (error) {
-          console.error("Помилка обробки бою:", error);
-        }
-      }
-      return;
-    }
-
-    const damageToHero = Math.max(
-      1,
-      Math.floor(
-        enemy.attack * (0.8 + Math.random() * 0.4) -
-        baseHero.defense * 0.4
-      )
-    );
-
-    const nextHeroHp = Math.max(0, heroHp - damageToHero);
-    setHeroHp(nextHeroHp);
-    messages.push(`${enemy.name} завдає тобі ${damageToHero} од. шкоди!`);
-
-    if (nextHeroHp <= 0) {
-      messages.push("☠️ Тебе переможено. Віднови здоров'я та спробуй ще.");
-    }
-
-    addLog(messages);
-    setRound((value) => value + 1);
-    setBusy(false);
-
-    if (typeof onFight === "function" && nextHeroHp <= 0) {
-      try {
-        onFight({ hero: baseHero, enemy, result: "loss" });
-      } catch (error) {
-        console.error("Помилка обробки бою:", error);
-      }
-    }
-  }
-
-  function recover() {
-    const restoredHp = baseHero.maxHp;
-
-    setHeroHp(restoredHp);
-    setEnemyHp(null);
-    setRound(1);
-    setBusy(false);
-    setBattleLog(["Здоров'я відновлено. Ти готовий до нового бою!"]);
-
-    if (typeof onRecover === "function") {
-      try {
-        onRecover();
-      } catch (error) {
-        console.error("Помилка відновлення:", error);
-      }
     }
   }
 
   function nextEnemy() {
-    if (heroHp <= 0) {
-      recover();
-      return;
-    }
-
-    setEnemyNumber((value) => value + 1);
+    setEnemyNumber((n) => n + 1);
     setEnemyHp(null);
-    setRound(1);
-    setBusy(false);
+    setHeroHp(maxHp);
+    setResult(null);
+    setError("");
     setBattleLog(["Новий супротивник виходить на арену!"]);
   }
 
@@ -278,9 +166,7 @@ export default function Arena({
         <button
           type="button"
           className="arena-back"
-          onClick={() => {
-            if (typeof onNavigate === "function") onNavigate("home");
-          }}
+          onClick={() => onNavigate?.("home")}
           aria-label="На головну"
         >
           <ArrowLeft size={19} />
@@ -298,9 +184,7 @@ export default function Arena({
       </header>
 
       <section className="arena-league">
-        <div className="arena-league-icon">
-          <Trophy size={22} />
-        </div>
+        <div className="arena-league-icon"><Trophy size={22} /></div>
         <div className="arena-league-info">
           <span>ТВОЯ ЛІГА</span>
           <strong>{leagueName}</strong>
@@ -312,7 +196,7 @@ export default function Arena({
             onClick={onOpenLeague}
             aria-label="Відкрити лігу"
           >
-            <ChevronRight size={20} />
+            <Trophy size={18} />
           </button>
         )}
       </section>
@@ -321,30 +205,25 @@ export default function Arena({
         <div className="arena-battle-top">
           <span className="arena-battle-tag">
             <span className="arena-live-dot" />
-            {battleFinished ? "БІЙ ЗАВЕРШЕНО" : "БОЙОВА ЗОНА"}
+            {finished ? "БІЙ ЗАВЕРШЕНО" : "БОЙОВА ЗОНА"}
           </span>
-          <span className="arena-round">РАУНД {round}</span>
+          <span className="arena-round">ОДИН УДАР</span>
         </div>
 
         <div className="arena-combatants">
           <div className="arena-combatant">
             <div className="arena-avatar hero-avatar">
-              {baseHero.avatar ? (
-                <img src={baseHero.avatar} alt={baseHero.name} />
-              ) : (
-                <Shield size={43} />
-              )}
-              <span className="arena-level">{baseHero.level}</span>
+              {source.avatar_url
+                ? <img src={source.avatar_url} alt={name} />
+                : <Shield size={43} />}
+              <span className="arena-level">{level}</span>
             </div>
-
-            <h3>{baseHero.name}</h3>
+            <h3>{name}</h3>
             <span className="arena-role">ТВІЙ ГЕРОЙ</span>
-
-            <HealthBar value={heroHp} max={baseHero.maxHp} />
-
+            <HealthBar value={heroHp} max={maxHp} />
             <div className="arena-stats">
-              <span><Swords size={14} /> {baseHero.attack}</span>
-              <span><Shield size={14} /> {baseHero.defense}</span>
+              <span><Swords size={14} /> {attack}</span>
+              <span><Shield size={14} /> {defense}</span>
             </div>
           </div>
 
@@ -356,23 +235,16 @@ export default function Arena({
 
           <div className="arena-combatant">
             <div className="arena-avatar enemy-avatar">
-              {enemy.avatar ? (
-                <img src={enemy.avatar} alt={enemy.name} />
-              ) : (
-                <Skull size={43} />
-              )}
+              <Skull size={43} />
               <span className="arena-level">{enemy.level}</span>
             </div>
-
             <h3>{enemy.name}</h3>
             <span className="arena-role">СУПРОТИВНИК</span>
-
             <HealthBar
               value={currentEnemyHp}
               max={enemy.maxHp}
               enemy
             />
-
             <div className="arena-stats">
               <span><Swords size={14} /> {enemy.attack}</span>
               <span><Shield size={14} /> {enemy.defense}</span>
@@ -381,44 +253,56 @@ export default function Arena({
         </div>
 
         <div className="arena-action-area">
-          {!battleFinished ? (
+          {!finished ? (
             <button
               type="button"
               className="arena-fight-button"
-              onClick={attack}
+              onClick={fight}
               disabled={busy}
             >
               <Swords size={20} />
-              БИТИСЯ
+              {busy ? "ОБЧИСЛЕННЯ..." : "БИТИСЯ · 50 ⚡"}
             </button>
           ) : (
             <button
               type="button"
               className="arena-fight-button"
-              onClick={heroAlive ? nextEnemy : recover}
+              onClick={nextEnemy}
             >
-              {heroAlive ? <Swords size={20} /> : <RefreshCw size={20} />}
-              {heroAlive ? "НАСТУПНИЙ СУПРОТИВНИК" : "ВІДНОВИТИ ЗДОРОВ'Я"}
+              <Swords size={20} />
+              НАСТУПНИЙ СУПРОТИВНИК
             </button>
           )}
-
-          <button
-            type="button"
-            className="arena-recover-button"
-            onClick={recover}
-          >
-            <Heart size={17} />
-            Відновити здоров'я
-          </button>
         </div>
       </section>
+
+      {result && (
+        <section className="arena-log-card">
+          <div className="arena-section-title">
+            <Sparkles size={18} />
+            <h2>{result.result === "win" ? "ПЕРЕМОГА" : "ПОРАЗКА"}</h2>
+          </div>
+
+          <div className="arena-rewards">
+            <p><Zap size={17} /> −{result.energy_spent} енергії</p>
+            <p><Coins size={17} /> +{result.silver_reward} срібла</p>
+            <p><Sparkles size={17} /> +{result.xp_reward} досвіду</p>
+            {result.item_name && (
+              <p><Backpack size={17} /> {result.item_name}</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {error && (
+        <div className="arena-error" role="alert">{error}</div>
+      )}
 
       <section className="arena-log-card">
         <div className="arena-section-title">
           <Zap size={18} />
           <h2>ЖУРНАЛ БОЮ</h2>
         </div>
-
         <div className="arena-log-list" aria-live="polite">
           {battleLog.map((message, index) => (
             <div
@@ -437,4 +321,4 @@ export default function Arena({
       </p>
     </main>
   );
-                        }
+}
