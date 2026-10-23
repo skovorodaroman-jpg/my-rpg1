@@ -7,6 +7,7 @@ import Inventory from "./pages/Inventory";
 import Pets from "./pages/Pets";
 import Battle from "./pages/Battle";
 import Arena from "./pages/Arena";
+import Career from "./pages/Career";
 import League from "./pages/League";
 import Mine from "./pages/Mine";
 import Shop from "./pages/Shop";
@@ -134,6 +135,7 @@ const PAGE_COMPONENTS = {
   bag: Inventory,
   chest: Inventory,
   arena: Arena,
+  career: Career,
   league: League,
   colosseum: Colosseum,
   cave: Cave,
