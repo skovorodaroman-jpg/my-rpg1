@@ -335,6 +335,7 @@ const PROFILE_FIELDS = [
   "level",
   "experience",
   "gold",
+  "silver",
   "crystals",
   "energy",
   "max_energy",
