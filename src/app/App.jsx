@@ -173,6 +173,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authMessage, setAuthMessage] = useState("");
   const [authMode, setAuthMode] = useState("login");
+  const [levelUpNotice, setLevelUpNotice] = useState(null);
 
   const loadProfile = useCallback(async (userId) => {
     if (!userId) {
