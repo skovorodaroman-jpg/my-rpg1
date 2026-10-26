@@ -45,14 +45,7 @@ function formatRemaining(value, now = Date.now()) {
 
 function Panel({ children, style = {} }) {
   return (
-    <section style={{
-      background: C.panel,
-      border: `1px solid ${C.border}`,
-      borderRadius: 14,
-      padding: 14,
-      minWidth: 0,
-      ...style,
-    }}>
+    <section style={{ ...S.panel, ...style }}>
       {children}
     </section>
   );
@@ -70,27 +63,16 @@ function Button({
       onClick={onClick}
       disabled={disabled}
       style={{
-        width: "100%",
-        minHeight: 45,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        gap: 8,
-        padding: "11px 12px",
-        borderRadius: 10,
-        border: `1px solid ${
-          secondary ? C.border : "#A87331"
-        }`,
+        ...S.button,
+        border: `1px solid ${secondary ? C.border : "#A87331"}`,
         background: disabled
           ? "#29231D"
           : secondary
             ? "linear-gradient(135deg, #30241A, #211811)"
             : "linear-gradient(135deg, #B97827, #75451C)",
         color: disabled ? "#817364" : C.text,
-        fontSize: 13,
-        fontWeight: 800,
         cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.7 : 1,
+        opacity: disabled ? 0.65 : 1,
       }}
     >
       {children}
@@ -116,13 +98,40 @@ export default function Career() {
   const [now, setNow] = useState(Date.now());
 
   const loadCareer = useCallback(async () => {
-    const { data, error } = await supabase.rpc("career_get_state");
+    let timeoutId;
 
-    if (error) throw error;
+    try {
+      const timeout = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(
+            new Error(
+              "Запит триває понад 15 секунд. Перевір з'єднання та RPC career_get_state."
+            )
+          );
+        }, 15000);
+      });
 
-    setCareer(data?.career ?? null);
-    setProfile(data?.profile ?? null);
-    return data;
+      const request = supabase.rpc("career_get_state");
+      const { data, error } = await Promise.race([
+        request,
+        timeout,
+      ]);
+
+      if (error) throw error;
+
+      if (!data || typeof data !== "object" || !data.career) {
+        throw new Error(
+          "Supabase не повернув поле career. Перевір SQL-функцію career_get_state."
+        );
+      }
+
+      setCareer(data.career);
+      setProfile(data.profile ?? null);
+
+      return data;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }, []);
 
   useEffect(() => {
@@ -130,18 +139,15 @@ export default function Career() {
 
     async function init() {
       try {
-        const { data, error } = await supabase.rpc("career_get_state");
-        if (error) throw error;
-
-        if (alive) {
-          setCareer(data?.career ?? null);
-          setProfile(data?.profile ?? null);
-        }
+        setLoading(true);
+        setMessage(null);
+        await loadCareer();
       } catch (error) {
         if (alive) {
+          setCareer(null);
           setMessage({
             type: "error",
-            text: error.message || "Не вдалося завантажити кар’єру.",
+            text: error?.message || "Не вдалося завантажити кар’єру.",
           });
         }
       } finally {
@@ -157,10 +163,10 @@ export default function Career() {
       alive = false;
       clearInterval(timer);
     };
-  }, []);
+  }, [loadCareer]);
 
   async function perform(action, successText) {
-    if (busy) return;
+    if (busy) return null;
 
     try {
       setBusy(true);
@@ -187,7 +193,7 @@ export default function Career() {
     } catch (error) {
       setMessage({
         type: "error",
-        text: error.message || "Сталася помилка.",
+        text: error?.message || "Сталася помилка.",
       });
       return null;
     } finally {
@@ -195,12 +201,32 @@ export default function Career() {
     }
   }
 
+  async function retryLoad() {
+    try {
+      setLoading(true);
+      setMessage(null);
+      await loadCareer();
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error?.message || "Помилка завантаження.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (loading) {
     return (
-      <div style={S.center}>
-        <RefreshCw size={26} color={C.gold} />
-        <p>Завантажуємо кар’єру…</p>
-      </div>
+      <main style={S.page}>
+        <div style={S.center}>
+          <RefreshCw size={28} color={C.gold} />
+          <p>Завантажуємо кар’єру…</p>
+          <span style={S.smallNote}>
+            Якщо запит зависне, з’явиться повідомлення про помилку.
+          </span>
+        </div>
+      </main>
     );
   }
 
@@ -208,25 +234,15 @@ export default function Career() {
     return (
       <main style={S.page}>
         <Panel>
-          <AlertCircle size={22} color={C.red} />
-          <p>Не вдалося завантажити кар’єру.</p>
-          <Button
-            onClick={async () => {
-              try {
-                setLoading(true);
-                setMessage(null);
-                await loadCareer();
-              } catch (error) {
-                setMessage({
-                  type: "error",
-                  text: error.message || "Помилка завантаження.",
-                });
-              } finally {
-                setLoading(false);
-              }
-            }}
-          >
-            <RefreshCw size={16} />
+          <AlertCircle size={26} color={C.red} />
+          <h2 style={S.boxTitle}>Кар’єра не завантажилась</h2>
+
+          {message && (
+            <p style={S.errorText}>{message.text}</p>
+          )}
+
+          <Button onClick={retryLoad} disabled={loading}>
+            <RefreshCw size={17} />
             Спробувати ще раз
           </Button>
         </Panel>
@@ -234,7 +250,6 @@ export default function Career() {
     );
   }
 
-  // Сумісність із реальними колонками та старими ключами RPC.
   const chapter = Number(career.chapter ?? 1);
   const rank = Number(career.place ?? career.current_rank ?? 100);
   const fightsUsed = Number(
@@ -262,7 +277,6 @@ export default function Career() {
   const stardust = Number(
     profile?.stardust ?? career.stardust ?? 0
   );
-
   const gold = Number(profile?.gold ?? 0);
 
   return (
@@ -292,9 +306,11 @@ export default function Career() {
           ) : (
             <CheckCircle2 size={19} />
           )}
+
           <span style={{ flex: 1, overflowWrap: "anywhere" }}>
             {message.text}
           </span>
+
           <button
             type="button"
             onClick={() => setMessage(null)}
@@ -306,7 +322,6 @@ export default function Career() {
         </div>
       )}
 
-      {/* ГОЛОВНИЙ ТУРНІР */}
       <Panel style={S.heroPanel}>
         <div style={S.heroTop}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -368,7 +383,9 @@ export default function Career() {
         <div style={S.balanceBar}>
           <Coins size={17} color={C.gold} />
           <span>Твоє золото</span>
-          <strong>{gold.toLocaleString("uk-UA")}</strong>
+          <strong style={{ marginLeft: "auto", color: C.goldLight }}>
+            {gold.toLocaleString("uk-UA")}
+          </strong>
         </div>
 
         {won ? (
@@ -376,15 +393,16 @@ export default function Career() {
             <Trophy size={30} color={C.gold} />
             <h3 style={S.boxTitle}>Перше місце здобуто!</h3>
             <p style={S.subtitle}>
-              Відкрий наступну главу. Твій новий турнір
-              розпочнеться зі 100-го місця.
+              Відкрий наступну главу. Новий турнір розпочнеться
+              зі 100-го місця.
             </p>
+
             <Button
               disabled={busy}
               onClick={() =>
                 perform(
                   { name: "career_next_chapter" },
-                  "Наступну главу відкрито!"
+                  `Главу ${chapter + 1} відкрито!`
                 )
               }
             >
@@ -455,9 +473,9 @@ export default function Career() {
                     return `${
                       battleWon ? "Перемога в бою!" : "Бій завершено."
                     } Місце: ${newRank}. Отримано ${
-                      data?.silver_reward ?? 0
+                      data?.silver_reward ?? data?.silver ?? 0
                     } срібла та ${
-                      data?.experience_reward ?? 0
+                      data?.experience_reward ?? data?.experience ?? 0
                     } досвіду.`;
                   }
                 )
@@ -466,6 +484,7 @@ export default function Career() {
               <Swords size={19} />
               {busy ? "Бій триває..." : "Провести бій"}
             </Button>
+
             <p style={S.smallNote}>
               Після п’ятого бою без першого місця доведеться
               чекати 8 годин або відкрити спробу достроково.
@@ -474,9 +493,9 @@ export default function Career() {
         )}
       </Panel>
 
-      {/* ЩОДЕННІ ВИМПЕЛИ */}
       <section style={S.section}>
         <SectionTitle icon={Flag}>Щоденні вимпели</SectionTitle>
+
         <p style={S.subtitle}>
           Отримуй срібло, досвід і зоряний пил. Нагороди
           збільшуються з кожною главою. Вимпели оновлюються
@@ -558,13 +577,11 @@ export default function Career() {
         {won && (
           <div style={S.freeBannerNote}>
             <Trophy size={17} color={C.gold} />
-            Перше місце дає право забрати всі три вимпели
-            безкоштовно.
+            Перше місце дає право забрати всі три вимпели безкоштовно.
           </div>
         )}
       </section>
 
-      {/* ПРАВИЛА */}
       <Panel>
         <SectionTitle icon={LockKeyhole}>Правила кар’єри</SectionTitle>
         <ul style={S.rules}>
@@ -596,6 +613,28 @@ const S = {
     boxSizing: "border-box",
     fontFamily: "inherit",
   },
+  panel: {
+    background: C.panel,
+    border: `1px solid ${C.border}`,
+    borderRadius: 14,
+    padding: 14,
+    minWidth: 0,
+    boxSizing: "border-box",
+  },
+  button: {
+    width: "100%",
+    minHeight: 45,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    padding: "11px 12px",
+    borderRadius: 10,
+    fontSize: 13,
+    fontWeight: 800,
+    cursor: "pointer",
+    boxSizing: "border-box",
+  },
   center: {
     minHeight: 240,
     display: "flex",
@@ -604,6 +643,7 @@ const S = {
     alignItems: "center",
     gap: 12,
     color: C.muted,
+    textAlign: "center",
   },
   header: { marginBottom: 18 },
   eyebrow: {
@@ -724,6 +764,7 @@ const S = {
     background: "#302116",
     textAlign: "center",
   },
+  
   retryBox: {
     marginTop: 10,
     padding: 14,
@@ -743,7 +784,9 @@ const S = {
     lineHeight: 1.6,
     margin: "10px 2px 0",
   },
-  section: { margin: "24px 0" },
+  section: {
+    margin: "24px 0",
+  },
   sectionTitle: {
     display: "flex",
     alignItems: "center",
@@ -765,7 +808,8 @@ const S = {
     textAlign: "center",
   },
   bannerIcon: {
-        width: 54,
+    position: "relative",
+    width: 54,
     height: 54,
     margin: "0 auto 10px",
     borderRadius: 16,
@@ -774,73 +818,89 @@ const S = {
     justifyContent: "center",
     background: "linear-gradient(145deg, #3A2A1B, #211710)",
     border: "1px solid #75532D",
-    color: "#E8A23B",
-    fontSize: 25,
+  },
+  bannerNumber: {
+    position: "absolute",
+    right: -5,
+    top: -5,
+    width: 21,
+    height: 21,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "50%",
+    background: C.gold,
+    color: "#1A1008",
+    fontSize: 11,
+    fontWeight: 900,
   },
   bannerTitle: {
     fontSize: 13,
     fontWeight: 800,
-    color: "#F3DFC0",
-    marginBottom: 6,
+    color: C.text,
+    margin: "0 0 7px",
   },
-  bannerReward: {
-    fontSize: 12,
-    color: "#C9B69A",
-    lineHeight: 1.5,
-    marginBottom: 10,
-  },
-  bannerButton: {
-    width: "100%",
-    padding: "10px 6px",
-    borderRadius: 10,
-    border: "1px solid #A87532",
-    background: "linear-gradient(180deg, #D99A3C, #A96A20)",
-    color: "#1A1008",
-    fontWeight: 800,
-    fontSize: 12,
-    cursor: "pointer",
-  },
-  bannerButtonDisabled: {
-    opacity: 0.45,
-    cursor: "not-allowed",
-  },
-  bannerStatus: {
+  bannerCost: {
     fontSize: 11,
-    color: "#83D6A0",
-    marginTop: 7,
-    fontWeight: 700,
+    fontWeight: 800,
+    marginBottom: 7,
   },
-  sectionTitle: {
+  bannerDescription: {
+    fontSize: 10,
+    color: C.muted,
+    lineHeight: 1.5,
+    minHeight: 30,
+    margin: "5px 0 10px",
+  },
+  freeBannerNote: {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    fontSize: 16,
-    fontWeight: 900,
-    color: "#F3DFC0",
-    marginBottom: 12,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 10,
+    background: "#302116",
+    color: C.goldLight,
+    fontSize: 12,
+    lineHeight: 1.5,
   },
-  infoText: {
-    color: "#BDA98D",
+  rules: {
+    paddingLeft: 19,
+    margin: "10px 0 0",
+    color: C.muted,
+    fontSize: 12,
+    lineHeight: 1.9,
+  },
+  message: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 9,
+    padding: 12,
+    marginBottom: 14,
+    border: "1px solid",
+    borderRadius: 10,
+    background: "#19130F",
     fontSize: 12,
     lineHeight: 1.6,
   },
-  error: {
-    padding: 12,
-    borderRadius: 12,
-    background: "rgba(180, 50, 40, 0.15)",
-    border: "1px solid rgba(220, 80, 65, 0.4)",
-    color: "#FFAAA0",
-    fontSize: 13,
-    marginBottom: 12,
+  closeMessage: {
+    border: 0,
+    background: "transparent",
+    color: C.muted,
+    fontSize: 22,
+    lineHeight: 1,
+    cursor: "pointer",
   },
-  success: {
-    padding: 12,
-    borderRadius: 12,
-    background: "rgba(50, 150, 90, 0.12)",
-    border: "1px solid rgba(90, 200, 130, 0.35)",
-    color: "#9DE5B4",
-    fontSize: 13,
-    marginBottom: 12,
+  errorText: {
+    color: C.red,
+    fontSize: 12,
+    lineHeight: 1.7,
+    overflowWrap: "anywhere",
+  },
+  footer: {
+    padding: "18px 4px 0",
+    textAlign: "center",
+    fontSize: 10,
+    color: C.muted,
   },
 };
-   
