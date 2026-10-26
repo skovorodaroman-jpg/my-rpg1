@@ -146,7 +146,6 @@ const PAGE_COMPONENTS = {
   forge: Forge,
   laboratory: Laboratory,
   ranking: Ranking,
-  career: ComingSoon,
   sage: ComingSoon,
   immortalKing: ComingSoon,
   getGold: ComingSoon,
