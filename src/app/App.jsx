@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabase";
 
 import Home from "./pages/Home";
@@ -112,8 +113,12 @@ function ComingSoon({ section, subsection }) {
 
   return (
     <section style={styles.panel}>
-      <div style={{ fontSize: 44 }}>{child?.icon || homeItem?.icon || "🏰"}</div>
-      <h2 style={styles.panelTitle}>{child?.label || homeItem?.label || section}</h2>
+      <div style={{ fontSize: 44 }}>
+        {child?.icon || homeItem?.icon || "🏰"}
+      </div>
+      <h2 style={styles.panelTitle}>
+        {child?.label || homeItem?.label || section}
+      </h2>
       <p style={styles.muted}>
         Цей розділ уже є в меню. Його механіку буде додано наступним етапом.
       </p>
@@ -175,9 +180,14 @@ export default function App() {
   const [authMode, setAuthMode] = useState("login");
   const [levelUpNotice, setLevelUpNotice] = useState(null);
 
+  // Запам'ятовуємо попередній рівень, щоб не показувати
+  // сповіщення під час першого входу в акаунт.
+  const previousLevelRef = useRef(null);
+
   const loadProfile = useCallback(async (userId) => {
     if (!userId) {
       setProfile(null);
+      previousLevelRef.current = null;
       return;
     }
 
@@ -195,7 +205,59 @@ export default function App() {
       return;
     }
 
+    if (!data) {
+      setProfile(null);
+      return;
+    }
+
+    const newLevel = Math.max(1, number(data.level, 1));
+    const previous = previousLevelRef.current;
+
+    // Перший профіль або інший користувач — лише встановлюємо базовий рівень.
+    if (!previous || previous.userId !== userId) {
+      previousLevelRef.current = { userId, level: newLevel };
+      setProfile(data);
+      setLevelUpNotice(null);
+      return;
+    }
+
+    // Оновлюємо попередній рівень одразу, щоб уникнути повторних сповіщень.
+    previousLevelRef.current = { userId, level: newLevel };
     setProfile(data);
+
+    if (newLevel <= previous.level) {
+      return;
+    }
+
+    // Беремо справжні нагороди з бази даних, а не вигадуємо суму.
+    const { data: rewards, error: rewardsError } = await supabase
+      .from("level_up_rewards")
+      .select("level_reached, gold_reward")
+      .eq("user_id", userId)
+      .gt("level_reached", previous.level)
+      .lte("level_reached", newLevel)
+      .order("level_reached", { ascending: true });
+
+    if (rewardsError) {
+      console.error("Level rewards load error:", rewardsError);
+
+      // Рівень підвищився, але дані нагороди недоступні.
+      setLevelUpNotice({
+        level: newLevel,
+        gold: null,
+      });
+      return;
+    }
+
+    const totalGold = (rewards || []).reduce(
+      (sum, reward) => sum + number(reward.gold_reward),
+      0
+    );
+
+    setLevelUpNotice({
+      level: newLevel,
+      gold: totalGold,
+    });
   }, []);
 
   useEffect(() => {
@@ -235,6 +297,8 @@ export default function App() {
 
       if (!nextSession?.user?.id) {
         setProfile(null);
+        previousLevelRef.current = null;
+        setLevelUpNotice(null);
         setLoading(false);
         return;
       }
@@ -278,7 +342,9 @@ export default function App() {
         if (error) {
           setAuthMessage(error.message);
         } else {
-          setAuthMessage("Акаунт створено. Перевір пошту для підтвердження.");
+          setAuthMessage(
+            "Акаунт створено. Перевір пошту для підтвердження."
+          );
         }
       }
     } finally {
@@ -414,7 +480,9 @@ export default function App() {
           <div style={{ fontSize: 44 }}>🌅</div>
           <h1 style={styles.authTitle}>Хроніки Згаслого Світанку</h1>
           <p style={styles.muted}>
-            {authMode === "login" ? "Увійди у свій акаунт" : "Створи акаунт"}
+            {authMode === "login"
+              ? "Увійди у свій акаунт"
+              : "Створи акаунт"}
           </p>
 
           <input
@@ -432,14 +500,22 @@ export default function App() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Пароль"
-            autoComplete={authMode === "login" ? "current-password" : "new-password"}
+            autoComplete={
+              authMode === "login" ? "current-password" : "new-password"
+            }
             style={styles.authInput}
             disabled={authLoading}
           />
 
-          {authMessage && <p style={styles.authMessage}>{authMessage}</p>}
+          {authMessage && (
+            <p style={styles.authMessage}>{authMessage}</p>
+          )}
 
-          <button type="submit" disabled={authLoading} style={styles.primaryButton}>
+          <button
+            type="submit"
+            disabled={authLoading}
+            style={styles.primaryButton}
+          >
             {authLoading
               ? "Зачекай..."
               : authMode === "login"
@@ -469,7 +545,10 @@ export default function App() {
       <div style={styles.centerScreen}>
         <div style={{ fontSize: 42 }}>⛔</div>
         <h2>Акаунт заблоковано</h2>
-        <p>{profile.ban_reason || "Доступ до гри обмежено адміністратором."}</p>
+        <p>
+          {profile.ban_reason ||
+            "Доступ до гри обмежено адміністратором."}
+        </p>
       </div>
     );
   }
@@ -491,7 +570,11 @@ export default function App() {
         <div style={styles.playerBlock}>
           <div style={styles.avatar}>
             {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="" style={styles.avatarImage} />
+              <img
+                src={profile.avatar_url}
+                alt=""
+                style={styles.avatarImage}
+              />
             ) : (
               "⚔️"
             )}
@@ -610,6 +693,56 @@ export default function App() {
           <strong>💎 {formatNumber(profile?.crystals)}</strong>
         </div>
       </div>
+
+      {/* Глобальне сповіщення про підвищення рівня */}
+      {levelUpNotice && (
+        <div
+          role="dialog"
+          aria-live="polite"
+          aria-label="Підвищення рівня"
+          style={styles.levelUpOverlay}
+        >
+          <div style={styles.levelUpCard}>
+            <button
+              type="button"
+              aria-label="Закрити сповіщення"
+              onClick={() => setLevelUpNotice(null)}
+              style={styles.levelUpClose}
+            >
+              ×
+            </button>
+
+            <div style={styles.levelUpIcon}>✨</div>
+            <div style={styles.levelUpEyebrow}>НОВА СИЛА ПРОБУДЖЕНА</div>
+            <h2 style={styles.levelUpTitle}>Рівень підвищено!</h2>
+
+            <div style={styles.levelUpLevel}>
+              {levelUpNotice.level}
+            </div>
+
+                <p style={styles.levelUpText}>
+              Ти став сильнішим. Подорож триває!
+            </p>
+
+            {levelUpNotice.gold !== null && (
+              <div style={styles.levelUpReward}>
+                <span>🪙</span>
+                <span>+{formatNumber(levelUpNotice.gold)} золота</span>
+              </div>
+            )}
+
+            <button
+              type="button"
+              style={styles.levelUpButton}
+              onClick={() => setLevelUpNotice(null)}
+            >
+              
+        
+              ПРОДОВЖИТИ
+            </button>
+          </div>
+        </div>
+      )}
 
       {renderBottomNavigation()}
     </div>
@@ -775,7 +908,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-         gap: 5,
+    gap: 5,
     padding: "8px 9px",
     border: "1px solid #493729",
     borderRadius: 9,
@@ -962,4 +1095,120 @@ const styles = {
     fontSize: 11,
     textAlign: "center",
   },
+
+  levelUpOverlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 100,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    background: "rgba(7,5,4,0.82)",
+    backdropFilter: "blur(5px)",
+    boxSizing: "border-box",
+  },
+
+  levelUpCard: {
+    position: "relative",
+    width: "100%",
+    maxWidth: 340,
+    padding: "30px 22px 24px",
+    border: "1px solid #B78343",
+    borderRadius: 20,
+    background:
+      "radial-gradient(ellipse at top, #49301B 0%, #211710 52%, #15100D 100%)",
+    boxShadow:
+      "0 0 45px rgba(212,160,79,0.18), 0 20px 60px rgba(0,0,0,0.55)",
+    textAlign: "center",
+    boxSizing: "border-box",
+  },
+
+  levelUpClose: {
+    position: "absolute",
+    top: 8,
+    right: 12,
+    width: 34,
+    height: 34,
+    border: "1px solid #60472E",
+    borderRadius: 9,
+    background: "#211811",
+    color: "#E7C394",
+    fontSize: 25,
+    lineHeight: 1,
+    cursor: "pointer",
+  },
+
+  levelUpIcon: {
+    fontSize: 48,
+    marginBottom: 8,
+    filter: "drop-shadow(0 0 14px rgba(231,195,148,0.4))",
+  },
+
+  levelUpEyebrow: {
+    color: "#D4A04F",
+    fontSize: 10,
+    fontWeight: 900,
+    letterSpacing: 2,
+  },
+
+  levelUpTitle: {
+    margin: "10px 0 15px",
+    color: "#F5D8A7",
+    fontSize: 24,
+    lineHeight: 1.2,
+  },
+
+  levelUpLevel: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 92,
+    height: 92,
+    margin: "0 auto",
+    border: "2px solid #D4A04F",
+    borderRadius: "50%",
+    background:
+      "radial-gradient(circle, #5A3B20 0%, #2A1D13 70%)",
+    color: "#FFE5AD",
+    fontSize: 38,
+    fontWeight: 900,
+    boxShadow: "0 0 25px rgba(212,160,79,0.2)",
+  },
+
+  levelUpText: {
+    margin: "16px 0",
+    color: "#C6B39A",
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+
+  levelUpReward: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 9,
+    margin: "0 0 20px",
+    padding: "12px 10px",
+    border: "1px solid #70512D",
+    borderRadius: 11,
+    background: "rgba(212,160,79,0.09)",
+    color: "#F4D18E",
+    fontSize: 16,
+    fontWeight: 900,
+  },
+
+  levelUpButton: {
+    width: "100%",
+    padding: 13,
+    border: "1px solid #D4A04F",
+    borderRadius: 10,
+    background: "linear-gradient(180deg, #98672E 0%, #65401D 100%)",
+    color: "#FFF0D6",
+    fontSize: 12,
+    fontWeight: 900,
+    letterSpacing: 1,
+    cursor: "pointer",
+  },
 };
+      
