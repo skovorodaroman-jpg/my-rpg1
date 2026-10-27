@@ -119,54 +119,91 @@ export default function Adventures({ profile, onNavigate, onProfileUpdate }) {
       )
     : 300;
 
-  const callAction = async (rpcName, args = {}) => {
-    if (busy) return;
+  
+const callAction = async (rpcName, args = {}) => {
+  if (busy) return;
 
-    setBusy(true);
-    setError("");
+  setBusy(true);
+  setError("");
 
-    try {
-      const { data, error: rpcError } = await supabase.rpc(rpcName, args);
-      if (rpcError) throw rpcError;
+  try {
+    const { data, error: rpcError } = await supabase.rpc(rpcName, args);
 
-      if (data?.error) throw new Error(data.error);
+    if (rpcError) throw rpcError;
+    if (data?.error) throw new Error(data.error);
 
-      if (data?.adventure !== undefined) {
+    if (data?.inventory) {
+      setInventory(data.inventory);
+    }
+
+    if (data?.stats) {
+      setStats(data.stats);
+    }
+
+    if (data?.profile && onProfileUpdate) {
+      onProfileUpdate(data.profile);
+    }
+
+    if (rpcName === "leave_adventure") {
+      setAdventure(null);
+      setScreen("home");
+      await loadData();
+      return;
+    }
+
+    if (data?.adventure !== undefined) {
+      setAdventure(data.adventure);
+    }
+
+    if (data?.status === "won" || data?.status === "lost") {
+      setScreen("result");
+      return;
+    }
+
+    if (data?.adventure?.status === "won" ||
+        data?.adventure?.status === "lost") {
+      setScreen("result");
+      return;
+    }
+
+    if (rpcName === "start_adventure") {
+      await loadData();
+      setScreen("monster");
+      return;
+    }
+
+    if (rpcName === "begin_adventure_battle") {
+      await loadData();
+      setScreen("battle");
+      return;
+    }
+
+    if (rpcName === "resolve_adventure_timeout") {
+      if (data?.adventure) {
         setAdventure(data.adventure);
       }
-
-      if (data?.inventory) setInventory(data.inventory);
-      if (data?.stats) setStats(data.stats);
-
-      if (data?.profile && onProfileUpdate) {
-        onProfileUpdate(data.profile);
-      }
-
-      if (data?.status === "won" || data?.status === "lost") {
-        setScreen("result");
-      } else if (data?.adventure?.status === "found") {
-        setScreen("monster");
-      } else if (data?.adventure?.status === "active") {
-        setScreen("battle");
-      } else if (data?.adventure?.status === "won" ||
-                 data?.adventure?.status === "lost") {
-        setScreen("result");
-      } else if (rpcName === "start_adventure") {
-        setScreen("monster");
-      } else if (rpcName === "begin_adventure_battle") {
-        setScreen("battle");
-      } else if (rpcName === "leave_adventure") {
-        setAdventure(null);
-        setScreen("home");
-      }
-
-      await loadData();
-    } catch (err) {
-      setError(err.message || "Не вдалося виконати дію.");
-    } finally {
-      setBusy(false);
+      setScreen("result");
+      return;
     }
-  };
+
+    if (rpcName === "use_adventure_boost" ||
+        rpcName === "attack_adventure_monster") {
+      if (data?.adventure) {
+        setAdventure(data.adventure);
+        setScreen(
+          data.adventure.status === "active" ? "battle" :
+          data.adventure.status === "won" || data.adventure.status === "lost"
+            ? "result"
+            : "home"
+        );
+      }
+    }
+  } catch (err) {
+    setError(err.message || "Не вдалося виконати дію.");
+  } finally {
+    setBusy(false);
+  }
+};
 
   useEffect(() => {
     if (screen !== "battle" || remaining > 0 || busy) return;
