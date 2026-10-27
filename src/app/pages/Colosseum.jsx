@@ -26,76 +26,213 @@ const starText = (h) => {
 };
 
 /* ================= API ================= */
-async function http(path, opts = {}) {
-  const r = await fetch(API + path, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    ...opts,
-  });
-  if (!r.ok) throw new Error(`Помилка ${r.status}`);
-  return r.json();
-}
+
+/* ================= API ================= */
+
 const realApi = {
-  state: () => http("/state"),
-  join: () => http("/queue/join", { method: "POST" }),
-  status: () => http("/queue/status"),
-  leave: () => http("/queue/leave", { method: "POST" }),
-  finish: (b) => http("/battle/finish", { method: "POST", body: JSON.stringify(b) }),
+  state: async () => {
+    const { data, error } = await supabase.rpc("colosseum_get_state", {
+      p_match_id: window.__colosseumMatchId,
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
+  join: async () => {
+    const { data, error } = await supabase.rpc("colosseum_join_queue");
+
+    if (error) throw error;
+
+    const matchId = typeof data === "string"
+      ? data
+      : data?.match_id ?? data?.id;
+
+    if (matchId) {
+      window.__colosseumMatchId = matchId;
+    }
+
+    return data;
+  },
+
+  status: async () => {
+    const matchId = window.__colosseumMatchId;
+
+    if (!matchId) {
+      return { queued: false, matched: false, count: 0, max: 5 };
+    }
+
+    const { data, error } = await supabase
+      .from("colosseum_matches")
+      .select("id, status")
+      .eq("id", matchId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data || data.status === "cancelled" || data.status === "finished") {
+      return { queued: false, matched: false, count: 0, max: 5 };
+    }
+
+    const { count, error: countError } = await supabase
+      .from("colosseum_participants")
+      .select("id", { count: "exact", head: true })
+      .eq("match_id", matchId);
+
+    if (countError) throw countError;
+
+    return {
+      queued: data.status === "waiting",
+      matched: data.status === "active",
+      count: count ?? 0,
+      max: 5,
+      match_id: matchId,
+    };
+  },
+
+  leave: async () => {
+    const { data, error } = await supabase.rpc("colosseum_leave_queue");
+
+    if (error) throw error;
+
+    window.__colosseumMatchId = null;
+    return data;
+  },
+
+  finish: async (battle) => {
+    const matchId = window.__colosseumMatchId;
+
+    if (!matchId) {
+      throw new Error("Не знайдено бій Колізею");
+    }
+
+    const { data, error } = await supabase.rpc(
+      "colosseum_check_battle_end",
+      { p_match_id: matchId }
+    );
+
+    if (error) throw error;
+    return { ...battle, server_result: data };
+  },
 };
 
+/* ================= MOCK API ================= */
+
 const mock = {
-  name: "Мандрівник", level: 75, gold: 13706, silver: 2400000, exp: 0, power: 34424,
-  rank_no: 15, stars_half: 8, rating: 1523, win_streak: 0, place: 48,
-  first_win_available: true, skulls: 0, ends_at: new Date(Date.now() + 864e5).toISOString(),
+  name: "Мандрівник",
+  level: 75,
+  gold: 13706,
+  silver: 2400000,
+  exp: 0,
+  power: 34424,
+  rank_no: 15,
+  stars_half: 8,
+  rating: 1523,
+  win_streak: 0,
+  place: 48,
+  first_win_available: true,
+  skulls: 0,
+  ends_at: new Date(Date.now() + 864e5).toISOString(),
 };
+
 let mockPolls = 0;
+
 const mockApi = {
   state: async () => ({ ...mock }),
-  join: async () => { mockPolls = 0; return {}; },
+
+  join: async () => {
+    mockPolls = 0;
+    return {};
+  },
+
   leave: async () => ({}),
+
   status: async () => {
     mockPolls++;
-    if (mockPolls < 3) return { queued: true, matched: false, count: mockPolls, max: 5 };
-    // Зазвичай 4 суперники; 3 — іноді, 2 — рідко.
+
+    if (mockPolls < 3) {
+      return {
+        queued: true,
+        matched: false,
+        count: mockPolls,
+        max: 5,
+      };
+    }
+
     const roll = Math.random();
     const count = roll < 0.05 ? 2 : roll < 0.25 ? 3 : 4;
-    const names = ["Санягрот", "Амбаш", "Бормансс", "Темний Вершник"].slice(0, count);
+    const names = [
+      "Санягрот",
+      "Амбаш",
+      "Бормансс",
+      "Темний Вершник",
+    ].slice(0, count);
+
     return {
-      queued: false, matched: true,
+      queued: false,
+      matched: true,
       opponents: names.map((name) => ({
-        name, power: Math.round(mock.power * rnd(0.75, 1.2)),
+        name,
+        power: Math.round(mock.power * rnd(0.75, 1.2)),
       })),
     };
   },
+
   finish: async ({ place, kills }) => {
     const base = 1 + (26 - mock.rank_no) * 0.12;
     const pm = [1, 0.6, 0.3, 0.1, 0.05][Math.min(place - 1, 4)] || 0.05;
     const lm = 1 + mock.level / 150;
     const first = place === 1 && mock.first_win_available;
     const multiplier = first ? 20 : 1;
+
     let gain = [2, 1, 0, -1, -1][Math.min(place - 1, 4)];
     const streak = place === 1 ? mock.win_streak + 1 : 0;
+
     if (place === 1 && streak >= 3) gain += 2;
-    let half = mock.stars_half + gain, rank = mock.rank_no, gold = Math.max(gain, 0) >> 1;
-    while (half >= 10 && rank > 1) { half -= 10; rank--; gold += Math.round(2 + (26 - rank) * 0.67); }
+
+    let half = mock.stars_half + gain;
+    let rank = mock.rank_no;
+    let gold = Math.max(gain, 0) >> 1;
+
+    while (half >= 10 && rank > 1) {
+      half -= 10;
+      rank--;
+      gold += Math.round(2 + (26 - rank) * 0.67);
+    }
+
     half = Math.min(Math.max(half, 0), 10);
+
     const res = {
-      old_rank: mock.rank_no, new_rank: rank, rank_up: rank < mock.rank_no, stars_half: half,
-      stars_gain_half: gain, rating_delta: [14, 5, -5, -12, -15][Math.min(place - 1, 4)],
-      gold, first_win: first, silver: Math.round(50 * base * pm * lm) * multiplier,
-      exp: Math.round(56 * base * pm * lm) * multiplier, win_streak: streak,
+      old_rank: mock.rank_no,
+      new_rank: rank,
+      rank_up: rank < mock.rank_no,
+      stars_half: half,
+      stars_gain_half: gain,
+      rating_delta: [14, 5, -5, -12, -15][Math.min(place - 1, 4)],
+      gold,
+      first_win: first,
+      silver: Math.round(50 * base * pm * lm) * multiplier,
+      exp: Math.round(56 * base * pm * lm) * multiplier,
+      win_streak: streak,
       skulls_gained: mock.rank_no <= 23 ? kills : 0,
     };
+
     Object.assign(mock, {
-      rank_no: rank, stars_half: half, win_streak: streak,
-      rating: mock.rating + res.rating_delta, gold: mock.gold + gold,
-      silver: mock.silver + res.silver, exp: mock.exp + res.exp,
+      rank_no: rank,
+      stars_half: half,
+      win_streak: streak,
+      rating: mock.rating + res.rating_delta,
+      gold: mock.gold + gold,
+      silver: mock.silver + res.silver,
+      exp: mock.exp + res.exp,
       first_win_available: first ? false : mock.first_win_available,
       skulls: mock.skulls + res.skulls_gained,
     });
+
     return { ...res, rating: mock.rating };
   },
 };
+
 
 /* ================= БОЙ: ЛОГІКА ================= */
 let logId = 0;
