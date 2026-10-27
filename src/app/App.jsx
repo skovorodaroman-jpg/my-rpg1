@@ -21,6 +21,7 @@ import Colosseum from "./pages/Colosseum";
 import Cave from "./pages/Cave";
 import Training from "./pages/Training";
 import Skills from "./pages/Skills";
+import Sage from "./pages/Sage";
 
 const MAIN_PAGES = [
   { id: "hero", label: "Мій герой", icon: "⚔️" },
@@ -151,7 +152,7 @@ const PAGE_COMPONENTS = {
   forge: Forge,
   laboratory: Laboratory,
   ranking: Ranking,
-  sage: ComingSoon,
+  sage: Sage,
   immortalKing: ComingSoon,
   getGold: ComingSoon,
 };
