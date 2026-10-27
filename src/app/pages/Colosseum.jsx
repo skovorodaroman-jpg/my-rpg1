@@ -1,7 +1,7 @@
 import { useState, useEffect, useReducer, useCallback, useRef } from "react";
 
 /* ================= НАЛАШТУВАННЯ ================= */
-const USE_MOCK = false; // true — тест без сервера; false — використовує /api/colosseum
+const USE_MOCK = true; // true — тест без сервера; false — використовує /api/colosseum
 const API = "/api/colosseum";
 const BATTLE_SECONDS = 300;
 const ATTACK_CD = 5;
