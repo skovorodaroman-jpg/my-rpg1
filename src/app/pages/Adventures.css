@@ -1,0 +1,350 @@
+
+.adventure-page {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 12px 12px 24px;
+  color: #e9dcc4;
+  background: #120e0b;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.adventure-page * { box-sizing: border-box; }
+
+.adventure-resources {
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 14px;
+  background: #211913;
+  border: 1px solid #493522;
+  border-radius: 12px;
+}
+
+.adventure-resources div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #e8b45f;
+  font-weight: 700;
+}
+
+.adventure-hero, .adventure-panel, .adventure-encounter,
+.adventure-battle, .adventure-result {
+  padding: 18px;
+  margin-bottom: 14px;
+  border: 1px solid #4b3927;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #261c15, #18120e);
+  text-align: center;
+}
+
+.adventure-location-art {
+  display: grid;
+  place-items: center;
+  height: 130px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse at 50% 80%, #62421f 0%, transparent 45%),
+    linear-gradient(160deg, #3a2a1e, #100d0b);
+  font-size: 72px;
+}
+
+.adventure-eyebrow {
+  color: #b18b53;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.adventure-page h1 {
+  margin: 8px 0 12px;
+  color: #e8b45f;
+  font-size: 25px;
+  font-weight: 800;
+}
+
+.adventure-page h2 {
+  margin: 0 0 14px;
+  color: #e8c78f;
+  font-size: 17px;
+}
+
+.adventure-page p {
+  color: #bca990;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.adventure-counter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  margin: 16px 0;
+  border-radius: 9px;
+  background: #17110d;
+  color: #e8c78f;
+}
+
+.adventure-button, .adventure-secondary-button {
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.adventure-button {
+  color: #1b1209;
+  border: 1px solid #f0c579;
+  background: linear-gradient(180deg, #efc777, #b77b32);
+}
+
+.adventure-secondary-button {
+  color: #d2bfa5;
+  border: 1px solid #574432;
+  background: #211812;
+}
+
+.adventure-page button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.adventure-panel { text-align: left; }
+
+.adventure-rules {
+  padding-left: 20px;
+  margin: 0;
+  color: #c9b69b;
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+.adventure-boost-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid #3d2e21;
+}
+
+.adventure-boost-icon { font-size: 28px; }
+
+.adventure-boost-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adventure-boost-copy strong { color: #ead4ad; }
+.adventure-boost-copy span, .adventure-boost-copy small {
+  color: #ae9b82;
+  font-size: 11px;
+}
+
+.adventure-small-button {
+  padding: 8px 10px;
+  border: 1px solid #8a6337;
+  border-radius: 7px;
+  color: #f1d3a0;
+  background: #342316;
+}
+
+.adventure-monster-art {
+  display: grid;
+  place-items: center;
+  min-height: 155px;
+  margin: 12px 0;
+  border-radius: 12px;
+  border: 1px solid #4c3825;
+  background: radial-gradient(ellipse, #493321, #17110d 70%);
+  font-size: 76px;
+}
+
+.adventure-monster-art img {
+  width: 100%;
+  height: 170px;
+  object-fit: contain;
+}
+
+.adventure-hp-label {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  margin: 12px 0 7px;
+  color: #e6b1a3;
+  font-size: 13px;
+}
+
+.adventure-hp-track {
+  height: 12px;
+  overflow: hidden;
+  border: 1px solid #4b2923;
+  border-radius: 20px;
+  background: #100b09;
+}
+
+.adventure-hp-track div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #862f27, #df6850);
+  transition: width .25s ease;
+}
+
+.adventure-timer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  margin-bottom: 16px;
+  border: 1px solid #72512c;
+  border-radius: 9px;
+  color: #f1c879;
+  background: #1a120c;
+  font-size: 23px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.adventure-turns {
+  margin: 16px 0;
+  color: #d8c3a1;
+  font-size: 14px;
+}
+
+.adventure-turns strong { color: #f0c36d; }
+
+.adventure-battle-boosts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.adventure-battle-boosts button {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 5px;
+  border: 1px solid #5b442d;
+  border-radius: 9px;
+  color: #e6d0a9;
+  background: #211810;
+}
+
+.adventure-battle-boosts small { color: #b49a77; }
+
+.adventure-active-boost { color: #e9bf6d !important; }
+
+.adventure-attack { min-height: 54px; }
+
+.adventure-player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin: 16px 0;
+  border: 1px solid #483522;
+  border-radius: 12px;
+  background: #211811;
+}
+
+.adventure-player-avatar { font-size: 35px; }
+
+.adventure-player-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adventure-player-info strong { color: #ebd0a0; }
+.adventure-player-info span, .adventure-player-stats span {
+  color: #b7a184;
+  font-size: 11px;
+}
+
+.adventure-player-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.adventure-bottom-nav {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  padding: 10px 4px;
+  border: 1px solid #493522;
+  border-radius: 12px;
+  background: #17110d;
+}
+
+.adventure-bottom-nav button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 0;
+  border: 0;
+  color: #dfc39a;
+  background: transparent;
+  font-size: 20px;
+}
+
+.adventure-bottom-nav span {
+  font-size: 10px;
+}
+
+.adventure-error {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #783d32;
+  border-radius: 8px;
+  color: #ffc1ad;
+  background: #351b17;
+  overflow-wrap: anywhere;
+}
+
+.adventure-error button {
+  align-self: flex-start;
+  border: 0;
+  color: inherit;
+  background: transparent;
+}
+
+.adventure-reward {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  margin: 12px 0;
+  border-radius: 9px;
+  color: #edc878;
+  background: #211810;
+  font-size: 12px;
+}
