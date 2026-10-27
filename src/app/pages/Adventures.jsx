@@ -69,15 +69,31 @@ export default function Adventures({ profile, onNavigate, onProfileUpdate }) {
 
     const state = stateResult.data;
     if (state?.adventure) {
-      setAdventure(state.adventure);
-      setScreen(
-        state.adventure.status === "found" ? "monster" :
-        state.adventure.status === "active" ? "battle" : "home"
-      );
-    } else {
+  setAdventure(state.adventure);
+
+  switch (state.adventure.status) {
+    case "found":
+      setScreen("monster");
+      break;
+
+    case "active":
+      setScreen("battle");
+      break;
+
+    case "won":
+    case "lost":
+      setScreen("result");
+      break;
+
+    default:
       setAdventure(null);
       setScreen("home");
-    }
+      break;
+  }
+} else {
+  setAdventure(null);
+  setScreen("home");
+}
 
     setInventory(inventoryResult.data || {
       stones_count: 0,
