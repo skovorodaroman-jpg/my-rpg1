@@ -1,285 +1,375 @@
+
 .forge-page {
+  --bg: #120e0b;
+  --panel: #1d1714;
+  --panel2: #282019;
+  --line: #403126;
+  --gold: #e8a23b;
+  --text: #f3eadb;
+  --muted: #a99b89;
   min-height: 100vh;
-  background: #171411;
-  color: #e6c18a;
-  font-family: Arial, sans-serif;
-  max-width: 950px;
+  max-width: 440px;
   margin: 0 auto;
-  box-sizing: border-box;
+  padding: 0 14px 92px;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 system-ui, sans-serif;
 }
 
+.forge-page * { box-sizing: border-box; }
+.forge-page button { font: inherit; cursor: pointer; color: inherit; }
+.forge-page button:disabled { opacity: .5; cursor: not-allowed; }
+
 .forge-header {
-  min-height: 58px;
-  background: #0e0c0b;
-  border-bottom: 2px solid #59452f;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.forge-back, .forge-small-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border: 0;
+  color: var(--muted) !important;
+}
+
+.forge-back {
+  width: 38px;
+  height: 38px;
+  justify-content: center;
+  border: 1px solid var(--line) !important;
+  border-radius: 9px;
+}
+
+.forge-heading { flex: 1; }
+.forge-eyebrow { font-size: 9px; letter-spacing: 1.1px; color: var(--muted); }
+.forge-heading h1 { margin: 2px 0 0; font-size: 25px; color: var(--gold); }
+.forge-header-icon { color: var(--gold); }
+
+.forge-intro {
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  margin: 16px 0;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(130deg, #332317, #1d1714 70%);
+}
+
+.forge-intro-art {
+  flex: 0 0 105px;
+  height: 116px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  border-radius: 9px;
+  background: radial-gradient(ellipse, #9d4b1e, #3b2518 55%, #1b1511);
+}
+
+.forge-fire { position: absolute; top: 8px; font-size: 35px; }
+.forge-anvil { z-index: 1; margin-top: 22px; font-size: 45px; color: #e9b36b; }
+.forge-sparks { position: absolute; bottom: 8px; color: var(--gold); }
+
+.forge-intro-copy { min-width: 0; }
+.forge-section-label { font-size: 10px; letter-spacing: 1px; color: var(--gold); }
+.forge-intro-copy h2 { margin: 5px 0; font-size: 17px; line-height: 1.25; }
+.forge-intro-copy p { margin: 0; font-size: 12px; color: var(--muted); }
+
+.forge-mastery {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 12px 0 21px;
+  padding: 14px;
+  border: 1px solid #624725;
+  border-radius: 10px;
+  background: linear-gradient(110deg, #3a2918, #211911);
+}
+
+.forge-mastery-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--gold);
+  background: #49331b;
+  border-radius: 10px;
+}
+
+.forge-mastery-info { display: grid; flex: 1; gap: 1px; }
+.forge-mastery-info span { color: var(--gold); font-weight: 700; }
+.forge-mastery-info strong { font-size: 24px; }
+.forge-mastery-info small { font-size: 11px; color: var(--muted); }
+
+.forge-menu-title, .forge-rune-count {
+  margin: 18px 0 9px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: .8px;
+}
+
+.forge-menu { display: grid; gap: 9px; }
+
+.forge-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 76px;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: linear-gradient(110deg, #292019, #1b1612);
+}
+
+.forge-menu-item:not(.locked):active { border-color: var(--gold); }
+.forge-menu-item.locked { opacity: .65; }
+
+.forge-menu-icon {
+  flex: 0 0 45px;
+  width: 45px;
+  height: 45px;
+  display: grid;
+  place-items: center;
+  color: var(--gold);
+  border-radius: 9px;
+  background: #47301c;
+}
+
+.forge-menu-icon.sharpening { color: #c8b9a3; background: #34302b; }
+.forge-menu-icon.bonus { color: #d4a7ff; background: #32243f; }
+.forge-menu-icon.amulet { color: #7dd5e7; background: #1b3540; }
+.forge-menu-icon.stars { color: #f6ce65; background: #443719; }
+.forge-menu-icon.rings { color: #9fbdff; background: #25334b; }
+
+.forge-menu-copy { flex: 1; display: grid; gap: 3px; }
+.forge-menu-copy strong { font-size: 14px; }
+.forge-menu-copy span { font-size: 12px; color: var(--muted); }
+.forge-lock { color: #897d70; }
+.forge-chevron { color: var(--gold); font-size: 25px; }
+
+.forge-cave-note {
+  display: flex;
+  gap: 12px;
+  margin-top: 17px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.forge-cave-icon { color: var(--gold); }
+.forge-cave-note strong { font-size: 13px; }
+.forge-cave-note p { margin: 5px 0 8px; font-size: 12px; color: var(--muted); }
+.forge-cave-note button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.forge-subheading { padding: 16px 0 10px; text-align: left; }
+.forge-small-back { padding: 0; font-size: 12px; }
+.forge-subheading h2 { margin: 12px 0 3px; font-size: 23px; color: var(--gold); }
+.forge-subheading p { margin: 0; color: var(--muted); font-size: 12px; }
+
+.forge-wallet {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid #5b4328;
+  border-radius: 10px;
+  background: #302316;
+}
+
+.forge-wallet-icon { color: var(--gold); }
+.forge-wallet > div:nth-child(2) { flex: 1; display: grid; }
+.forge-wallet span { color: var(--muted); font-size: 12px; }
+.forge-wallet strong { font-size: 21px; }
+.forge-wallet-bag { color: var(--gold); }
+
+.forge-rune-toolbar { margin-top: 14px; }
+.forge-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.forge-search input {
+  flex: 1;
+  width: 100%;
+  color: var(--text);
+  outline: 0;
+  border: 0;
+  background: transparent;
+}
+
+.forge-search button { border: 0; background: transparent; }
+
+.forge-rarity-filters {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 11px 0 3px;
+}
+
+.forge-rarity-filters button {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.forge-rarity-filters button.selected {
+  border-color: var(--gold);
+  background: #46301b;
+  color: var(--gold);
+}
+
+.forge-rune-count { display: flex; justify-content: space-between; }
+.forge-rune-count span { color: var(--gold); }
+
+.forge-rune-list { display: grid; gap: 9px; }
+
+.forge-rune-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: linear-gradient(120deg, #292019, #1b1612);
+}
+
+.forge-rune-art {
+  position: relative;
+  flex: 0 0 52px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #65533b;
+  border-radius: 9px;
+  color: #c9b99f;
+  background: #30291f;
+}
+
+.forge-rune-art span { position: absolute; top: 0; right: 5px; font-size: 11px; }
+.forge-rune-art.uncommon { color: #69d88a; border-color: #326c43; background: #1b3323; }
+.forge-rune-art.rare { color: #6caeff; border-color: #315a8a; background: #1a2b43; }
+.forge-rune-art.epic { color: #ce8aff; border-color: #72449b; background: #30203d; }
+.forge-rune-art.legendary { color: #ffbd58; border-color: #a96d24; background: #402b18; }
+.forge-rune-art.titanic { color: #ff7272; border-color: #a33c4b; background: #3c1b24; }
+
+.forge-rune-info { min-width: 0; flex: 1; display: grid; gap: 3px; }
+.forge-rune-info > strong { font-size: 12px; line-height: 1.3; }
+.forge-rune-info > small { color: var(--muted); font-size: 11px; }
+.forge-rarity { width: fit-content; font-size: 10px; font-weight: 700; }
+.forge-rarity-common { color: #c9c0b2; }
+.forge-rarity-uncommon { color: #69d88a; }
+.forge-rarity-rare { color: #6caeff; }
+.forge-rarity-epic { color: #ce8aff; }
+.forge-rarity-legendary { color: #ffbd58; }
+.forge-rarity-titanic { color: #ff7272; }
+
+.forge-rune-price { display: flex; align-items: center; gap: 4px; color: var(--gold); font-size: 11px; }
+.forge-buy, .forge-sell-panel button {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  border: 1px solid #a87835;
+  border-radius: 7px;
+  background: linear-gradient(#986528, #60401e);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.forge-sell-panel {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
-  box-sizing: border-box;
-}
-
-.forge-header h1 {
-  margin: 0;
-  font-size: 25px;
-  color: #f0c36f;
-}
-
-.forge-resources {
-  font-size: 19px;
-  color: #ead7bd;
-  white-space: nowrap;
-}
-
-.forge-resources span {
-  color: #77604a;
-  margin: 0 6px;
-}
-
-.forge-image {
-  height: 270px;
-  margin: 14px 12px 0;
-  border: 2px solid #4c3a28;
-  background:
-    linear-gradient(
-      rgba(35, 20, 10, 0.2),
-      rgba(20, 12, 8, 0.45)
-    ),
-    radial-gradient(
-      circle at 30% 50%,
-      #70401f 0,
-      #302018 35%,
-      #151311 75%
-    );
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: inset 0 0 30px #000;
-}
-
-.forge-image-overlay {
-  font-size: 100px;
-  opacity: 0.75;
-  filter: drop-shadow(0 0 15px #e08c32);
-}
-
-.forge-description {
-  text-align: center;
-  color: #a9aaa4;
-  font-size: 24px;
-  padding: 20px 10px 15px;
-  border-bottom: 2px solid #57432d;
-}
-
-.rune-info {
-  padding: 15px;
-  border-bottom: 1px solid #463728;
-}
-
-.rune-info h2 {
-  margin: 0 0 10px;
-  color: #f0bd62;
-  font-size: 24px;
-}
-
-.rune-info p {
-  margin: 7px 0;
-  color: #d7c3a7;
-  font-size: 16px;
-  line-height: 1.35;
-}
-
-.rune-info .warning {
-  color: #e28a65;
-}
-
-.rune-types {
-  border-bottom: 1px solid #4b3b2d;
-}
-
-.rune-type {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px dotted #4b4035;
-  padding: 14px;
-  color: #e8c17a;
-  cursor: pointer;
-}
-
-.rune-type:hover,
-.rune-type.active {
-  background: #211c18;
-}
-
-.rune-type-icon {
-  width: 42px;
-  font-size: 29px;
-  text-align: center;
-}
-
-.rune-type-content {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.rune-type-content strong {
-  font-size: 21px;
-  color: #e5b75e;
-}
-
-.rune-type-content small {
-  font-size: 14px;
-  color: #b8aaa0;
-}
-
-.selected-rune {
-  margin-top: 15px;
-}
-
-.selected-rune-title {
-  padding: 12px 15px 4px;
-  font-size: 25px;
-  color: #f0bd62;
-}
-
-.selected-rune-subtitle {
-  padding: 0 15px 14px;
-  color: #aaa39b;
-  font-size: 15px;
-}
-
-.rune-list {
-  border-top: 1px solid #4c3b2d;
-}
-
-.rune-row {
-  min-height: 80px;
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
   gap: 12px;
-  padding: 10px 15px;
-  box-sizing: border-box;
-  border-bottom: 1px dotted #463b32;
+  margin-top: 16px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
 }
 
-.rune-quality {
+.forge-sell-panel p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+.forge-footnote { margin: 13px 0; color: var(--muted); font-size: 10px; }
+.forge-empty { padding: 28px 8px; color: var(--muted); text-align: center; }
+
+.forge-notice {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.rune-quality strong {
-  color: #e6b85d;
-  font-size: 19px;
-}
-
-.rune-quality span {
-  color: #c8bbb0;
-  font-size: 14px;
-}
-
-.rune-price {
-  color: #ead9bc;
-  white-space: nowrap;
-  font-size: 16px;
-}
-
-.rune-buy {
-  min-width: 95px;
-  padding: 8px 12px;
-  border: 1px solid #62503e;
-  border-radius: 3px;
-  background: linear-gradient(#55483c, #211c18);
-  color: #e9d6bd;
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.rune-buy:hover {
-  background: linear-gradient(#695747, #2d241e);
-}
-
-.rune-message {
-  margin: 15px;
-  padding: 12px;
-  border: 1px solid #604b32;
-  background: #211b16;
-  color: #e5bd78;
-  text-align: center;
-}
-
-.forge-navigation {
-  margin-top: 20px;
-  border-top: 2px solid #59452f;
-}
-
-.forge-navigation button {
-  width: 100%;
-  text-align: left;
-  padding: 14px;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px dotted #493b30;
-  color: #e6b766;
-  font-size: 20px;
-  cursor: pointer;
-}
-
-.forge-navigation button:hover {
-  background: #211c18;
-}
-
-.forge-profile {
-  background: #0d0b0a;
-  padding: 14px;
-  display: grid;
-  grid-template-columns: 1fr auto;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
-  color: #ead8c2;
-  font-size: 18px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  font-size: 12px;
 }
 
-.forge-profile a {
-  color: #e8bd70;
+.forge-notice button { border: 0; background: transparent; color: var(--muted); }
+.forge-notice.error { border-color: #8d3c35; color: #ffb9ad; }
+.forge-notice.info { color: #e8d5b5; }
+
+.forge-footer {
+  position: fixed;
+  z-index: 10;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: #17120f;
 }
 
-.profile-resources {
-  grid-column: 1 / -1;
-  text-align: center;
-  color: #d9c6a8;
-  padding-top: 5px;
+.forge-footer button {
+  flex: 1;
+  padding: 9px 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
 }
 
-@media (max-width: 600px) {
-  .forge-header h1 {
-    font-size: 21px;
-  }
-
-  .forge-resources {
-    font-size: 15px;
-  }
-
-  .forge-image {
-    height: 220px;
-  }
-
-  .forge-description {
-    font-size: 20px;
-  }
-
-  .rune-row {
-    grid-template-columns: 1fr;
-    gap: 7px;
-  }
-
-  .rune-buy {
-    width: 110px;
-  }
+.forge-footer button.active {
+  border-color: #644725;
+  background: #342516;
+  color: var(--gold);
 }
+
+@media (max-width: 360px) {
+  .forge-page { padding-inline: 10px; }
+  .forge-intro { gap: 9px; padding: 10px; }
+  .forge-intro-art { flex-basis: 82px; height: 100px; }
+  .forge-intro-copy h2 { font-size: 15px; }
+  .forge-rune-card { gap: 7px; padding: 8px; }
+  .forge-rune-art { flex-basis: 43px; height: 48px; }
+  .forge-buy { padding: 8px; }
+  }
