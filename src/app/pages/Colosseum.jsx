@@ -7,7 +7,7 @@ import { supabase } from "../lib/supabase";
  * true  = тестовий бій
  * false = використання RPC Supabase (потребує узгодження формату відповіді)
  */
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 const MAX_PLAYERS = 5;
 const BATTLE_SECONDS = 300;
@@ -83,6 +83,101 @@ export default function Colosseum({ onNavigate = () => {} }) {
 
   const matchId = useRef(null);
   const finished = useRef(false);
+    const queuePollLock = useRef(false);
+
+  useEffect(() => {
+    if (USE_MOCK || screen !== "queue" || !matchId.current) return;
+
+    let cancelled = false;
+
+    const checkQueue = async () => {
+      if (queuePollLock.current || cancelled) return;
+      queuePollLock.current = true;
+
+      try {
+        const id = matchId.current;
+        if (!id) return;
+
+        const { data, error } = await supabase.rpc(
+          "colosseum_get_state",
+          { p_match_id: id }
+        );
+
+        if (error) throw error;
+        if (cancelled || matchId.current !== id) return;
+
+        setQueueCount(Array.isArray(data?.players) ? data.players.length : 0);
+
+        if (data?.status === "active") {
+          const { data: state, error: startError } = await supabase.rpc(
+            "colosseum_start_battle",
+            { p_match_id: id }
+          );
+
+          if (startError) throw startError;
+          if (cancelled || matchId.current !== id) return;
+
+          const players = state?.players || {};
+          const entries = Object.entries(players);
+          const { data: userData } = await supabase.auth.getUser();
+          const myId = userData?.user?.id;
+          const meState = players[myId];
+
+          if (!meState) {
+            throw new Error("Твого персонажа немає в бойовому стані матчу.");
+          }
+
+          const opponents = entries
+            .filter(([id]) => id !== myId)
+            .map(([id, p]) => ({
+              id,
+              name: p.name || "Воїн",
+              power: Number(p.power) || 100,
+              hp: Number(p.hp) || 0,
+              maxHp: Number(p.max_hp) || 100,
+              alive: p.alive !== false,
+            }));
+
+          if (cancelled) return;
+
+          finished.current = false;
+          setBattle({
+            hp: Number(meState.hp) || 0,
+            maxHp: Number(meState.max_hp) || 100,
+            seconds: BATTLE_SECONDS,
+            attackCd: 0,
+            dodgeCd: 0,
+            potionCd: 0,
+            rockUntil: 0,
+            grassUntil: 0,
+            clock: 0,
+            kills: Number(meState.kills) || 0,
+            target: Math.max(0, opponents.findIndex(o => o.hp > 0)),
+            log: ["Серверний бій розпочався!"],
+            opponents,
+          });
+
+          setScreen("battle");
+        } else if (data?.status === "finished" || data?.status === "cancelled") {
+          setError("Цей матч уже завершено. Повернися до Колізею та шукай новий.");
+          matchId.current = null;
+          setScreen("lobby");
+        }
+      } catch (e) {
+        if (!cancelled) setError(e.message || "Не вдалося оновити чергу.");
+      } finally {
+        queuePollLock.current = false;
+      }
+    };
+
+    checkQueue();
+    const timer = setInterval(checkQueue, 2500);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [screen]);
 
   const loadPlayer = useCallback(async () => {
     if (USE_MOCK) {
@@ -200,18 +295,15 @@ export default function Colosseum({ onNavigate = () => {} }) {
 
       if (error) throw error;
 
-      const id =
-        typeof data === "string"
-          ? data
-          : data?.match_id ?? data?.id;
+            const id = data?.match_id ?? data?.id;
 
       if (!id) {
-        throw new Error(
-          "Сервер не повернув ID матчу. Перевір colosseum_join_queue()."
-        );
+        throw new Error("Сервер не повернув ID матчу.");
       }
 
       matchId.current = id;
+      setQueueCount(Number(data?.players) || 1);
+      finished.current = false;
       setScreen("queue");
     } catch (e) {
       setError(e.message || "Не вдалося увійти в чергу.");
