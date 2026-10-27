@@ -1,548 +1,602 @@
-import { useState, useEffect, useReducer, useCallback, useRef } from "react";
+
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
-/* ================= НАЛАШТУВАННЯ ================= */
-const USE_MOCK = true; // true — тест без сервера; false — використовує /api/colosseum
-const API = "/api/colosseum";
+
+/*
+ * Колізей — Хроніки Згаслого Світанку
+ * true  = тестовий бій
+ * false = використання RPC Supabase (потребує узгодження формату відповіді)
+ */
+const USE_MOCK = true;
+
+const MAX_PLAYERS = 5;
 const BATTLE_SECONDS = 300;
-const ATTACK_CD = 5;
-const POTION_CD = 60;
-const DODGE_CD = 30;
-const BUFF_SECONDS = 60;
-const TOURNAMENT_PRIZES = [[25, 5000], [125, 7500], [250, 10000]];
-const ASSETS = { arena: null, hero: null, enemy: null };
 
-const rnd = (a, b) => a + Math.random() * (b - a);
-const fmtInt = (n) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, "'");
-const fmtBig = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e4 ? (n / 1e3).toFixed(1) + "K" : fmtInt(n));
-const mmss = (s) => `${String(Math.floor(Math.max(0, s) / 60)).padStart(2, "0")}:${String(Math.max(0, s) % 60).padStart(2, "0")}`;
-const plural = (n, [a, b, c]) => {
-  const m = n % 100, d = n % 10;
-  return m > 10 && m < 20 ? c : d === 1 ? a : d >= 2 && d <= 4 ? b : c;
-};
-const starText = (h) => {
-  const w = Math.floor(Math.abs(h) / 2), half = Math.abs(h) % 2;
-  if (!w && !half) return "0";
-  return `${w || ""}${half ? "½" : ""}`;
-};
-
-/* ================= API ================= */
-
-/* ================= API ================= */
-
-const realApi = {
-  state: async () => {
-    const { data, error } = await supabase.rpc("colosseum_get_state", {
-      p_match_id: window.__colosseumMatchId,
-    });
-
-    if (error) throw error;
-    return data;
-  },
-
-  join: async () => {
-    const { data, error } = await supabase.rpc("colosseum_join_queue");
-
-    if (error) throw error;
-
-    const matchId = typeof data === "string"
-      ? data
-      : data?.match_id ?? data?.id;
-
-    if (matchId) {
-      window.__colosseumMatchId = matchId;
-    }
-
-    return data;
-  },
-
-  status: async () => {
-    const matchId = window.__colosseumMatchId;
-
-    if (!matchId) {
-      return { queued: false, matched: false, count: 0, max: 5 };
-    }
-
-    const { data, error } = await supabase
-      .from("colosseum_matches")
-      .select("id, status")
-      .eq("id", matchId)
-      .maybeSingle();
-
-    if (error) throw error;
-
-    if (!data || data.status === "cancelled" || data.status === "finished") {
-      return { queued: false, matched: false, count: 0, max: 5 };
-    }
-
-    const { count, error: countError } = await supabase
-      .from("colosseum_participants")
-      .select("id", { count: "exact", head: true })
-      .eq("match_id", matchId);
-
-    if (countError) throw countError;
-
-    return {
-      queued: data.status === "waiting",
-      matched: data.status === "active",
-      count: count ?? 0,
-      max: 5,
-      match_id: matchId,
-    };
-  },
-
-  leave: async () => {
-    const { data, error } = await supabase.rpc("colosseum_leave_queue");
-
-    if (error) throw error;
-
-    window.__colosseumMatchId = null;
-    return data;
-  },
-
-  finish: async (battle) => {
-    const matchId = window.__colosseumMatchId;
-
-    if (!matchId) {
-      throw new Error("Не знайдено бій Колізею");
-    }
-
-    const { data, error } = await supabase.rpc(
-      "colosseum_check_battle_end",
-      { p_match_id: matchId }
-    );
-
-    if (error) throw error;
-    return { ...battle, server_result: data };
-  },
-};
-
-/* ================= MOCK API ================= */
-
-const mock = {
+const MOCK_PLAYER = {
   name: "Мандрівник",
   level: 75,
+  power: 34424,
   gold: 13706,
   silver: 2400000,
-  exp: 0,
-  power: 34424,
+  rating: 1523,
   rank_no: 15,
   stars_half: 8,
-  rating: 1523,
-  win_streak: 0,
   place: 48,
-  first_win_available: true,
   skulls: 0,
-  ends_at: new Date(Date.now() + 864e5).toISOString(),
+  first_win_available: true,
 };
 
-let mockPolls = 0;
+const mockNames = [
+  "Темний Вершник",
+  "Мисливець Тіней",
+  "Вартовий Бездни",
+  "Сталевий Вовк",
+];
 
-const mockApi = {
-  state: async () => ({ ...mock }),
+const number = (n) =>
+  Math.round(Number(n) || 0).toLocaleString("uk-UA");
 
-  join: async () => {
-    mockPolls = 0;
-    return {};
-  },
+const timerText = (seconds) => {
+  const s = Math.max(0, seconds);
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(
+    s % 60
+  ).padStart(2, "0")}`;
+};
 
-  leave: async () => ({}),
+const initialMockOpponents = (power) =>
+  mockNames.slice(0, 3).map((name, i) => {
+    const p = Math.round(power * (0.75 + Math.random() * 0.45));
+    return {
+      id: `enemy-${i}`,
+      name,
+      power: p,
+      hp: p,
+      maxHp: p,
+      alive: true,
+    };
+  });
 
-  status: async () => {
-    mockPolls++;
+const makeBattle = (me) => ({
+  hp: me.power,
+  maxHp: me.power,
+  seconds: BATTLE_SECONDS,
+  attackCd: 0,
+  dodgeCd: 0,
+  potionCd: 0,
+  rockUntil: 0,
+  grassUntil: 0,
+  clock: 0,
+  kills: 0,
+  target: 0,
+  log: ["Бій розпочався!"],
+  opponents: initialMockOpponents(me.power),
+});
 
-    if (mockPolls < 3) {
-      return {
-        queued: true,
-        matched: false,
-        count: mockPolls,
-        max: 5,
-      };
+export default function Colosseum({ onNavigate = () => {} }) {
+  const [screen, setScreen] = useState("lobby");
+  const [me, setMe] = useState(MOCK_PLAYER);
+  const [queueCount, setQueueCount] = useState(1);
+  const [battle, setBattle] = useState(null);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const matchId = useRef(null);
+  const finished = useRef(false);
+
+  const loadPlayer = useCallback(async () => {
+    if (USE_MOCK) {
+      setMe(MOCK_PLAYER);
+      return;
     }
 
-    const roll = Math.random();
-    const count = roll < 0.05 ? 2 : roll < 0.25 ? 3 : 4;
-    const names = [
-      "Санягрот",
-      "Амбаш",
-      "Бормансс",
-      "Темний Вершник",
-    ].slice(0, count);
+    const { data: userData, error: userError } =
+      await supabase.auth.getUser();
+
+    if (userError) throw userError;
+    if (!userData.user) throw new Error("Увійди в обліковий запис.");
+
+    const { data, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userData.user.id)
+      .single();
+
+    if (profileError) throw profileError;
+
+    setMe({
+      ...MOCK_PLAYER,
+      name: data.display_name || data.username || "Гравець",
+      level: data.level || 1,
+      power: Math.max(1, Number(data.power) || 100),
+      gold: data.gold || 0,
+      silver: data.silver || 0,
+      rating: data.rating || 0,
+    });
+  }, []);
+
+  useEffect(() => {
+    loadPlayer().catch((e) => setError(e.message));
+  }, [loadPlayer]);
+
+  useEffect(() => {
+    if (screen !== "battle" || !battle) return;
+
+    const id = setInterval(() => {
+      setBattle((old) => {
+        if (!old) return old;
+
+        const clock = old.clock + 1;
+        let hp = old.hp;
+        const log = [...old.log];
+        let opponents = old.opponents.map((o) => ({ ...o }));
+
+        // Автоматичні атаки суперників у тестовому режимі.
+        if (USE_MOCK && Math.random() < 0.35) {
+          const alive = opponents.filter((o) => o.hp > 0);
+
+          if (alive.length && hp > 0) {
+            const enemy = alive[
+              Math.floor(Math.random() * alive.length)
+            ];
+            const damage = Math.max(
+              1,
+              Math.round(enemy.power * (0.02 + Math.random() * 0.025))
+            );
+
+            hp = Math.max(0, hp - damage);
+            log.unshift(`${enemy.name} завдав ${number(damage)} шкоди.`);
+          }
+        }
+
+        const seconds = Math.max(0, old.seconds - 1);
+        const next = {
+          ...old,
+          hp,
+          seconds,
+          clock,
+          opponents,
+          log: log.slice(0, 40),
+          attackCd: Math.max(0, old.attackCd - 1),
+          dodgeCd: Math.max(0, old.dodgeCd - 1),
+          potionCd: Math.max(0, old.potionCd - 1),
+        };
+
+        const living = opponents.filter((o) => o.hp > 0).length;
+        if (hp <= 0 || living === 0 || seconds === 0) {
+          setTimeout(() => conclude(next), 0);
+        }
+
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [screen, Boolean(battle)]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const joinQueue = async () => {
+    setError("");
+    setBusy(true);
+
+    try {
+      if (USE_MOCK) {
+        setScreen("queue");
+        setQueueCount(1);
+
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+
+        setQueueCount(4);
+        await new Promise((resolve) => setTimeout(resolve, 900));
+
+        setBattle(makeBattle(me));
+        finished.current = false;
+        setScreen("battle");
+        return;
+      }
+
+      const { data, error } = await supabase.rpc(
+        "colosseum_join_queue"
+      );
+
+      if (error) throw error;
+
+      const id =
+        typeof data === "string"
+          ? data
+          : data?.match_id ?? data?.id;
+
+      if (!id) {
+        throw new Error(
+          "Сервер не повернув ID матчу. Перевір colosseum_join_queue()."
+        );
+      }
+
+      matchId.current = id;
+      setScreen("queue");
+    } catch (e) {
+      setError(e.message || "Не вдалося увійти в чергу.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const leaveQueue = async () => {
+    try {
+      if (!USE_MOCK) {
+        const { error } = await supabase.rpc("colosseum_leave_queue");
+        if (error) throw error;
+      }
+
+      matchId.current = null;
+      setScreen("lobby");
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const updateBattle = (fn) => {
+    setBattle((old) => {
+      if (!old || finished.current) return old;
+      return fn(old);
+    });
+  };
+
+  const attack = () => updateBattle((b) => {
+    if (b.attackCd > 0) return b;
+
+    const opponents = b.opponents.map((o) => ({ ...o }));
+    let index = b.target;
+
+    if (!opponents[index] || opponents[index].hp <= 0) {
+      index = opponents.findIndex((o) => o.hp > 0);
+    }
+
+    if (index < 0) return b;
+
+    const enemy = opponents[index];
+    const crit = Math.random() < 0.1;
+    const damage = Math.max(
+      1,
+      Math.round(
+        b.hp * 0.08 * (b.rockUntil > b.clock ? 1.35 : 1) *
+          (crit ? 2 : 1)
+      )
+    );
+
+    enemy.hp = Math.max(0, enemy.hp - damage);
+
+    const log = [
+      `Ти завдав ${enemy.name} ${number(damage)} шкоди${crit ? " — критичний удар!" : "."}`,
+      ...b.log,
+    ];
+
+    let kills = b.kills;
+    if (enemy.hp === 0) {
+      kills++;
+      log.unshift(`${enemy.name} вибув із бою.`);
+    }
+
+    const nextTarget =
+      enemy.hp > 0
+        ? index
+        : opponents.findIndex((o) => o.hp > 0);
 
     return {
-      queued: false,
-      matched: true,
-      opponents: names.map((name) => ({
-        name,
-        power: Math.round(mock.power * rnd(0.75, 1.2)),
-      })),
+      ...b,
+      opponents,
+      target: Math.max(0, nextTarget),
+      attackCd: 5,
+      kills,
+      log: log.slice(0, 40),
     };
-  },
+  });
 
-  finish: async ({ place, kills }) => {
-    const base = 1 + (26 - mock.rank_no) * 0.12;
-    const pm = [1, 0.6, 0.3, 0.1, 0.05][Math.min(place - 1, 4)] || 0.05;
-    const lm = 1 + mock.level / 150;
-    const first = place === 1 && mock.first_win_available;
-    const multiplier = first ? 20 : 1;
+  const dodge = () => updateBattle((b) => {
+    if (b.dodgeCd > 0) return b;
 
-    let gain = [2, 1, 0, -1, -1][Math.min(place - 1, 4)];
-    const streak = place === 1 ? mock.win_streak + 1 : 0;
-
-    if (place === 1 && streak >= 3) gain += 2;
-
-    let half = mock.stars_half + gain;
-    let rank = mock.rank_no;
-    let gold = Math.max(gain, 0) >> 1;
-
-    while (half >= 10 && rank > 1) {
-      half -= 10;
-      rank--;
-      gold += Math.round(2 + (26 - rank) * 0.67);
-    }
-
-    half = Math.min(Math.max(half, 0), 10);
-
-    const res = {
-      old_rank: mock.rank_no,
-      new_rank: rank,
-      rank_up: rank < mock.rank_no,
-      stars_half: half,
-      stars_gain_half: gain,
-      rating_delta: [14, 5, -5, -12, -15][Math.min(place - 1, 4)],
-      gold,
-      first_win: first,
-      silver: Math.round(50 * base * pm * lm) * multiplier,
-      exp: Math.round(56 * base * pm * lm) * multiplier,
-      win_streak: streak,
-      skulls_gained: mock.rank_no <= 23 ? kills : 0,
+    return {
+      ...b,
+      dodgeCd: 30,
+      log: ["Ти підготувався ухилитися від наступної атаки.", ...b.log].slice(0, 40),
     };
+  });
 
-    Object.assign(mock, {
-      rank_no: rank,
-      stars_half: half,
-      win_streak: streak,
-      rating: mock.rating + res.rating_delta,
-      gold: mock.gold + gold,
-      silver: mock.silver + res.silver,
-      exp: mock.exp + res.exp,
-      first_win_available: first ? false : mock.first_win_available,
-      skulls: mock.skulls + res.skulls_gained,
-    });
+  const potion = () => updateBattle((b) => {
+    if (b.potionCd > 0) return b;
 
-    return { ...res, rating: mock.rating };
-  },
-};
+    return {
+      ...b,
+      hp: b.maxHp,
+      potionCd: 60,
+      log: ["Настоянка відновила здоров'я до 100%.", ...b.log].slice(0, 40),
+    };
+  });
 
+  const stance = (type) => updateBattle((b) => {
+    const until = type === "rock" ? "rockUntil" : "grassUntil";
+    const active = b[until] > b.clock;
 
-/* ================= БОЙ: ЛОГІКА ================= */
-let logId = 0;
-const addLog = (log, events) =>
-  [...events.slice().reverse().map((e) => ({ ...e, id: ++logId })), ...log].slice(0, 50);
-const firstAlive = (enemies, from = 0, exclude = -1) => {
-  if (!enemies.length) return -1;
-  for (let i = 0; i < enemies.length; i++) {
-    const j = (from + i + enemies.length) % enemies.length;
-    if (j !== exclude && enemies[j].hp > 0) return j;
-  }
-  return -1;
-};
-const initBattle = (opponents, power) => {
-  const enemies = (Array.isArray(opponents) ? opponents : []).slice(0, 4).map((o, i) => ({
-    id: o.id || `${o.name || "Противник"}-${i}`,
-    name: o.name || `Противник ${i + 1}`,
-    power: Math.max(1, Number(o.power) || Math.round(power * rnd(0.75, 1.1))),
-    hp: Math.max(1, Number(o.power) || Math.round(power * rnd(0.75, 1.1))),
-    maxHp: Math.max(1, Number(o.power) || Math.round(power * rnd(0.75, 1.1))),
-  })).map((e) => ({ ...e, hp: e.maxHp }));
-  return {
-    hp: Math.max(1, Number(power) || 100), maxHp: Math.max(1, Number(power) || 100), power: Math.max(1, Number(power) || 100),
-    enemies, target: firstAlive(enemies), time: BATTLE_SECONDS,
-    attackCd: 0, potionCd: 0, dodgeCd: 0, dodgeReady: false,
-    rockUntil: 0, grassUntil: 0, clock: 0, lastAttacker: null,
-    kills: 0, over: enemies.length === 0, fxMe: null, fxEnemy: null,
-    log: [{ id: 0, k: "start" }],
-  };
-};
-const damageToEnemy = (b, targetIndex, extra = {}) => {
-  if (targetIndex < 0 || !b.enemies[targetIndex] || b.enemies[targetIndex].hp <= 0) return b;
-  const target = b.enemies[targetIndex];
-  const rockActive = b.rockUntil > b.clock;
-  const crit = Math.random() < 0.1;
-  const damage = Math.max(1, Math.round(b.power * rnd(0.07, 0.1) * (rockActive ? 1.35 : 1) * (crit ? 2 : 1)));
-  const hp = Math.max(0, target.hp - damage);
-  const enemies = b.enemies.map((e, i) => i === targetIndex ? { ...e, hp } : e);
-  const events = [{ k: "hit", tgt: target.name, n: damage, crit, ...extra }];
-  if (hp === 0) events.push({ k: "kill", tgt: target.name });
-  const kills = b.kills + (hp === 0 ? 1 : 0);
-  const nextTarget = hp === 0 ? firstAlive(enemies, targetIndex + 1) : targetIndex;
-  return {
-    ...b, enemies, kills, target: nextTarget,
-    over: b.hp <= 0 || enemies.every((e) => e.hp <= 0) || b.time <= 0,
-    log: addLog(b.log, events), fxEnemy: { id: ++logId, val: damage, crit },
-  };
-};
-function reducer(b, action) {
-  if (b.over) return b;
-  switch (action.type) {
-    case "TICK": {
-      const clock = b.clock + 1;
-      let hp = b.hp, events = [], fxMe = b.fxMe, lastAttacker = b.lastAttacker;
-      const dodgeReady = b.dodgeReady;
-      // Противники час від часу атакують гравця. Уворот блокує одну наступну атаку.
-      for (const enemy of b.enemies) {
-        if (enemy.hp <= 0 || hp <= 0 || Math.random() > 0.32) continue;
-        if (dodgeReady) {
-          events.push({ k: "dodge", who: enemy.name });
-          break;
+    return {
+      ...b,
+      [until]: active ? 0 : b.clock + 60,
+      log: [
+        type === "rock"
+          ? active ? "Стійку Каменя вимкнено." : "Камінь: +35% шкоди на 60 секунд."
+          : active ? "Стійку Трави вимкнено." : "Трава: +35% захисту на 60 секунд.",
+        ...b.log,
+      ].slice(0, 40),
+    };
+  });
+
+  const conclude = async (b) => {
+    if (finished.current) return;
+    finished.current = true;
+
+    const living = b.opponents.filter((o) => o.hp > 0).length;
+    const place = b.hp <= 0 ? living + 1 : 1;
+
+    if (USE_MOCK) {
+      const silver = place === 1 ? 500 : 150;
+      const exp = place === 1 ? 250 : 75;
+
+      setResult({
+        place,
+        kills: b.kills,
+        silver,
+        exp,
+        standings: [
+          { name: me.name, hp: b.hp, me: true },
+          ...b.opponents.map((o) => ({ name: o.name, hp: o.hp })),
+        ].sort((a, c) => c.hp - a.hp),
+      });
+    } else {
+      try {
+        if (!matchId.current) {
+          throw new Error("Не знайдено ID матчу.");
         }
-        let damage = Math.round(enemy.power * rnd(0.025, 0.045));
-        if (b.grassUntil > b.clock) damage = Math.round(damage * 0.65);
-        hp = Math.max(0, hp - damage);
-        lastAttacker = enemy.id;
-        events.push({ k: "taken", who: enemy.name, n: damage });
-        fxMe = { id: ++logId, val: damage };
+
+        const { data, error } = await supabase.rpc(
+          "colosseum_check_battle_end",
+          { p_match_id: matchId.current }
+        );
+
+        if (error) throw error;
+
+        setResult({
+          place,
+          kills: b.kills,
+          silver: 0,
+          exp: 0,
+          serverResult: data,
+          standings: [],
+        });
+      } catch (e) {
+        setError(
+          `Не вдалося підтвердити завершення бою на сервері: ${e.message}`
+        );
       }
-      const time = b.time - 1;
-      const next = {
-        ...b, hp, time, clock, fxMe, lastAttacker,
-        attackCd: Math.max(0, b.attackCd - 1),
-        potionCd: Math.max(0, b.potionCd - 1),
-        dodgeCd: Math.max(0, b.dodgeCd - 1),
-        rockUntil: b.rockUntil > clock ? b.rockUntil : 0,
-        grassUntil: b.grassUntil > clock ? b.grassUntil : 0,
-        dodgeReady: dodgeReady && !events.some((e) => e.k === "dodge") ? dodgeReady : false,
-        log: addLog(b.log, events),
-        over: hp <= 0 || time <= 0 || b.enemies.every((e) => e.hp <= 0),
-      };
-      return next;
     }
-    case "ATTACK": {
-      if (b.attackCd > 0) return b;
-      const ti = b.enemies[b.target]?.hp > 0 ? b.target : firstAlive(b.enemies, b.target);
-      if (ti < 0) return { ...b, over: true };
-      const next = damageToEnemy({ ...b, attackCd: ATTACK_CD }, ti);
-      return { ...next, attackCd: ATTACK_CD };
-    }
-    case "DODGE": {
-      if (b.dodgeCd > 0) return b;
-      const attacker = b.lastAttacker;
-      const idx = attacker ? b.enemies.findIndex((e) => e.id === attacker && e.hp > 0) : -1;
-      const targetIndex = idx >= 0 ? idx : firstAlive(b.enemies, b.target + 1);
-      let next = { ...b, dodgeCd: DODGE_CD, dodgeReady: true };
-      next = { ...next, log: addLog(next.log, [{ k: "skill", name: "Уворот" }]) };
-      // Уворот теж атакує: б'є останнього нападника, якщо він живий, і перемикає ціль на нього.
-      if (targetIndex >= 0) next = damageToEnemy(next, targetIndex, { action: "dodge" });
-      return { ...next, target: targetIndex >= 0 && next.enemies[targetIndex]?.hp > 0 ? targetIndex : firstAlive(next.enemies, targetIndex + 1) };
-    }
-    case "POTION": {
-      if (b.potionCd > 0) return b;
-      const healed = { ...b, hp: b.maxHp, potionCd: POTION_CD, log: addLog(b.log, [{ k: "potion" }]) };
-      const ti = healed.enemies[healed.target]?.hp > 0 ? healed.target : firstAlive(healed.enemies, healed.target);
-      return ti < 0 ? healed : damageToEnemy(healed, ti, { action: "potion" });
-    }
-    case "STANCE": {
-      const ti = b.enemies[b.target]?.hp > 0 ? b.target : firstAlive(b.enemies, b.target);
-      if (ti < 0) return b;
-      const now = b.clock;
-      const untilKey = action.v === "rock" ? "rockUntil" : "grassUntil";
-      const active = b[untilKey] > now;
-      let next = { ...b, [untilKey]: active ? 0 : now + BUFF_SECONDS };
-      next = damageToEnemy(next, ti, { action: action.v });
-      return { ...next, log: addLog(next.log, [{ k: "skill", name: action.v === "rock" ? "Камінь: +35% шкоди на 60 с" : "Трава: +35% захисту на 60 с" }]) };
-    }
-    case "TARGET": {
-      const n = firstAlive(b.enemies, b.target + 1, b.target);
-      if (n < 0) return b;
-      return damageToEnemy({ ...b, target: n }, n, { action: "target" });
-    }
-    case "SELECT_TARGET": {
-      const n = Number(action.index);
-      if (n < 0 || n >= b.enemies.length || b.enemies[n].hp <= 0 || n === b.target) return b;
-      return damageToEnemy({ ...b, target: n }, n, { action: "target" });
-    }
-    default:
-      return b;
-  }
-}
 
-/* ================= МАЛІ КОМПОНЕНТИ ================= */
-function RankBadge({ rank, size = 84, wings = false }) {
-  const c = `hsl(34, 62%, ${34 + (26 - rank) * 1.6}%)`;
-  return <svg viewBox="0 0 120 70" width={size * 1.4} height={size * 0.82} aria-label={`Ранг ${rank}`}>
-    {wings && <g fill="none" stroke={c} strokeWidth="3" strokeLinecap="round"><path d="M44 30 C28 22 14 24 4 30 C16 30 26 36 40 44" /><path d="M76 30 C92 22 106 24 116 30 C104 30 94 36 80 44" /></g>}
-    <path d="M60 3 L82 12 V32 C82 46 72 56 60 62 C48 56 38 46 38 32 V12 Z" fill="#1d1a16" stroke={c} strokeWidth="3" />
-    <path d="M48 20 L72 40 M72 20 L48 40" stroke={c} strokeWidth="3" strokeLinecap="round" />
-    <text x="60" y="58" textAnchor="middle" fontSize="19" fontWeight="700" fill={c} stroke="#000" strokeWidth=".6">{rank}</text>
-  </svg>;
-}
-function Stars({ half }) {
-  const full = Math.floor(half / 2), h = half % 2;
-  return <div className="stars" aria-label={`Зірок: ${starText(half)} з 5`}>{[0,1,2,3,4].map((i) => <span key={i} className={i < full ? "st full" : i === full && h ? "st half" : "st"}>★</span>)}</div>;
-}
-const TopBar = ({ left, right }) => <div className="top"><span><i className="ic red" /> {left}</span>{right !== undefined && <><span className="sep">|</span><span><i className="ic violet" /> {right}</span></>}</div>;
-function Footer({ me, onNavigate, links = true }) {
-  return <>{links && <nav className="nav"><button onClick={() => onNavigate("hero")}>Мій герой</button><button onClick={() => onNavigate("clan")}>Мій клан <span className="plus">(+)</span></button><button onClick={() => onNavigate("home")}>На головну</button></nav>}
-    <div className="player"><div className="pname"><i className="ic blue" /> {me.name}</div><div className="pres"><span className="up">▲</span> {me.level} | <i className="ic coin" /> {fmtInt(me.gold)} | <i className="ic silver" /> {fmtBig(me.silver)}</div></div></>;
-}
+    setScreen("result");
+  };
 
-/* ================= ЕКРАНИ ================= */
-function Lobby({ me, onJoin, onNavigate }) {
-  const target = Math.max(1, me.rank_no - 1);
-  const days = me.ends_at ? Math.max(0, Math.ceil((new Date(me.ends_at) - Date.now()) / 864e5)) : null;
-  return <>
-    <TopBar left={fmtInt(me.power)} right={me.rating} />
-    <section className="sec">
-      <h2 className="title">Колізей</h2>
-      {me.first_win_available ? <p className="mute">Перша перемога принесе нагороду у 20 разів більшу!</p> : <p className="mute">Бийся за ранг, рейтинг і нагороди</p>}
-      <button className="btn" onClick={onJoin}>Увійти в чергу</button>
-      <p className="small mute">У бою: ти та 2–4 противники. Кожен бореться сам за себе.</p>
-    </section>
-    <section className="sec"><div className="ranks"><div><RankBadge rank={me.rank_no} size={64}/><p className="mute">Твій ранг</p></div><Stars half={me.stars_half}/><div><RankBadge rank={target} size={64}/><p className="goal">Наступна ціль</p></div></div>
-      <p className="place">Твоє місце в рейтингу: <b>{me.place}</b></p><div className="row"><button className="btn sm" onClick={() => onNavigate("colosseum-rating")}>Рейтинг</button><button className="btn sm" onClick={() => onNavigate("boosts")}>Підсилення</button></div>
-    </section>
-    {days !== null && <section className="sec"><h2 className="title">Турнір Колізею</h2><p className="big">Черепи: 💀 {me.skulls} з {TOURNAMENT_PRIZES[0][0]}</p><p className="small">{TOURNAMENT_PRIZES.map(([n,g],i)=><span key={n}>{i===0?"Накопичи":i===1?"Якщо накопичиш":"Якщо збереш"} {n} черепів — розіграш {fmtInt(g)} золота.<br/></span>)}</p><p className="big">До кінця турніру: {days} {plural(days,["день","дні","днів"])}</p><button className="link" onClick={() => onNavigate("tournament")}>Детальніше</button></section>}
-    <ul className="hints"><li>За 3 перемоги поспіль дається додаткова зірка.</li><li>Черепи нараховуються за умовами поточного турніру.</li></ul>
-  </>;
-}
-function Queue({ me, q, onRefresh, onLeave }) {
-  return <><TopBar left={fmtInt(me.power)} right={me.rating}/><section className="sec"><h2 className="title">Пошук суперників</h2><p className="big">У черзі: {q.count} з {q.max}</p><p className="mute">Шукаємо від 2 до 4 противників…</p><button className="btn sm" onClick={onRefresh}>Оновити</button><br/><button className="btn" onClick={onLeave}>Скасувати пошук</button></section><section className="sec"><div className="ranks"><div><RankBadge rank={me.rank_no} size={64}/><p className="mute">Твій ранг</p></div><Stars half={me.stars_half}/><div><RankBadge rank={Math.max(1,me.rank_no-1)} size={64}/><p className="goal">Наступна ціль</p></div></div></section></>;
-}
-function LogLine({ e }) {
-  switch (e.k) {
-    case "start": return <p className="me">Бій розпочався!</p>;
-    case "hit": return <p className="me">Ти завдав {e.tgt} шкоди: <b>{fmtInt(e.n)}</b>{e.crit ? " — критичний удар!" : ""}</p>;
-    case "kill": return <p className="me">☠ {e.tgt} вибув із бою.</p>;
-    case "skill": return <p className="me">Застосовано: <span className="skill">{e.name}</span></p>;
-    case "potion": return <p className="me">Настоянка відновила HP до 100%.</p>;
-    case "dodge": return <p className="me">Уворот від атаки {e.who}.</p>;
-    case "taken": return <p className="foe">{e.who} завдав тобі <b>{fmtInt(e.n)}</b> шкоди.</p>;
-    default: return null;
-  }
-}
-function Battle({ me, opponents, onFinish }) {
-  const [b, dispatch] = useReducer(reducer, null, () => initBattle(opponents, me.power));
-  const finishCalled = useRef(false);
-  useEffect(() => {
-    if (b.over) return undefined;
-    const timer = setInterval(() => dispatch({ type: "TICK" }), 1000);
-    return () => clearInterval(timer);
-  }, [b.over]);
-  const target = b.enemies[b.target] || b.enemies.find((e) => e.hp > 0);
-  const alive = b.enemies.filter((e) => e.hp > 0).length;
-  const place = b.hp <= 0 ? b.enemies.filter((e) => e.hp > 0).length + 1 : alive + 1;
-  const finish = () => {
-    if (finishCalled.current) return;
-    finishCalled.current = true;
-    const standings = [{ name: me.name, me: true, hp: b.hp, kills: b.kills }, ...b.enemies.map((e) => ({ name: e.name, hp: e.hp, kills: 0 }))].sort((a, c) => c.hp - a.hp);
-    const actualPlace = Math.max(1, standings.findIndex((s) => s.me) + 1);
-    onFinish({ place: actualPlace, kills: b.kills, enemies: b.enemies, standings });
+  const newBattle = () => {
+    setResult(null);
+    setBattle(null);
+    setScreen("lobby");
+    finished.current = false;
+    matchId.current = null;
   };
-  const leave = () => {
-    if (window.confirm("Покинути бій? Це буде зараховано як поразка.")) {
-      if (!finishCalled.current) { finishCalled.current = true; onFinish({ place: b.enemies.length + 1, kills: b.kills, enemies: b.enemies, standings: [] }); }
-    }
-  };
-  if (!target && !b.over) return <section className="sec"><p>Усі противники вибули.</p><button className="btn" onClick={finish}>Завершити бій</button></section>;
-  const buffLeft = (until) => Math.max(0, until - b.clock);
-  return <>
-    <div className="top"><span><i className="ic red"/> HP {fmtInt(b.hp)} / {fmtInt(b.maxHp)}</span><span className="timer">{mmss(b.time)}</span></div>
-    <div className="names"><span><i className="ic blue"/> {me.name}<br/><small>{fmtInt(b.hp)} HP</small></span><span>{target ? target.name : "Бій завершено"}<br/><small>{target ? `${fmtInt(target.hp)} / ${fmtInt(target.maxHp)} HP` : ""}</small></span></div>
-    <div className="arena" style={ASSETS.arena ? { backgroundImage: `url(${ASSETS.arena})` } : undefined}>
-      <div className="hpbar l"><div style={{width:`${Math.max(0,b.hp/b.maxHp*100)}%`}}/></div>
-      <div className="hpbar r"><div style={{width:`${target ? Math.max(0,target.hp/target.maxHp*100):0}%`}}/></div>
-      <div className="buffs">{b.rockUntil>b.clock&&<span title="Камінь">⛰ +35% шкоди · {buffLeft(b.rockUntil)}с</span>}{b.grassUntil>b.clock&&<span title="Трава">🌿 +35% захисту · {buffLeft(b.grassUntil)}с</span>}</div>
-      <div className="fighter l">{ASSETS.hero?<img src={ASSETS.hero} alt=""/>:"🛡️"}</div>
-      <div className={`fighter r ${!target||target.hp<=0?"dead":""}`}>{ASSETS.enemy?<img src={ASSETS.enemy} alt=""/>:"⚔️"}</div>
-      {b.fxMe&&<span key={b.fxMe.id} className="fx l">-{b.fxMe.val}</span>}{b.fxEnemy&&<span key={b.fxEnemy.id} className={`fx r ${b.fxEnemy.crit?"crit":""}`}>-{b.fxEnemy.val}</span>}
+
+  const alive = battle?.opponents.filter((o) => o.hp > 0).length || 0;
+
+  return (
+    <div className="colosseum">
+      <style>{`
+        .colosseum {
+          --bg:#171511; --panel:#211e19; --line:#494033;
+          --gold:#e9ac50; --text:#eee6d7; --muted:#aaa092;
+          background:var(--bg);color:var(--text);
+          max-width:520px;min-height:100vh;margin:auto;
+          font:15px/1.45 system-ui,sans-serif;text-align:center;
+          padding-bottom:20px
+        }
+        .colosseum *{box-sizing:border-box}
+        .colosseum button{color:inherit;font:inherit;cursor:pointer}
+        .colosseum button:disabled{opacity:.45;cursor:not-allowed}
+        .c-top{display:flex;justify-content:space-between;gap:10px;
+          padding:14px;background:#100f0d;border-bottom:2px solid var(--line)}
+        .c-panel{padding:18px 12px;border-bottom:1px solid var(--line)}
+        .c-title{font-size:25px;color:var(--gold);font-weight:800;margin:5px}
+        .c-muted{color:var(--muted)}
+        .c-btn{border:1px solid #967443;border-radius:7px;
+          background:linear-gradient(#51402a,#30271b);padding:12px 18px;
+          margin:6px;font-weight:700}
+        .c-btn.primary{background:linear-gradient(#a66e27,#654018)}
+        .c-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+          gap:8px;padding:12px}
+        .c-card{background:var(--panel);border:1px solid var(--line);
+          border-radius:8px;padding:12px}
+        .c-bar{height:9px;background:#080807;border-radius:8px;overflow:hidden;margin:8px 0}
+        .c-bar span{display:block;height:100%;background:#75a947}
+        .c-arena{margin:12px;background:
+          radial-gradient(ellipse at 50% 25%,#69503b,#30251b 65%,#17130f);
+          border:2px solid var(--line);border-radius:10px;padding:22px 8px}
+        .c-fighters{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .c-fighter{background:#17130f99;border:1px solid #6b5337;border-radius:8px;padding:10px}
+        .c-avatar{font-size:44px}
+        .c-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px}
+        .c-action{background:#29241d;border:1px solid var(--line);border-radius:7px;padding:12px 5px}
+        .c-action small{display:block;color:var(--muted);font-size:12px}
+        .c-action.attack{background:#753b20;border-color:#ce8240}
+        .c-list{padding:10px;text-align:left;max-height:200px;overflow:auto}
+        .c-log{font-size:13px;color:#d1c5b1;border-top:1px solid var(--line);padding:8px 12px;text-align:left}
+        .c-error{margin:10px;padding:10px;border-radius:6px;background:#54251e;color:#ffd8cf}
+        .c-nav{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;padding:12px}
+        @media(max-width:350px){.c-grid,.c-actions{grid-template-columns:1fr 1fr}}
+      `}</style>
+
+      <div className="c-top">
+        <span>⚔️ {number(me.power)} сили</span>
+        <span>🏆 {number(me.rating)} рейтингу</span>
+      </div>
+
+      {error && (
+        <div className="c-error" role="alert">
+          {error}
+          <button className="c-btn" onClick={() => setError("")}>Закрити</button>
+        </div>
+      )}
+
+      {screen === "lobby" && (
+        <>
+          <section className="c-panel">
+            <div className="c-title">Колізей</div>
+            <p className="c-muted">Випробуй силу проти інших воїнів.</p>
+            <p>Ранг: <b>{me.rank_no}</b> · Рівень: <b>{me.level}</b></p>
+            <button className="c-btn primary" disabled={busy} onClick={joinQueue}>
+              {busy ? "Пошук..." : "⚔️ Увійти в чергу"}
+            </button>
+            <p className="c-muted">Тестовий режим: {USE_MOCK ? "увімкнено" : "вимкнено"}</p>
+          </section>
+          <div className="c-grid">
+            <div className="c-card"><div>🪙 Золото</div><b>{number(me.gold)}</b></div>
+            <div className="c-card"><div>⚪ Срібло</div><b>{number(me.silver)}</b></div>
+            <div className="c-card"><div>⭐ Зірки</div><b>{me.stars_half / 2} / 5</b></div>
+            <div className="c-card"><div>💀 Черепи</div><b>{me.skulls}</b></div>
+          </div>
+        </>
+      )}
+
+      {screen === "queue" && (
+        <section className="c-panel">
+          <div className="c-title">Пошук суперників</div>
+          <p>У черзі: {queueCount} / {MAX_PLAYERS}</p>
+          <p className="c-muted">Очікуємо на бій...</p>
+          <button className="c-btn" onClick={leaveQueue}>Скасувати пошук</button>
+          {!USE_MOCK && (
+            <p className="c-muted">
+              Серверна черга потребує опитування стану матчу. Цей екран не запускає бій автоматично.
+            </p>
+          )}
+        </section>
+      )}
+
+      {screen === "battle" && battle && (
+        <>
+          <div className="c-top">
+            <span>❤️ {number(battle.hp)} / {number(battle.maxHp)}</span>
+            <b>{timerText(battle.seconds)}</b>
+          </div>
+
+          <div className="c-arena">
+            <div className="c-fighters">
+              <div className="c-fighter">
+                <div className="c-avatar">🛡️</div>
+                <b>{me.name}</b>
+                <div className="c-bar">
+                  <span style={{ width: `${Math.max(0, battle.hp / battle.maxHp * 100)}%` }} />
+                </div>
+                {number(battle.hp)} HP
+              </div>
+              <div className="c-fighter">
+                <div className="c-avatar">
+                  {battle.opponents[battle.target]?.hp > 0 ? "⚔️" : "☠️"}
+                </div>
+                <b>{battle.opponents[battle.target]?.name || "Немає цілі"}</b>
+                <div className="c-bar">
+                  <span style={{
+                    width: `${Math.max(0, (battle.opponents[battle.target]?.hp || 0) /
+                      (battle.opponents[battle.target]?.maxHp || 1) * 100)}%`
+                  }} />
+                </div>
+                {number(battle.opponents[battle.target]?.hp || 0)} HP
+              </div>
+            </div>
+          </div>
+
+          <div className="c-panel">
+            <b>Суперники: {alive}</b>
+            <div className="c-list">
+              {battle.opponents.map((o, i) => (
+                <button
+                  key={o.id}
+                  className="c-btn"
+                  disabled={o.hp <= 0}
+                  onClick={() => setBattle((b) => ({ ...b, target: i }))}
+                  style={{ borderColor: i === battle.target ? "var(--gold)" : undefined }}
+                >
+                  {o.hp <= 0 ? "☠️ " : "🎯 "}
+                  {o.name} — {number(o.hp)} HP
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="c-actions">
+            <button className="c-action attack" disabled={battle.attackCd > 0} onClick={attack}>
+              ⚔️ Атакувати <small>{battle.attackCd ? `${battle.attackCd} с` : "раз на 5 с"}</small>
+            </button>
+            <button className="c-action" disabled={battle.dodgeCd > 0} onClick={dodge}>
+              💨 Уворот <small>{battle.dodgeCd ? `${battle.dodgeCd} с` : "раз на 30 с"}</small>
+            </button>
+            <button className="c-action" disabled={battle.potionCd > 0} onClick={potion}>
+              🧪 Настоянка <small>{battle.potionCd ? `${battle.potionCd} с` : "відновити HP"}</small>
+            </button>
+            <button className="c-action" onClick={() => stance("rock")}>
+              ⛰ Камінь <small>+35% шкоди · 60 с</small>
+            </button>
+            <button className="c-action" onClick={() => stance("grass")}>
+              🌿 Трава <small>+35% захисту · 60 с</small>
+            </button>
+            <button className="c-action" onClick={() => conclude(battle)}>
+              🏁 Завершити бій
+            </button>
+          </div>
+
+          <div className="c-log">
+            <b>Журнал бою</b>
+            {battle.log.map((line, i) => <div key={i}>{line}</div>)}
+          </div>
+        </>
+      )}
+
+      {screen === "result" && result && (
+        <>
+          <section className="c-panel">
+            <div className="c-title">
+              {result.place === 1 ? "Перемога!" : "Бій завершено"}
+            </div>
+            <p>Місце: <b>{result.place}</b></p>
+            <p>Переможені противники: <b>{result.kills}</b></p>
+            {USE_MOCK ? (
+              <>
+                <p>⚪ Срібло: <b>{number(result.silver)}</b></p>
+                <p>✨ Досвід: <b>{number(result.exp)}</b></p>
+                <p className="c-muted">Це тестові нагороди, вони не збережені на сервері.</p>
+              </>
+            ) : (
+              <p className="c-muted">Відповідь сервера: {JSON.stringify(result.serverResult)}</p>
+            )}
+          </section>
+
+          <section className="c-panel">
+            <h3>Результати учасників</h3>
+            {result.standings.map((s, i) => (
+              <p key={`${s.name}-${i}`}>
+                {i + 1}. {s.name} — {number(s.hp)} HP {s.me ? "(ти)" : ""}
+              </p>
+            ))}
+            <button className="c-btn primary" onClick={newBattle}>Повернутися до Колізею</button>
+          </section>
+        </>
+      )}
+
+      <nav className="c-nav">
+        <button className="c-btn" onClick={() => onNavigate("hero")}>Мій герой</button>
+        <button className="c-btn" onClick={() => onNavigate("clan")}>Мій клан</button>
+        <button className="c-btn" onClick={() => onNavigate("home")}>Головна</button>
+      </nav>
     </div>
-    <div className="target-list"><b>Учасники ({alive} противників залишилося)</b>{b.enemies.map((e,i)=><button key={e.id} disabled={e.hp<=0||i===b.target||b.over} className={`target-chip ${i===b.target?"selected":""} ${e.hp<=0?"dead-chip":""}`} onClick={()=>dispatch({type:"SELECT_TARGET",index:i})}>{e.name}: {fmtInt(e.hp)} HP</button>)}</div>
-    <div className="actions">
-      <button className="act" disabled={b.over||b.dodgeCd>0} onClick={()=>dispatch({type:"DODGE"})}>💨 Уворот<small>{b.dodgeCd>0?mmss(b.dodgeCd):"раз на 30 с"}</small></button>
-      <button className="act main" disabled={b.over||b.attackCd>0} onClick={()=>dispatch({type:"ATTACK"})}>{b.over?"БІЙ ЗАВЕРШЕНО":b.attackCd>0?`АТАКА ${b.attackCd} с`:"АТАКУВАТИ"}<small>раз на 5 секунд</small></button>
-      <button className="act" disabled={b.over||alive<2} onClick={()=>dispatch({type:"TARGET"})}>🎯 Змінити ціль<small>і завдати шкоди</small></button>
-      <button className="act" disabled={b.over||b.potionCd>0} onClick={()=>dispatch({type:"POTION"})}>🧪 Настоянка<small>{b.potionCd>0?mmss(b.potionCd):"HP до 100% · раз на 60 с"}</small></button>
-      <button className={`act ${b.rockUntil>b.clock?"on":"ready"}`} disabled={b.over} onClick={()=>dispatch({type:"STANCE",v:"rock"})}>⛰ Камінь<small>{b.rockUntil>b.clock?`+35% шкоди · ${buffLeft(b.rockUntil)}с`:"+35% шкоди · 60 с"}</small></button>
-      <button className={`act ${b.grassUntil>b.clock?"on":"ready"}`} disabled={b.over} onClick={()=>dispatch({type:"STANCE",v:"grass"})}>🌿 Трава<small>{b.grassUntil>b.clock?`+35% захисту · ${buffLeft(b.grassUntil)}с`:"+35% захисту · 60 с"}</small></button>
-    </div>
-    {b.over&&<button className="btn" onClick={finish}>Підбити підсумки бою</button>}
-    <p className="inbattle">Твоє HP: <b>{fmtInt(b.hp)}</b>. Противники: {b.enemies.map((e,i)=><span key={e.id}>{e.hp>0?`${e.name} ${fmtInt(e.hp)} HP`:`${e.name} ☠`}{i<b.enemies.length-1?", ":""}</span>)}</p>
-    <div className="log">{b.log.map((e)=><LogLine key={e.id} e={e}/>)}</div>
-    <div className="player"><div className="pname"><i className="ic blue"/> {me.name}</div><div className="pres"><span className="up">▲</span> {me.level} | <i className="ic coin"/> {fmtInt(me.gold)} | <i className="ic silver"/> {fmtBig(me.silver)}</div></div>
-    {!b.over&&<button className="link leave" onClick={leave}>Покинути бій</button>}
-  </>;
-}
-function Result({ me, r, onAgain, onBack, onNavigate }) {
-  const win = r.place === 1;
-  const sign = (h) => h > 0 ? "+" : h < 0 ? "-" : "+";
-  const standings = Array.isArray(r.standings) ? r.standings : [];
-  return <>
-    <TopBar left={fmtInt(me.power)} right={me.rating}/>
-    <section className="sec result"><h2 className="title">{win?"Перемога":r.place===r.totalPlayers?"Поразка":"Бій завершено"}</h2>
-      {r.rank_up?<><p className="mute">Ти отримав новий ранг</p><RankBadge rank={r.new_rank} size={110} wings/></>:<><RankBadge rank={r.new_rank} size={80}/><Stars half={r.stars_half}/></>}
-      {r.gold>0&&<p className="goldtxt">+{fmtInt(r.gold)} 🪙 золота</p>}<p className="mute">{r.first_win?"Нагорода ×20 за першу перемогу:":"Нагорода за бій:"}</p>
-      <p className="big">⚪ {fmtInt(r.silver)} срібла · ✨ {fmtInt(r.exp)} досвіду</p><p className="mute">Зміна рейтингу: {r.rating_delta>0?"+":""}{r.rating_delta}</p>
-    </section>
-    <section className="sec"><p className="best">Результати бою</p>
-      {standings.map((s,i)=><p key={`${s.name}-${i}`} className="res"><span className={s.me?"lnk":"lnk foe"}>{i+1}. {s.name}</span>{s.me&&<b> — ти</b>}</p>)}
-      <button className="btn" onClick={onAgain}>Новий бій</button><br/><button className="link" onClick={onBack}>Повернутися до Колізею</button>
-    </section><Footer me={me} onNavigate={onNavigate}/>
-  </>;
-}
-
-/* ================= СТОРІНКА ================= */
-export default function Colosseum({ onNavigate = () => {} }) {
-  const api = USE_MOCK ? mockApi : realApi;
-  const [screen,setScreen] = useState("lobby");
-  const [me,setMe] = useState(null);
-  const [err,setErr] = useState(null);
-  const [q,setQ] = useState({count:1,max:5});
-  const [opps,setOpps] = useState([]);
-  const [result,setResult] = useState(null);
-  const load = useCallback(() => api.state().then((s)=>{setMe(s);setErr(null);}).catch((e)=>setErr(e.message)),[api]);
-  useEffect(()=>{load();},[load]);
-  const poll = useCallback(async()=>{
-    try{
-      const s=await api.status();
-      if(s.matched){
-        const opponents=(Array.isArray(s.opponents)?s.opponents:[]).slice(0,4);
-        if(opponents.length<2) throw new Error("Для бою потрібно щонайменше 2 противники.");
-        setOpps(opponents);setScreen("battle");setErr(null);
-      } else if(!s.queued) setScreen("lobby");
-      else setQ({count:s.count??1,max:s.max??5});
-    }catch(e){setErr(e.message);}
-  },[api]);
-  useEffect(()=>{if(screen!=="queue")return undefined;const t=setInterval(poll,2000);return()=>clearInterval(t);},[screen,poll]);
-  const join=async()=>{try{setErr(null);await api.join();setQ({count:1,max:5});setScreen("queue");}catch(e){setErr(e.message);}};
-  const leave=async()=>{try{await api.leave();}catch{}setScreen("lobby");};
-  const finish=async({place,kills,enemies,standings})=>{
-    try{
-      const totalPlayers=(Array.isArray(enemies)?enemies.length:0)+1;
-      const safePlace=Math.min(totalPlayers,Math.max(1,place||totalPlayers));
-      const r=await api.finish({place:safePlace,kills,total_players:totalPlayers});
-      const finalStandings=Array.isArray(standings)&&standings.length?standings:[{name:me.name,me:true},...(enemies||[]).map(e=>({name:e.name,hp:e.hp}))].sort((a,b)=>(b.hp||0)-(a.hp||0));
-      setResult({...r,place:safePlace,totalPlayers,standings:finalStandings});
-      await load();setScreen("result");
-    }catch(e){setErr(e.message);setScreen("lobby");}
-  };
-  if(!me)return <div className="col"><style>{CSS}</style><p className="mute pad">{err?`Не вдалося завантажити: ${err}`:"Завантаження…"}</p>{err&&<button className="btn" onClick={load}>Повторити</button>}{err&&<p className="small mute">Якщо серверного API ще немає, для тесту встанови USE_MOCK = true.</p>}</div>;
-  return <div className="col"><style>{CSS}</style>{err&&<p className="error" role="alert">{err}</p>}
-    {screen==="lobby"&&<><Lobby me={me} onJoin={join} onNavigate={onNavigate}/><Footer me={me} onNavigate={onNavigate}/></>}
-    {screen==="queue"&&<><Queue me={me} q={q} onRefresh={poll} onLeave={leave}/><Footer me={me} onNavigate={onNavigate}/></>}
-    {screen==="battle"&&<Battle key={opps.map(o=>o.id||o.name).join("|")} me={me} opponents={opps} onFinish={finish}/>}
-    {screen==="result"&&result&&<Result me={me} r={result} onAgain={join} onBack={()=>setScreen("lobby")} onNavigate={onNavigate}/>}
-  </div>;
-}
-
-/* ================= СТИЛІ ================= */
-const CSS = `
-.col{--bg:#171511;--line:#3b362d;--gold:#eba43a;--green:#9db37c;--mute:#a29b8d;--text:#ece6d8;--foe:#cf6650;--skill:#c777d6;max-width:560px;margin:0 auto;min-height:100vh;background:var(--bg);color:var(--text);font:16px/1.35 Roboto,system-ui,-apple-system,sans-serif;text-align:center}
-.col *{box-sizing:border-box}.col p{margin:6px 12px}.col button{font:inherit;color:inherit;cursor:pointer}.col button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}.col button:disabled{opacity:.42;cursor:not-allowed}
-.pad{padding:40px 12px}.error{background:#4a1f18;color:#ffd5cc;padding:8px;margin:0!important}.top{display:flex;justify-content:center;align-items:center;gap:12px;padding:9px 8px;background:#100f0d;border-bottom:2px solid #4a4236;font-size:20px}.top .sep{color:var(--mute)}.timer{margin-left:auto;margin-right:8px;font-variant-numeric:tabular-nums}.top:has(.timer){justify-content:space-between}
-.ic{display:inline-block;width:.8em;height:.8em;border-radius:3px;vertical-align:-.05em;margin-right:2px}.ic.red{background:#d2382c;border-radius:2px 2px 50% 50%}.ic.violet{background:#8d63c4;transform:rotate(45deg) scale(.85)}.ic.blue{background:#3f62c8;border-radius:50% 50% 40% 40%}.ic.coin{background:#d19a2d;border-radius:50%}.ic.silver{background:#d8d4cc;border-radius:50%}.ic.exp{background:#a89a62}
-.sec{padding:12px 6px 14px;border-bottom:2px solid #34302a}.title{color:var(--green);font-size:22px;font-weight:700;margin:2px 0 4px}.mute{color:var(--mute)}.goal{color:var(--green)}.big{font-size:19px}.small{font-size:14px;line-height:1.4}.place{color:var(--gold);font-size:20px;margin-top:14px!important}.btn{background:linear-gradient(#3c3a37,#2a2927);border:1px solid #74664e;border-radius:6px;padding:11px 22px;margin:10px 4px 2px;box-shadow:inset 0 1px 0 #ffffff14,0 2px 0 #0008;font-size:18px}.btn:active{transform:translateY(1px)}.btn.sm{font-size:16px;padding:9px 14px}.row{display:flex;justify-content:center;flex-wrap:wrap;gap:4px}.link{background:none;border:0;color:var(--mute);text-decoration:underline;font-size:17px;padding:8px}.ranks{display:flex;justify-content:space-around;align-items:center;margin:4px 0}.stars{display:flex;gap:4px;justify-content:center;font-size:27px;line-height:1}.st{color:#4a443a}.st.full{color:#f2a62a;text-shadow:0 0 6px #f2a62a55}.st.half{background:linear-gradient(90deg,#f2a62a 50%,#4a443a 50%);-webkit-background-clip:text;background-clip:text;color:transparent}
-.hints{list-style:none;margin:0;padding:10px 12px;color:#e8923a;text-align:left;font-size:14px;border-bottom:2px solid #34302a}.hints li{padding-left:16px;position:relative;margin:4px 0}.hints li:before{content:"";position:absolute;left:0;top:.55em;width:6px;height:6px;background:#b8682a}.nav button{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px dotted #4a443a;padding:14px 12px;font-size:20px;color:var(--gold)}.nav .plus{color:#4cae4f}.player{background:#100f0d;padding:10px 12px 12px;border-top:2px solid #4a4236;margin-top:14px}.pname{font-size:21px;text-align:left}.pres{font-size:18px}.up{color:#58b94d}.dn{color:#d2574a}.result .goldtxt{color:var(--gold);font-size:18px}.best{font-weight:700;font-size:20px}.res{font-size:17px}.res .lnk{color:var(--gold);text-decoration:underline}.res .foe{color:#e0a064}
-.names{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;font-size:17px}.names span{max-width:48%;overflow-wrap:anywhere}.names small{color:var(--mute);font-size:13px}.arena{position:relative;height:210px;margin:0 12px;border:3px solid #4a4236;overflow:hidden;background:linear-gradient(#554437 0%,#986b42 45%,#75502f 46%,#ad8150 100%) center/cover}.hpbar{position:absolute;top:8px;width:36%;height:7px;background:#12110f;border:1px solid #d2c3a2}.hpbar.l{left:5%}.hpbar.r{right:5%}.hpbar div{height:100%;background:#55a82d;transition:width .25s}.buffs{position:absolute;left:6px;top:24px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;z-index:2}.buffs span{padding:4px 6px;background:#201c17dd;border:1px solid #b18a4c;border-radius:4px;font-size:11px}.fighter{position:absolute;bottom:14px;font-size:76px;filter:drop-shadow(0 6px 4px #0006)}.fighter img{height:160px;max-width:100px;object-fit:contain}.fighter.l{left:15%}.fighter.r{right:15%}.fighter.dead{opacity:.25;transform:rotate(80deg)}.fx{position:absolute;top:36px;font-weight:700;font-size:22px;color:#ff3b30;text-shadow:0 1px 2px #000;animation:rise .9s ease-out forwards}.fx.l{left:30%}.fx.r{right:18%}.fx.crit{font-size:28px;color:#ffd23a}@keyframes rise{from{opacity:1;transform:translateY(18px)}to{opacity:0;transform:translateY(-10px)}}@media(prefers-reduced-motion:reduce){.fx{animation:none;opacity:.9}}
-.target-list{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid #34302a}.target-list b{width:100%;font-size:13px;color:var(--mute)}.target-chip{background:#29251f;border:1px solid #514737;border-radius:5px;padding:6px 8px;font-size:12px!important}.target-chip.selected{border-color:var(--gold);color:var(--gold)}.target-chip.dead-chip{text-decoration:line-through;opacity:.35}
-.actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:12px 10px}.act{min-height:76px;background:linear-gradient(#2c2a27,#232220);border:2px solid #4a443a;border-radius:6px;font-size:15px!important;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:6px 3px;gap:3px}.act small{font-size:11px;color:#c1b8a7;line-height:1.2}.act.ready{border-color:#3f8a26;box-shadow:0 0 8px #3f8a2633}.act.on{background:linear-gradient(#2f4a22,#223618);border-color:#7ccf4f}.act.main{background:linear-gradient(#e0561a,#b53a08);border-color:#ff8a3d;box-shadow:0 0 10px #ff6a1f55;font-weight:700}.act:disabled{opacity:.42}.inbattle{text-align:left!important;font-size:14px;padding:10px 12px;border-top:2px solid #34302a;margin:0!important;overflow-wrap:anywhere}.log{text-align:left;padding:6px 12px 10px;border-top:2px solid #34302a;border-bottom:2px solid #34302a;max-height:220px;overflow:auto}.log p{margin:5px 0;font-size:14px}.log .foe{color:var(--foe)}.log .skill{color:var(--skill)}.leave{display:block;margin:20px auto 30px}
-@media(max-width:360px){.actions{gap:5px;padding:10px 6px}.act{font-size:13px!important;min-height:72px}.act small{font-size:10px}.fighter{font-size:62px}.names{font-size:14px}}
-`;
+  );
+                      }
