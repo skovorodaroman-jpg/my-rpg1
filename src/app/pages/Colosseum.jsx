@@ -1,5 +1,5 @@
 import { useState, useEffect, useReducer, useCallback, useRef } from "react";
-
+import { supabase } from "../lib/supabase";
 /* ================= НАЛАШТУВАННЯ ================= */
 const USE_MOCK = true; // true — тест без сервера; false — використовує /api/colosseum
 const API = "/api/colosseum";
