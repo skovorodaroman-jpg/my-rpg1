@@ -219,13 +219,15 @@ export default function RuneMerchant({
           <span>{slot.name}</span>
         </div>
 
-        <div className="rune-selected-summary">
-          <div
-            className="rune-selected-icon"
-            style={{ color: rune.color }}
-          >
-            <rune.icon size={28} />
-          </div>
+        <div
+  className="rune-selected-icon"
+  style={{ color: rune.color }}
+>
+  {(() => {
+    const RuneIcon = rune.icon;
+    return <RuneIcon size={28} />;
+  })()}
+</div>
           <div>
             <strong>{rune.name}</strong>
             <span>Бонус до характеристики: {rune.stat}</span>
