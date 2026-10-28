@@ -1,6 +1,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import RuneMerchant from "./RuneMerchant";
 import {
   ArrowLeft,
   LockKeyhole,
@@ -322,119 +323,15 @@ export default function Forge({ onNavigate = () => {} }) {
       )}
 
       {section === "runes" && (
-        <>
-          <div className="forge-subheading">
-            <button
-              className="forge-small-back"
-              onClick={() => {
-                setSection("home");
-                setNotice("");
-              }}
-            >
-              <ArrowLeft size={17} /> Кузница
-            </button>
-            <h2>Торговец рунами</h2>
-            <p>Улучшения с помощью магических рун</p>
-          </div>
+  <RuneMerchant
+    gold={profile?.gold ?? 0}
+    onBack={() => {
+      setSection("home");
+      setNotice("");
+    }}
+  />
+)}
 
-          <section className="forge-wallet">
-            <div className="forge-wallet-icon">
-              <Coins size={23} />
-            </div>
-            <div>
-              <span>Твоё серебро</span>
-              <strong>
-                {loading ? "…" : formatNumber(profile?.silver)}
-              </strong>
-            </div>
-            <ShoppingBag size={22} className="forge-wallet-bag" />
-          </section>
-
-          <div className="forge-rune-toolbar">
-            <label className="forge-search">
-              <Search size={17} />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Поиск рун..."
-              />
-              {search && (
-                <button onClick={() => setSearch("")} aria-label="Очистить">
-                  <X size={15} />
-                </button>
-              )}
-            </label>
-
-            <div className="forge-rarity-filters">
-              {RARITIES.map((rarity) => (
-                <button
-                  key={rarity.id}
-                  className={filter === rarity.id ? "selected" : ""}
-                  onClick={() => setFilter(rarity.id)}
-                >
-                  {rarity.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="forge-rune-count">
-            Ассортимент торговца <span>{runes.length}</span>
-          </div>
-
-          <section className="forge-rune-list">
-            {runes.map((rune) => (
-              <article className="forge-rune-card" key={rune.id}>
-                <div className={`forge-rune-art ${rune.rarity.toLowerCase()}`}>
-                  <Gem size={29} />
-                  <span>✦</span>
-                </div>
-
-                <div className="forge-rune-info">
-                  <strong>{rune.name}</strong>
-                  <span className={rarityClass(rune.rarity)}>
-                    {rune.rarity}
-                  </span>
-                  <small>
-                    {rune.stat} +{formatNumber(rune.value)}
-                  </small>
-                  <div className="forge-rune-price">
-                    <Coins size={14} />
-                    {formatNumber(rune.price)} серебра
-                  </div>
-                </div>
-
-                <button
-                  className="forge-buy"
-                  onClick={() => buyRune(rune)}
-                  disabled={loading || !profile}
-                >
-                  Купить
-                </button>
-              </article>
-            ))}
-          </section>
-
-          {runes.length === 0 && (
-            <div className="forge-empty">
-              По твоему запросу руны не найдены.
-            </div>
-          )}
-
-          <section className="forge-sell-panel">
-            <div>
-              <strong>Продать руны</strong>
-              <p>Продажа рун из твоего инвентаря.</p>
-            </div>
-            <button onClick={sellRune}>Продать</button>
-          </section>
-
-          <div className="forge-footnote">
-            Ассортимент и цены сейчас демонстрационные. Покупки и продажа
-            не изменяют баланс или инвентарь до подключения серверной логики.
-          </div>
-        </>
-      )}
 
       <footer className="forge-footer">
         <button onClick={() => onNavigate("hero")}>Герой</button>
