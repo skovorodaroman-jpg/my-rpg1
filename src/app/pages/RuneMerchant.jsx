@@ -107,56 +107,66 @@ export default function RuneMerchant({ onBack = () => {}, equippedSlots = {} }) 
     loadData();
   }, [loadData]);
 
-  const handleBuy = async () => {
-    if (buying || loading) return;
+  
+const handleBuy = async () => {
+  if (buying || loading) return;
 
-    if (!userId) {
-      notify("Спочатку увійди в гру.", "error");
-      return;
-    }
+  if (!userId) {
+    notify("Спочатку увійди в гру.", "error");
+    return;
+  }
 
-    if (installedRunes[selectedSlot]) {
-      notify("У цьому слоті вже встановлена руна. Її не можна замінити.", "error");
-      return;
-    }
+  if (!canUpgrade) {
+    notify("Обери якість вищу за встановлену руну.", "error");
+    return;
+  }
 
-    if (gold < quality.price) {
-      notify("Недостатньо золота для придбання цієї руни.", "error");
-      return;
-    }
+  if (gold < upgradeCost) {
+    notify("Недостатньо золота для покращення.", "error");
+    return;
+  }
 
-    setBuying(true);
-    setMessage("");
+  setBuying(true);
+  setMessage("");
 
-    try {
-      const { data, error } = await supabase.rpc("buy_player_rune", {
-        p_slot_id: selectedSlot,
-        p_quality_id: selectedQuality,
-      });
+  try {
+    const { data, error } = await supabase.rpc("buy_player_rune", {
+      p_slot_id: selectedSlot,
+      p_quality_id: selectedQuality,
+    });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      setGold(Number(data.remaining_gold) || 0);
+    setGold(Number(data.remaining_gold) || 0);
 
-      setInstalledRunes((previous) => ({
-        ...previous,
-        [selectedSlot]: {
-          runeType: data.rune_type,
-          quality: data.quality_id,
-          qualityName: quality.name,
-          bonus: Number(data.bonus),
-          pricePaid: Number(data.price_paid),
-        },
-      }));
+    setInstalledRunes((previous) => ({
+      ...previous,
+      [selectedSlot]: {
+        runeType: data.rune_type,
+        quality: data.quality_id,
+        qualityName: data.quality_name || quality.name,
+        bonus: Number(data.bonus),
+        pricePaid: Number(data.price_paid),
+      },
+    }));
 
-      notify(`Встановлено: ${rune.name} «${quality.name}»! Бонус +${quality.bonus} ${rune.stat}.`, "success");
-    } catch (error) {
-      notify(error.message || "Не вдалося придбати руну.", "error");
-      await loadData();
-    } finally {
-      setBuying(false);
-    }
-  };
+    notify(
+      data.upgraded
+        ? `Руну покращено до «${quality.name}»! Новий бонус: +${quality.bonus} ${rune.stat}. Доплата: ${Number(data.price_paid).toLocaleString("uk-UA")} золота.`
+        : `Встановлено «${quality.name}»! Бонус: +${quality.bonus} ${rune.stat}.`,
+      "success"
+    );
+  } catch (error) {
+    notify(
+      error.message || "Не вдалося встановити або покращити руну.",
+      "error"
+    );
+    await loadData();
+  } finally {
+    setBuying(false);
+  }
+};
+
 
   return (
     <main className="rune-page">
