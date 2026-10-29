@@ -1,43 +1,53 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft, Shield, Sword, Heart, Clover, Sparkles,
-  LockKeyhole, Coins, Check, Gem, Info, LoaderCircle,
+  ArrowLeft,
+  Check,
+  Coins,
+  Gem,
+  Shield,
+  Sword,
+  Heart,
+  Sparkles,
+  Dumbbell,
+  Footprints,
+  Hand,
+  CircleDot,
+  Crown,
+  Lock,
+  RefreshCw,
 } from "lucide-react";
+import { supabase } from "../lib/supabase";
 import "./RuneMerchant.css";
 
 const RUNE_QUALITIES = [
-  { id: "common", name: "Звичайна", bonus: 75, price: 50, color: "#a8adb5" },
-  { id: "common_plus", name: "Звичайна+", bonus: 150, price: 200, color: "#c8cbd1" },
-  { id: "rare", name: "Рідкісна", bonus: 250, price: 800, color: "#438cff" },
-  { id: "rare_plus", name: "Рідкісна+", bonus: 600, price: 5000, color: "#38c9ed" },
-  { id: "epic", name: "Епічна", bonus: 1000, price: 12500, color: "#bc65ff" },
-  { id: "epic_plus", name: "Епічна+", bonus: 2000, price: 25000, color: "#f05be7" },
-  { id: "legendary", name: "Легендарна", bonus: 3000, price: 50000, color: "#ffbd48" },
-  { id: "titanic", name: "Титанічна", bonus: 6000, price: 100000, color: "#ff6666" },
+  { id: "common", name: "Звичайна", bonus: 75, price: 50, color: "#a8a8a8" },
+  { id: "common_plus", name: "Звичайна+", bonus: 150, price: 200, color: "#73b879" },
+  { id: "rare", name: "Рідкісна", bonus: 250, price: 800, color: "#4b9ce2" },
+  { id: "rare_plus", name: "Рідкісна+", bonus: 600, price: 5000, color: "#8265e8" },
+  { id: "epic", name: "Епічна", bonus: 1000, price: 12500, color: "#c05ce0" },
+  { id: "epic_plus", name: "Епічна+", bonus: 2000, price: 25000, color: "#ed8b42" },
+  { id: "legendary", name: "Легендарна", bonus: 3000, price: 50000, color: "#e7c34d" },
+  { id: "titanic", name: "Титанічна", bonus: 6000, price: 100000, color: "#ff694f" },
 ];
-
-const RUNE_TYPES = {
-  strength: { name: "Руна сили", stat: "Сила", icon: Sword, color: "#e8a23b" },
-  life: { name: "Руна життя", stat: "Життя", icon: Heart, color: "#e45b67" },
-  armor: { name: "Руна броні", stat: "Броня", icon: Shield, color: "#64a8e8" },
-  luck: { name: "Руна удачі", stat: "Удача", icon: Clover, color: "#67c88b" },
-};
 
 const EQUIPMENT = [
-  { id: "helmet", name: "Шолом", rune: "strength", icon: Shield },
-  { id: "weapon", name: "Меч", rune: "strength", icon: Sword },
-  { id: "offhand", name: "Щит / друга рука", rune: "strength", icon: Shield },
-  { id: "shoulders", name: "Наплечники", rune: "life", icon: Shield },
-  { id: "pants", name: "Штани", rune: "armor", icon: Shield },
-  { id: "gloves", name: "Рукавиці", rune: "luck", icon: Sparkles },
-  { id: "boots", name: "Сапоги", rune: "life", icon: Shield },
-  { id: "armor", name: "Броня", rune: "armor", icon: Shield },
-  { id: "ring_armor", name: "Каблучка I", rune: "armor", icon: Gem },
-  { id: "ring_life", name: "Каблучка II", rune: "life", icon: Gem },
+  { id: "helmet", name: "Шолом", stat: "сили", icon: Crown, type: "strength" },
+  { id: "weapon", name: "Зброя", stat: "сили", icon: Sword, type: "strength" },
+  { id: "offhand", name: "Друга рука", stat: "сили", icon: Shield, type: "strength" },
+  { id: "shoulders", name: "Наплічники", stat: "життя", icon: Dumbbell, type: "life" },
+  { id: "pants", name: "Штани", stat: "броні", icon: Shield, type: "armor" },
+  { id: "gloves", name: "Рукавиці", stat: "удачі", icon: Hand, type: "luck" },
+  { id: "boots", name: "Чоботи", stat: "життя", icon: Footprints, type: "life" },
+  { id: "armor", name: "Броня", stat: "броні", icon: Shield, type: "armor" },
+  { id: "ring_armor", name: "Перстень броні", stat: "броні", icon: CircleDot, type: "armor" },
+  { id: "ring_life", name: "Перстень життя", stat: "життя", icon: Heart, type: "life" },
 ];
 
-export default function RuneMerchant({ onBack = () => {}, equippedSlots = {} }) {
+const formatNumber = (value) =>
+  Number(value || 0).toLocaleString("uk-UA");
+
+export default function RuneMerchant({ onBack }) {
   const [userId, setUserId] = useState(null);
   const [gold, setGold] = useState(0);
   const [installedRunes, setInstalledRunes] = useState({});
@@ -48,306 +58,433 @@ export default function RuneMerchant({ onBack = () => {}, equippedSlots = {} }) 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
 
-  const slot = EQUIPMENT.find((item) => item.id === selectedSlot);
-  const rune = RUNE_TYPES[slot.rune];
-  const quality = RUNE_QUALITIES.find((item) => item.id === selectedQuality);
+  const rune = useMemo(
+    () => EQUIPMENT.find((item) => item.id === selectedSlot) || EQUIPMENT[0],
+    [selectedSlot]
+  );
+
+  const quality = useMemo(
+    () =>
+      RUNE_QUALITIES.find((item) => item.id === selectedQuality) ||
+      RUNE_QUALITIES[0],
+    [selectedQuality]
+  );
+
   const installed = installedRunes[selectedSlot];
 
-  const notify = (text, type = "info") => {
+  const qualityRank = (id) =>
+    RUNE_QUALITIES.findIndex((item) => item.id === id);
+
+  const canUpgrade =
+    !installed ||
+    qualityRank(selectedQuality) > qualityRank(installed.quality);
+
+  const currentPrice =
+    RUNE_QUALITIES.find((item) => item.id === installed?.quality)?.price || 0;
+
+  const upgradeCost = installed
+    ? Math.max(0, quality.price - currentPrice)
+    : quality.price;
+
+  const notify = useCallback((text, type = "info") => {
     setMessage(text);
     setMessageType(type);
-  };
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setMessage("");
 
     try {
-      const { data: auth, error: authError } = await supabase.auth.getUser();
-      if (authError) throw authError;
-      if (!auth?.user) throw new Error("Увійди в гру, щоб користуватися рунами.");
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-      setUserId(auth.user.id);
+      if (authError) throw authError;
+
+      if (!user) {
+        setUserId(null);
+        setGold(0);
+        setInstalledRunes({});
+        notify("Увійди в гру, щоб користуватися торговцем рун.", "error");
+        return;
+      }
+
+      setUserId(user.id);
 
       const [profileResult, runesResult] = await Promise.all([
         supabase
           .from("profiles")
           .select("gold")
-          .eq("id", auth.user.id)
+          .eq("id", user.id)
           .single(),
         supabase
           .from("player_runes")
           .select("slot_id, rune_type, quality_id, quality_name, bonus, price_paid")
-          .eq("user_id", auth.user.id),
+          .eq("user_id", user.id),
       ]);
 
       if (profileResult.error) throw profileResult.error;
       if (runesResult.error) throw runesResult.error;
 
-      setGold(Number(profileResult.data.gold) || 0);
+      setGold(Number(profileResult.data?.gold) || 0);
 
-      const mapped = {};
-      for (const item of runesResult.data || []) {
-        mapped[item.slot_id] = {
+      const mappedRunes = {};
+
+      (runesResult.data || []).forEach((item) => {
+        mappedRunes[item.slot_id] = {
           runeType: item.rune_type,
           quality: item.quality_id,
-          qualityName: item.quality_name,
-          bonus: Number(item.bonus),
-          pricePaid: Number(item.price_paid),
+          qualityName:
+            item.quality_name ||
+            RUNE_QUALITIES.find((q) => q.id === item.quality_id)?.name ||
+            item.quality_id,
+          bonus: Number(item.bonus) || 0,
+          pricePaid: Number(item.price_paid) || 0,
         };
-      }
-      setInstalledRunes(mapped);
+      });
+
+      setInstalledRunes(mappedRunes);
+
+      setSelectedQuality((previous) => {
+        const currentRune = mappedRunes[selectedSlot];
+        if (!currentRune) return "common";
+
+        const previousRank = qualityRank(previous);
+        const installedRank = qualityRank(currentRune.quality);
+
+        return previousRank > installedRank
+          ? previous
+          : currentRune.quality;
+      });
     } catch (error) {
-      notify(error.message || "Не вдалося завантажити дані рун.", "error");
+      notify(
+        error.message || "Не вдалося завантажити дані торговця рун.",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notify, selectedSlot]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  
-const handleBuy = async () => {
-  if (buying || loading) return;
+  const handleSelectSlot = (slotId) => {
+    setSelectedSlot(slotId);
+    setSelectedQuality(installedRunes[slotId]?.quality || "common");
+    setMessage("");
+  };
 
-  if (!userId) {
-    notify("Спочатку увійди в гру.", "error");
-    return;
-  }
+  const handleBuy = async () => {
+    if (buying || loading) return;
 
-  if (!canUpgrade) {
-    notify("Обери якість вищу за встановлену руну.", "error");
-    return;
-  }
+    if (!userId) {
+      notify("Спочатку увійди в гру.", "error");
+      return;
+    }
 
-  if (gold < upgradeCost) {
-    notify("Недостатньо золота для покращення.", "error");
-    return;
-  }
+    if (!canUpgrade) {
+      notify("Обери якість вищу за встановлену руну.", "error");
+      return;
+    }
 
-  setBuying(true);
-  setMessage("");
+    if (gold < upgradeCost) {
+      notify("Недостатньо золота для цієї покупки.", "error");
+      return;
+    }
 
-  try {
-    const { data, error } = await supabase.rpc("buy_player_rune", {
-      p_slot_id: selectedSlot,
-      p_quality_id: selectedQuality,
-    });
+    setBuying(true);
+    setMessage("");
 
-    if (error) throw error;
+    try {
+      const { data, error } = await supabase.rpc("buy_player_rune", {
+        p_slot_id: selectedSlot,
+        p_quality_id: selectedQuality,
+      });
 
-    setGold(Number(data.remaining_gold) || 0);
+      if (error) throw error;
 
-    setInstalledRunes((previous) => ({
-      ...previous,
-      [selectedSlot]: {
-        runeType: data.rune_type,
-        quality: data.quality_id,
-        qualityName: data.quality_name || quality.name,
-        bonus: Number(data.bonus),
-        pricePaid: Number(data.price_paid),
-      },
-    }));
+      if (!data?.success) {
+        throw new Error("Не вдалося встановити або покращити руну.");
+      }
 
-    notify(
-      data.upgraded
-        ? `Руну покращено до «${quality.name}»! Новий бонус: +${quality.bonus} ${rune.stat}. Доплата: ${Number(data.price_paid).toLocaleString("uk-UA")} золота.`
-        : `Встановлено «${quality.name}»! Бонус: +${quality.bonus} ${rune.stat}.`,
-      "success"
-    );
-  } catch (error) {
-    notify(
-      error.message || "Не вдалося встановити або покращити руну.",
-      "error"
-    );
-    await loadData();
-  } finally {
-    setBuying(false);
-  }
-};
+      setGold(Number(data.remaining_gold) || 0);
 
+      setInstalledRunes((previous) => ({
+        ...previous,
+        [selectedSlot]: {
+          runeType: data.rune_type,
+          quality: data.quality_id,
+          qualityName: data.quality_name || quality.name,
+          bonus: Number(data.bonus) || 0,
+          pricePaid: Number(data.price_paid) || 0,
+        },
+      }));
+
+      notify(
+        data.upgraded
+          ? `Руну покращено до «${quality.name}»! Бонус: +${formatNumber(data.bonus)} ${rune.stat}. Доплата: ${formatNumber(data.price_paid)} золота.`
+          : `Встановлено руну «${quality.name}»! Бонус: +${formatNumber(data.bonus)} ${rune.stat}.`,
+        "success"
+      );
+    } catch (error) {
+      notify(
+        error.message || "Не вдалося встановити або покращити руну.",
+        "error"
+      );
+      await loadData();
+    } finally {
+      setBuying(false);
+    }
+  };
 
   return (
-    <main className="rune-page">
-      <header className="rune-header">
-        <button className="rune-back" onClick={onBack} aria-label="Назад" type="button">
-          <ArrowLeft size={23} />
-        </button>
-        <div className="rune-heading">
-          <span className="rune-eyebrow">КУЗНИЦЯ</span>
-          <h1>Торговець рунами</h1>
-          <p>Магія, що посилює твого героя</p>
-        </div>
-        <div className="rune-header-gem"><Gem size={32} /></div>
-      </header>
+    <div className="rune-page">
+      <div className="rune-container">
+        <header className="rune-header">
+          <button
+            type="button"
+            className="rune-back-button"
+            onClick={onBack}
+            aria-label="Назад"
+          >
+            <ArrowLeft size={20} />
+          </button>
 
-      <section className="rune-gold-panel">
-        <div className="rune-gold-icon"><Coins size={27} /></div>
-        <div>
-          <span>Твоє золото</span>
-          <strong>{loading ? "Завантаження…" : gold.toLocaleString("uk-UA")}</strong>
-        </div>
-      </section>
-
-      <section className="rune-merchant-banner">
-        <div className="rune-merchant-art"><Sparkles size={46} /></div>
-        <div>
-          <h2>Сила древніх рун</h2>
-          <p>Обери слот спорядження та встанови руну, яка назавжди посилить відповідну характеристику.</p>
-        </div>
-      </section>
-
-      <div className="rune-warning">
-        <LockKeyhole size={19} />
-        <p><strong>Увага!</strong> Руни встановлюються назавжди. Їх не можна зняти або втратити. Після заміни предмета руна залишається у своєму слоті.</p>
-      </div>
-
-      <section className="rune-section">
-        <div className="rune-section-title">
-          <h2>Твоє спорядження</h2>
-          <span>{EQUIPMENT.length} слотів</span>
-        </div>
-
-        <div className="rune-equipment-grid">
-          {EQUIPMENT.map((item) => {
-            const ItemIcon = item.icon;
-            const TypeIcon = RUNE_TYPES[item.rune].icon;
-            const isSelected = selectedSlot === item.id;
-            const installedRune = installedRunes[item.id];
-            const equippedItem = equippedSlots[item.id];
-
-            return (
-              <button
-                type="button"
-                key={item.id}
-                className={`rune-equipment-card ${isSelected ? "selected" : ""}`}
-                onClick={() => {
-                  setSelectedSlot(item.id);
-                  setMessage("");
-                }}
-              >
-                <div className="rune-item-icon">
-                  {equippedItem?.image ? <img src={equippedItem.image} alt="" /> : <ItemIcon size={29} />}
-                </div>
-                <div className="rune-item-info">
-                  <strong>{item.name}</strong>
-                  <span className="rune-item-name">{equippedItem?.name || "Слот спорядження"}</span>
-                  <span className="rune-type-label" style={{ color: RUNE_TYPES[item.rune].color }}>
-                    <TypeIcon size={13} /> {RUNE_TYPES[item.rune].name}
-                  </span>
-                  {installedRune && (
-                    <span className="rune-installed-label">
-                      <Check size={13} /> Встановлена · +{installedRune.bonus}
-                    </span>
-                  )}
-                </div>
-                <div className="rune-select-indicator">
-                  {isSelected ? <Check size={17} /> : <span />}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="rune-section rune-shop-section">
-        <div className="rune-section-title">
-          <h2>Руни для слота</h2>
-          <span>{slot.name}</span>
-        </div>
-
-        <div className="rune-selected-summary">
-          <div className="rune-selected-icon" style={{ color: rune.color }}>
-            {(() => {
-              const RuneIcon = rune.icon;
-              return <RuneIcon size={28} />;
-            })()}
+          <div className="rune-header-title">
+            <span className="rune-eyebrow">МАГІЯ СПОРЯДЖЕННЯ</span>
+            <h1>Торговець рун</h1>
+            <p>Посилюй спорядження давньою магією</p>
           </div>
-          <div>
-            <strong>{rune.name}</strong>
-            <span>Бонус до характеристики: {rune.stat}</span>
-          </div>
-        </div>
 
-        {installed ? (
-          <div className="rune-already-installed">
-            <Check size={24} />
-            <div>
-              <strong>Руну вже встановлено</strong>
-              <p>{installed.qualityName} · +{installed.bonus.toLocaleString("uk-UA")} {rune.stat}</p>
-              <span>Ця руна залишається в слоті назавжди.</span>
-            </div>
+          <div className="rune-gold">
+            <Coins size={19} />
+            <strong>{formatNumber(gold)}</strong>
+          </div>
+        </header>
+
+        {message && (
+          <div className={`rune-message rune-message-${messageType}`}>
+            {message}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="rune-loading">
+            <RefreshCw size={24} className="rune-spin" />
+            <p>Завантаження рун...</p>
           </div>
         ) : (
           <>
-            <div className="rune-quality-list">
-              {RUNE_QUALITIES.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  className={`rune-quality-card ${selectedQuality === item.id ? "active" : ""}`}
-                  style={{ "--quality-color": item.color }}
-                  onClick={() => {
-                    setSelectedQuality(item.id);
-                    setMessage("");
-                  }}
-                >
-                  <div className="rune-quality-gem"><Gem size={22} /></div>
-                  <div className="rune-quality-info">
-                    <strong>{item.name}</strong>
-                    <span>+{item.bonus.toLocaleString("uk-UA")} {rune.stat}</span>
-                  </div>
-                  <div className="rune-quality-price">
-                    <strong>{item.price.toLocaleString("uk-UA")}</strong>
-                    <span>золота</span>
-                  </div>
-                  <span className="rune-quality-radio">
-                    {selectedQuality === item.id && <Check size={14} />}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <div className="rune-purchase-summary">
+            <section className="rune-intro">
+              <div className="rune-intro-icon">
+                <Sparkles size={27} />
+              </div>
               <div>
-                <span>Обрана руна</span>
-                <strong>{rune.name} · {quality.name}</strong>
+                <h2>Постійні руни</h2>
+                <p>
+                  Руна закріплюється за слотом спорядження та зберігається
+                  навіть після заміни предмета. Встановлену руну можна лише
+                  покращувати.
+                </p>
               </div>
-              <div className="rune-total-price">
-                <Coins size={19} />
-                <strong>{quality.price.toLocaleString("uk-UA")}</strong>
-              </div>
-            </div>
+            </section>
 
-            <button
-              type="button"
-              className="rune-buy-button"
-              onClick={handleBuy}
-              disabled={loading || buying || !userId}
-            >
-              {buying ? <LoaderCircle size={19} className="rune-spin" /> : <Gem size={19} />}
-              {buying ? "Встановлення…" : "Купити та встановити"}
-            </button>
+            <section className="rune-section">
+              <div className="rune-section-heading">
+                <h2>Слоти рун</h2>
+                <span>{Object.keys(installedRunes).length}/10 встановлено</span>
+              </div>
+
+              <div className="rune-slot-grid">
+                {EQUIPMENT.map((item) => {
+                  const SlotIcon = item.icon;
+                  const slotRune = installedRunes[item.id];
+                  const active = selectedSlot === item.id;
+
+                  return (
+                    <button
+                      type="button"
+                      key={item.id}
+                      className={`rune-slot-card ${active ? "active" : ""} ${slotRune ? "has-rune" : ""}`}
+                      onClick={() => handleSelectSlot(item.id)}
+                    >
+                      <span className="rune-slot-icon">
+                        <SlotIcon size={22} />
+                      </span>
+                      <strong>{item.name}</strong>
+                      <span className="rune-slot-stat">+{slotRune ? formatNumber(slotRune.bonus) : "0"} {item.stat}</span>
+                      {slotRune ? (
+                        <span className="rune-slot-quality" style={{ color: RUNE_QUALITIES.find((q) => q.id === slotRune.quality)?.color }}>
+                          {slotRune.qualityName}
+                        </span>
+                      ) : (
+                        <span className="rune-slot-empty">Руна відсутня</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="rune-selected-panel">
+              <div className="rune-selected-heading">
+                <div className="rune-selected-icon">
+                  <Gem size={25} />
+                </div>
+                <div>
+                  <span className="rune-eyebrow">ОБРАНИЙ СЛОТ</span>
+                  <h2>{rune.name}</h2>
+                  <p>Бонус до {rune.stat}</p>
+                </div>
+              </div>
+
+              {installed && (
+                <div className="rune-already-installed">
+                  <Check size={23} />
+                  <div>
+                    <strong>Поточна руна: {installed.qualityName}</strong>
+                    <p>
+                      +{formatNumber(installed.bonus)} {rune.stat}
+                    </p>
+                    <span>Обери якість вище, щоб покращити руну.</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="rune-section-heading rune-quality-heading">
+                <h2>{installed ? "Покращення руни" : "Оберіть якість"}</h2>
+                <span>8 рівнів</span>
+              </div>
+
+              <div className="rune-quality-list">
+                {RUNE_QUALITIES.map((item) => {
+                  const rank = qualityRank(item.id);
+                  const currentRank = installed
+                    ? qualityRank(installed.quality)
+                    : -1;
+                  const isCurrent = installed?.quality === item.id;
+                  const isLower = rank < currentRank;
+                  const isDisabled = isCurrent || isLower;
+
+                  const difference = installed
+                    ? Math.max(0, item.price - currentPrice)
+                    : item.price;
+
+                  return (
+                    <button
+                      type="button"
+                      key={item.id}
+                      disabled={isDisabled}
+                      className={`rune-quality-card ${selectedQuality === item.id ? "active" : ""} ${isDisabled ? "disabled" : ""}`}
+                      style={{ "--quality-color": item.color }}
+                      onClick={() => {
+                        setSelectedQuality(item.id);
+                        setMessage("");
+                      }}
+                    >
+                      <span className="rune-quality-gem">
+                        <Gem size={22} />
+                      </span>
+
+                      <span className="rune-quality-info">
+                        <strong>
+                          {item.name}
+                          {isCurrent ? " · Поточна" : ""}
+                        </strong>
+                        <span>+{formatNumber(item.bonus)} {rune.stat}</span>
+                      </span>
+
+                      <span className="rune-quality-price">
+                        <strong>
+                          {isCurrent
+                            ? "Встановлена"
+                            : isLower
+                              ? "Недоступна"
+                              : formatNumber(difference)}
+                        </strong>
+                        {!isDisabled && <span>золота</span>}
+                      </span>
+
+                      <span className="rune-quality-radio">
+                        {selectedQuality === item.id && <Check size={14} />}
+                        {isDisabled && selectedQuality !== item.id && (
+                          <Lock size={13} />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="rune-purchase-summary">
+                <div className="rune-summary-label">
+                  <span>{installed ? "Покращення до" : "Обрана руна"}</span>
+                  <strong>{quality.name}</strong>
+                  <small>
+                    Новий бонус: +{formatNumber(quality.bonus)} {rune.stat}
+                  </small>
+                </div>
+
+                <div className="rune-total-price">
+                  <Coins size={21} />
+                  <div>
+                    <strong>{formatNumber(upgradeCost)}</strong>
+                    <span>до сплати</span>
+                  </div>
+                </div>
+              </div>
+
+              {installed && canUpgrade && (
+                <p className="rune-upgrade-note">
+                  <Sparkles size={15} />
+                  Сплачується лише різниця між ціною нової та поточної руни.
+                </p>
+              )}
+
+              <button
+                type="button"
+                className="rune-buy-button"
+                onClick={handleBuy}
+                disabled={
+                  loading ||
+                  buying ||
+                  !userId ||
+                  !canUpgrade ||
+                  gold < upgradeCost
+                }
+              >
+                {buying ? (
+                  <RefreshCw size={19} className="rune-spin" />
+                ) : (
+                  <Gem size={19} />
+                )}
+                {buying
+                  ? "Обробка..."
+                  : installed
+                    ? "Покращити руну"
+                    : "Купити та встановити"}
+              </button>
+
+              {gold < upgradeCost && (
+                <p className="rune-insufficient-gold">
+                  Недостатньо золота. Потрібно ще{" "}
+                  {formatNumber(upgradeCost - gold)}.
+                </p>
+              )}
+            </section>
+
+            <footer className="rune-footer">
+              <Lock size={15} />
+              Руни постійні: їх не можна зняти, продати або втратити.
+            </footer>
           </>
         )}
-
-        {message && (
-          <div className={`rune-message ${messageType}`} role="status">
-            <Info size={18} />
-            <span>{message}</span>
-          </div>
-        )}
-      </section>
-
-      <footer className="rune-footer">
-        <LockKeyhole size={16} />
-        Руни незнімні. Перевір якість і ціну перед встановленням.
-      </footer>
-
-      <button type="button" className="rune-bottom-back" onClick={onBack}>
-        <ArrowLeft size={18} /> Повернутися до кузні
-      </button>
-    </main>
+      </div>
+    </div>
   );
-  }
+                         }
+                    
