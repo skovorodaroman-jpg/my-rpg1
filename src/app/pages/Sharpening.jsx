@@ -1,5 +1,4 @@
-
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Anvil,
@@ -13,7 +12,10 @@ import {
   TrendingUp,
   Hammer,
   Package,
+  Crown,
+  RefreshCw,
 } from "lucide-react";
+import { supabase } from "../lib/supabase";
 import "./Sharpening.css";
 
 const MAX_LEVEL = 35;
@@ -27,18 +29,21 @@ const MATERIALS = [
   { id: "silver", name: "Срібло", icon: "⚪" },
 ];
 
-const EQUIPMENT = [
-  { id: "helmet", name: "Шолом", icon: Shield, rarity: "Легендарний" },
-  { id: "weapon", name: "Зброя", icon: Sword, rarity: "Легендарна" },
-  { id: "shoulders", name: "Наплічники", icon: Shield, rarity: "Епічні" },
-  { id: "armor", name: "Броня", icon: Shield, rarity: "Легендарна" },
-  { id: "gloves", name: "Рукавиці", icon: Shield, rarity: "Рідкісні" },
-  { id: "pants", name: "Штани", icon: Shield, rarity: "Епічні" },
-  { id: "boots", name: "Чоботи", icon: Shield, rarity: "Легендарні" },
-  { id: "offhand", name: "Друга рука", icon: Shield, rarity: "Епічна" },
-  { id: "ring_armor", name: "Перстень броні", icon: Gem, rarity: "Рідкісний" },
-  { id: "ring_life", name: "Перстень життя", icon: Gem, rarity: "Рідкісний" },
-];
+const EQUIPMENT_TYPES = new Set([
+  "weapon",
+  "armor",
+  "helmet",
+  "shoulders",
+  "gloves",
+  "shield",
+  "pants",
+  "boots",
+  "amulet",
+  "ring",
+  "ring_armor",
+  "ring_life",
+  "offhand",
+]);
 
 function getSilverCost(level) {
   if (level <= 14) return level * 1000;
@@ -103,71 +108,213 @@ function getBonus(level) {
 }
 
 function getSuccessChance(level, pityBonus = 0) {
-  const baseChance = Math.max(10, 100 - level * 3);
-  return Math.min(100, baseChance + pityBonus);
+  return Math.min(100, Math.max(5, 100 - level * 3) + pityBonus);
 }
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString("uk-UA");
 }
 
-export default function Sharpening({
-  onBack,
-  equipment = EQUIPMENT,
-  materials = {},
-  silver = 0,
-  onSharpen,
-}) {
+function getItemIcon(itemType) {
+  switch (String(itemType || "").toLowerCase()) {
+    case "weapon":
+      return Sword;
+    case "amulet":
+    case "ring":
+    case "ring_armor":
+    case "ring_life":
+      return Gem;
+    default:
+      return Shield;
+  }
+}
+
+function getRarityName(rarity) {
+  const names = {
+    common: "Звичайний",
+    uncommon: "Незвичайний",
+    rare: "Рідкісний",
+    epic: "Епічний",
+    legendary: "Легендарний",
+    titanic: "Титанічний",
+  };
+
+  return names[String(rarity || "").toLowerCase()] || rarity || "Спорядження героя";
+}
+
+export default function Sharpening({ onBack }) {
+  const [equipment, setEquipment] = useState([]);
+  const [materials, setMaterials] = useState({});
+  const [silver, setSilver] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState(null);
-  const [levels, setLevels] = useState({});
-  const [pity, setPity] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [noticeType, setNoticeType] = useState("info");
-  const [busy, setBusy] = useState(false);
 
   const selectedItem = equipment.find(
     (item) => item.id === selectedItemId
   );
 
-  const level = levels[selectedItemId] || 0;
+  const level = selectedItem?.sharpenLevel ?? 0;
+  const pityBonus = selectedItem?.failedAttemptBonus ?? 0;
   const nextLevel = level + 1;
-  const pityBonus = pity[selectedItemId] || 0;
 
   const requirements = useMemo(
     () => getMaterialCost(nextLevel),
     [nextLevel]
   );
 
-  const chance = getSuccessChance(nextLevel, pityBonus);
+  const chance = getSuccessChance(level, pityBonus);
   const bonus = getBonus(nextLevel);
-
   const isMaxLevel = level >= MAX_LEVEL;
 
   const hasResources =
     Number(silver) >= requirements.silver &&
     MATERIALS.filter((item) => item.id !== "silver").every(
-      (item) =>
-        Number(materials[item.id] || 0) >= requirements[item.id]
+      (item) => Number(materials[item.id] || 0) >= requirements[item.id]
     );
 
-  function notify(text, type = "info") {
-    setNotice(text);
+  const notify = useCallback((message, type = "info") => {
+    setNotice(message);
     setNoticeType(type);
-  }
+  }, []);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+
+    try {
+      const { data: authData, error: authError } =
+        await supabase.auth.getUser();
+
+      if (authError) throw authError;
+
+      const user = authData?.user;
+
+      if (!user) {
+        throw new Error("Увійди в гру, щоб користуватися заточкою.");
+      }
+
+      const [
+        { data: profile, error: profileError },
+        { data: playerItems, error: itemsError },
+        { data: resourceRows, error: resourcesError },
+      ] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("silver")
+          .eq("id", user.id)
+          .single(),
+
+        supabase
+          .from("player_items")
+          .select(`
+            id,
+            item_id,
+            is_equipped,
+            storage_location,
+            items (*)
+          `)
+          .eq("user_id", user.id),
+
+        supabase
+          .from("player_cave_resources")
+          .select("resource_key, quantity")
+          .eq("user_id", user.id),
+      ]);
+
+      if (profileError) throw profileError;
+      if (itemsError) throw itemsError;
+      if (resourcesError) throw resourcesError;
+
+      const validItems = (playerItems || []).filter((row) => {
+        const item = Array.isArray(row.items) ? row.items[0] : row.items;
+        return (
+          item &&
+          item.is_active !== false &&
+          EQUIPMENT_TYPES.has(String(item.item_type || "").toLowerCase())
+        );
+      });
+
+      const playerItemIds = validItems.map((item) => item.id);
+
+      let sharpeningRows = [];
+
+      if (playerItemIds.length > 0) {
+        const { data, error } = await supabase
+          .from("player_item_sharpening")
+          .select("player_item_id, sharpen_level, failed_attempt_bonus")
+          .in("player_item_id", playerItemIds);
+
+        if (error) throw error;
+        sharpeningRows = data || [];
+      }
+
+      const sharpeningByItem = new Map(
+        sharpeningRows.map((row) => [row.player_item_id, row])
+      );
+
+      const normalizedEquipment = validItems.map((row) => {
+        const item = Array.isArray(row.items) ? row.items[0] : row.items;
+        const sharpening = sharpeningByItem.get(row.id);
+
+        return {
+          id: row.id,
+          itemId: row.item_id,
+          name: item.name || "Предмет спорядження",
+          icon: getItemIcon(item.item_type),
+          rarity: getRarityName(item.rarity),
+          itemType: item.item_type,
+          imageUrl: item.image_url || null,
+          sharpenLevel: Number(sharpening?.sharpen_level || 0),
+          failedAttemptBonus: Number(
+            sharpening?.failed_attempt_bonus || 0
+          ),
+          isEquipped: Boolean(row.is_equipped),
+          storageLocation: row.storage_location || "bag",
+        };
+      });
+
+      const resourceTotals = {
+        diamond: 0,
+        corundum: 0,
+        obsidian: 0,
+        graphite: 0,
+        onyx: 0,
+      };
+
+      for (const row of resourceRows || []) {
+        if (Object.prototype.hasOwnProperty.call(resourceTotals, row.resource_key)) {
+          resourceTotals[row.resource_key] = Number(row.quantity || 0);
+        }
+      }
+
+      setEquipment(normalizedEquipment);
+      setMaterials(resourceTotals);
+      setSilver(Number(profile?.silver || 0));
+
+      setSelectedItemId((currentId) => {
+        if (currentId && normalizedEquipment.some((item) => item.id === currentId)) {
+          return currentId;
+        }
+        return null;
+      });
+    } catch (error) {
+      notify(error.message || "Не вдалося завантажити дані заточки.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [notify]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   async function handleSharpen() {
-    if (!selectedItem || busy || isMaxLevel) return;
+    if (!selectedItem || busy || loading || isMaxLevel) return;
 
     if (!hasResources) {
       notify("Не вистачає ресурсів для наступної заточки.", "error");
-      return;
-    }
-
-    if (typeof onSharpen !== "function") {
-      notify(
-        "Демонстраційний режим: підключи Supabase, щоб витрачати ресурси й зберігати заточку.",
-        "info"
-      );
       return;
     }
 
@@ -175,41 +322,28 @@ export default function Sharpening({
     setNotice("");
 
     try {
-      const result = await onSharpen({
-        item: selectedItem,
-        currentLevel: level,
-        nextLevel,
-        chance,
-        bonus,
-        requirements,
+      const { data, error } = await supabase.rpc("sharpen_player_item", {
+        p_player_item_id: selectedItem.id,
       });
 
-      if (result?.success) {
-        setLevels((previous) => ({
-          ...previous,
-          [selectedItemId]: nextLevel,
-        }));
+      if (error) throw error;
 
-        setPity((previous) => ({
-          ...previous,
-          [selectedItemId]: 0,
-        }));
+      const result = Array.isArray(data) ? data[0] : data;
 
+      if (!result || typeof result.success !== "boolean") {
+        throw new Error("Сервер повернув невідому відповідь.");
+      }
+
+      await loadData();
+
+      if (result.success) {
         notify(
-          `Успіх! ${selectedItem.name} заточено до +${nextLevel}.`,
+          `Успіх! ${selectedItem.name} заточено до +${result.sharpen_level ?? nextLevel}.`,
           "success"
         );
       } else {
-        setPity((previous) => ({
-          ...previous,
-          [selectedItemId]: Math.min(
-            100,
-            (previous[selectedItemId] || 0) + 3
-          ),
-        }));
-
         notify(
-          "Заточка не вдалася. Наступний шанс для цього предмета збільшено на 3%.",
+          `Заточка не вдалася. Наступний шанс для цього предмета: ${result.chance ?? chance}% + бонус невдалих спроб.`,
           "error"
         );
       }
@@ -227,7 +361,7 @@ export default function Sharpening({
           <button
             className="sharpening-back"
             type="button"
-            onClick={onBack}
+            onClick={selectedItem ? () => setSelectedItemId(null) : onBack}
             aria-label="Назад"
           >
             <ArrowLeft size={21} />
@@ -244,13 +378,29 @@ export default function Sharpening({
           </div>
         </header>
 
+        <div className="sharpening-wallet">
+          <span>⚪ Срібло: <strong>{formatNumber(silver)}</strong></span>
+          <button
+            type="button"
+            onClick={loadData}
+            disabled={loading || busy}
+            aria-label="Оновити дані"
+          >
+            <RefreshCw size={16} />
+          </button>
+        </div>
+
         {notice && (
-          <div className={`sharpening-notice ${noticeType}`}>
+          <div className={`sharpening-notice ${noticeType}`} role="status">
             {notice}
           </div>
         )}
 
-        {!selectedItem ? (
+        {loading ? (
+          <div className="sharpening-loading">
+            Завантаження спорядження та ресурсів...
+          </div>
+        ) : !selectedItem ? (
           <section className="sharpening-list-section">
             <div className="sharpening-section-title">
               <div>
@@ -260,43 +410,57 @@ export default function Sharpening({
               <span>{equipment.length} предметів</span>
             </div>
 
-            <div className="sharpening-equipment-list">
-              {equipment.map((item) => {
-                const ItemIcon = item.icon || Shield;
-                const itemLevel = levels[item.id] || item.sharpenLevel || 0;
+            {equipment.length === 0 ? (
+              <div className="sharpening-empty">
+                <Package size={32} />
+                <h3>Спорядження не знайдено</h3>
+                <p>
+                  У сумці немає предметів, які можна заточити.
+                  Спочатку отримай спорядження в грі.
+                </p>
+              </div>
+            ) : (
+              <div className="sharpening-equipment-list">
+                {equipment.map((item) => {
+                  const ItemIcon = item.icon || Shield;
 
-                return (
-                  <article
-                    className="sharpening-equipment-card"
-                    key={item.id}
-                  >
-                    <div className="sharpening-item-icon">
-                      <ItemIcon size={29} />
-                      <span>+{itemLevel}</span>
-                    </div>
-
-                    <div className="sharpening-item-info">
-                      <strong>{item.name}</strong>
-                      <span>{item.rarity || "Спорядження героя"}</span>
-                      <small>
-                        Заточка +{itemLevel}/{MAX_LEVEL}
-                      </small>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="sharpening-select-button"
-                      onClick={() => {
-                        setSelectedItemId(item.id);
-                        setNotice("");
-                      }}
+                  return (
+                    <article
+                      className="sharpening-equipment-card"
+                      key={item.id}
                     >
-                      Заточити
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
+                      <div className="sharpening-item-icon">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.name} />
+                        ) : (
+                          <ItemIcon size={29} />
+                        )}
+                        <span>+{item.sharpenLevel}</span>
+                      </div>
+
+                      <div className="sharpening-item-info">
+                        <strong>{item.name}</strong>
+                        <span>{item.rarity}</span>
+                        <small>
+                          Заточка +{item.sharpenLevel}/{MAX_LEVEL}
+                        </small>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="sharpening-select-button"
+                        onClick={() => {
+                          setSelectedItemId(item.id);
+                          setNotice("");
+                        }}
+                      >
+                        Заточити
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </section>
         ) : (
           <section className="sharpening-detail">
@@ -314,15 +478,17 @@ export default function Sharpening({
 
             <div className="sharpening-item-preview">
               <div className="sharpening-preview-icon">
-                {React.createElement(selectedItem.icon || Shield, {
-                  size: 43,
-                })}
+                {selectedItem.imageUrl ? (
+                  <img src={selectedItem.imageUrl} alt={selectedItem.name} />
+                ) : (
+                  React.createElement(selectedItem.icon || Shield, { size: 43 })
+                )}
                 <span>+{level}</span>
               </div>
 
               <div className="sharpening-preview-info">
                 <h2>{selectedItem.name}</h2>
-                <span>{selectedItem.rarity || "Спорядження героя"}</span>
+                <span>{selectedItem.rarity}</span>
                 <strong>
                   Рівень заточки: +{level}/{MAX_LEVEL}
                 </strong>
@@ -331,7 +497,7 @@ export default function Sharpening({
 
             {isMaxLevel ? (
               <div className="sharpening-max-level">
-                <CrownIcon />
+                <Crown size={30} />
                 <h3>Максимальна заточка!</h3>
                 <p>Цей предмет уже має рівень +{MAX_LEVEL}.</p>
               </div>
@@ -340,13 +506,16 @@ export default function Sharpening({
                 <div className="sharpening-chance-panel">
                   <span>Шанс заточити до +{nextLevel}</span>
                   <strong>{chance}%</strong>
+
                   <div className="sharpening-progress">
                     <span style={{ width: `${chance}%` }} />
                   </div>
+
                   <p>
                     <TrendingUp size={16} />
                     +{bonus} до параметрів предмета
                   </p>
+
                   {pityBonus > 0 && (
                     <small>
                       Бонус невдалих спроб: +{pityBonus}%
@@ -365,13 +534,15 @@ export default function Sharpening({
                       const required = requirements[material.id];
                       const available =
                         material.id === "silver"
-                          ? Number(silver)
-                          : Number(materials[material.id] || 0);
-                      const enough = available >= required;
+                          ? silver
+                          : materials[material.id] || 0;
+                      const enough = Number(available) >= required;
 
                       return (
                         <div
-                          className={`sharpening-material-row ${enough ? "enough" : "missing"}`}
+                          className={`sharpening-material-row ${
+                            enough ? "enough" : "missing"
+                          }`}
                           key={material.id}
                         >
                           <span className="sharpening-material-name">
@@ -384,11 +555,7 @@ export default function Sharpening({
                           </span>
 
                           <span className="sharpening-material-status">
-                            {enough ? (
-                              <Check size={17} />
-                            ) : (
-                              <Lock size={16} />
-                            )}
+                            {enough ? <Check size={17} /> : <Lock size={16} />}
                           </span>
                         </div>
                       );
@@ -405,7 +572,7 @@ export default function Sharpening({
                 <button
                   type="button"
                   className="sharpening-main-button"
-                  disabled={busy || !hasResources}
+                  disabled={busy || loading || !hasResources}
                   onClick={handleSharpen}
                 >
                   <Hammer size={21} />
@@ -414,8 +581,7 @@ export default function Sharpening({
 
                 {!hasResources && (
                   <p className="sharpening-missing-note">
-                    Не вистачає ресурсів. Їх можна буде отримати в печері,
-                    кар'єрі або придбати у коваля після підключення магазину.
+                    Не вистачає ресурсів. Їх можна добути в Печері.
                   </p>
                 )}
               </>
@@ -430,9 +596,4 @@ export default function Sharpening({
       </div>
     </main>
   );
-}
-
-function CrownIcon() {
-  return <Sparkles size={30} />;
-    }
-          
+             }
