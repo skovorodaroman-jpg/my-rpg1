@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import RuneMerchant from "./RuneMerchant";
 import Sharpening from "./Sharpening";
 import Bonuses from "./Bonuses";
+import Stars from "./Stars";
 
 import {
   ArrowLeft,
@@ -48,12 +49,12 @@ const SECTIONS = [
     open: false,
   },
   {
-    id: "stars",
-    title: "Звезды",
-    description: "Прокачка звезд",
-    icon: Star,
-    open: false,
-  },
+  id: "stars",
+  title: "Зірки",
+  description: "Покращення спорядження до 5 зірок",
+  icon: Star,
+  open: true,
+},
   {
     id: "rings",
     title: "Кольца",
@@ -317,6 +318,15 @@ export default function Forge({ onNavigate = () => {} }) {
       )}
       {section === "bonus" && (
   <Bonuses
+    onBack={() => {
+      setSection("home");
+      setNotice("");
+    }}
+  />
+)}
+      {section === "stars" && (
+  <Stars
+    profile={profile}
     onBack={() => {
       setSection("home");
       setNotice("");
