@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import RuneMerchant from "./RuneMerchant";
 import Sharpening from "./Sharpening";
+import Bonuses from "./Bonuses";
 
 import {
   ArrowLeft,
@@ -32,13 +33,13 @@ const SECTIONS = [
     icon: Pickaxe,
     open: true,
   },
-  {
-    id: "bonus",
-    title: "Бонус",
-    description: "Улучшение бонуса",
-    icon: Sparkles,
-    open: false,
-  },
+{
+  id: "bonus",
+  title: "Бонуси",
+  description: "Покращення параметрів спорядження до 90 рівня",
+  icon: Sparkles,
+  open: true,
+},
   {
     id: "amulet",
     title: "Амулет",
@@ -314,6 +315,14 @@ export default function Forge({ onNavigate = () => {} }) {
           }}
         />
       )}
+      {section === "bonus" && (
+  <Bonuses
+    onBack={() => {
+      setSection("home");
+      setNotice("");
+    }}
+  />
+)}
 
       <footer className="forge-footer">
         <button onClick={() => onNavigate("hero")}>
