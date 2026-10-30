@@ -479,8 +479,7 @@ const styles = {
     fontSize: 11,
     color: "#947b5b",
   },
-  upgradeDetails div: { display: "flex", flexDirection: "column", gap: 4 },
-  cost: { textAlign: "right" },
+    cost: { textAlign: "right" },
   upgradeButton: {
     width: "100%",
     marginTop: 12,
