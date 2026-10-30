@@ -3,15 +3,79 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 const EQUIPMENT_SLOTS = [
-  { type: "helmet", label: "Шолом", icon: "👑" },
-  { type: "weapon", label: "Зброя", icon: "⚔️" },
-  { type: "shoulders", label: "Наплічники", icon: "🛡️" },
-  { type: "armor", label: "Броня", icon: "🦺" },
-  { type: "gloves", label: "Рукавиці", icon: "🧤" },
-  { type: "shield", label: "Щит", icon: "🛡️" },
-  { type: "pants", label: "Штани", icon: "👖" },
-  { type: "boots", label: "Чоботи", icon: "🥾" },
+  { type: "helmet", label: "Шолом", icon: "👑", stat: "strength" },
+  { type: "weapon", label: "Права рука", icon: "⚔️", stat: "strength" },
+  { type: "shield", label: "Ліва рука", icon: "🛡️", stat: "strength" },
+  { type: "shoulders", label: "Наплічники", icon: "🛡️", stat: "health" },
+  { type: "armor", label: "Броня", icon: "🦺", stat: "armor" },
+  { type: "gloves", label: "Рукавиці", icon: "🧤", stat: "luck" },
+  { type: "pants", label: "Штани", icon: "👖", stat: "armor" },
+  { type: "boots", label: "Чоботи", icon: "🥾", stat: "health" },
+  { type: "ring_1", label: "Перше кільце", icon: "💍", stat: "health" },
+  { type: "ring_2", label: "Друге кільце", icon: "💍", stat: "armor" },
 ];
+
+const SLOT_ALIASES = {
+  helmet: ["helmet", "шолом", "шлем"],
+  weapon: ["weapon", "зброя", "меч", "клинок"],
+  shield: ["shield", "щит"],
+  shoulders: ["shoulders", "наплічники", "наплечники"],
+  armor: ["armor", "броня", "обладунок"],
+  gloves: ["gloves", "рукавиці", "рукавицы", "перчатки"],
+  pants: ["pants", "штани", "штаны"],
+  boots: ["boots", "чоботи", "сапоги"],
+};
+
+const SLOT_STAT = {
+  helmet: "strength",
+  weapon: "strength",
+  shield: "strength",
+  shoulders: "health",
+  armor: "armor",
+  gloves: "luck",
+  pants: "armor",
+  boots: "health",
+  ring_1: "health",
+  ring_2: "armor",
+};
+
+function getSlotType(row) {
+  if (row?.equipped_slot) return row.equipped_slot;
+
+  const item = row?.item || row || {};
+  const type = String(item.item_type || "").toLowerCase();
+  const name = String(item.name || "").toLowerCase();
+
+  for (const [slot, aliases] of Object.entries(SLOT_ALIASES)) {
+    if (
+      aliases.some((alias) => type === alias || name.includes(alias))
+    ) {
+      return slot;
+    }
+  }
+
+  return null;
+}
+
+function getRuneStat(runeType) {
+  const type = String(runeType || "").toLowerCase();
+
+  const mapping = {
+    strength: "strength",
+    attack: "strength",
+    health: "health",
+    hp: "health",
+    armor: "armor",
+    defense: "armor",
+    luck: "luck",
+  };
+
+  return mapping[type] || null;
+}
+
+function formatNumber(value) {
+  return Math.floor(Number(value) || 0).toLocaleString("uk-UA");
+}
 
 const EXTRA_SLOTS = [
   { type: "amulet", label: "Амулет", icon: "📿" },
