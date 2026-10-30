@@ -1,0 +1,501 @@
+
+.rings-page {
+  min-height: 100%;
+  padding: 18px 14px 35px;
+  color: #eadbc5;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(126, 76, 35, .16), transparent 45%),
+    #120e0b;
+}
+
+.rings-container {
+  width: 100%;
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.rings-header {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 22px;
+}
+
+.rings-back {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  color: #e6c79c;
+  background: #251b15;
+  border: 1px solid #493323;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.rings-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.rings-eyebrow {
+  color: #b58a59;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.rings-heading h1 {
+  margin: 3px 0;
+  color: #f4dfbd;
+  font-size: 27px;
+  font-weight: 900;
+}
+
+.rings-heading p {
+  margin: 0;
+  color: #a8957e;
+  font-size: 12px;
+}
+
+.rings-header-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  color: #e5b86d;
+  background: linear-gradient(145deg, #45301d, #21170f);
+  border: 1px solid #74502b;
+  border-radius: 15px;
+}
+
+.rings-wallet {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 12px;
+  margin-bottom: 15px;
+  background: #1c1712;
+  border: 1px solid #3b2c20;
+  border-radius: 13px;
+}
+
+.rings-wallet > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: #bca98f;
+  font-size: 11px;
+}
+
+.rings-wallet > div:first-child svg {
+  color: #e9b64d;
+}
+
+.rings-wallet > div:nth-child(2) svg {
+  color: #c4a3e8;
+}
+
+.rings-wallet strong {
+  color: #f1d9b3;
+  font-size: 12px;
+}
+
+.rings-wallet button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  color: #d8bd96;
+  background: #302319;
+  border: 1px solid #58402a;
+  border-radius: 9px;
+}
+
+.rings-notice {
+  padding: 12px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.rings-notice.success {
+  color: #a9e5b2;
+  background: #183020;
+  border: 1px solid #315b3b;
+}
+
+.rings-notice.error {
+  color: #f0aaaa;
+  background: #351b19;
+  border: 1px solid #69332d;
+}
+
+.rings-notice.info {
+  color: #e8ce9e;
+  background: #302516;
+  border: 1px solid #594326;
+}
+
+.rings-info-panel {
+  display: flex;
+  gap: 12px;
+  padding: 15px;
+  margin-bottom: 16px;
+  background: linear-gradient(120deg, #292016, #1c1712);
+  border: 1px solid #5b4329;
+  border-radius: 13px;
+}
+
+.rings-info-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  color: #edba62;
+  background: #46311b;
+  border-radius: 11px;
+}
+
+.rings-info-panel strong {
+  color: #f1d5a8;
+  font-size: 14px;
+}
+
+.rings-info-panel p {
+  margin: 5px 0 0;
+  color: #b5a38d;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.rings-locked-message {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 16px;
+  color: #edc989;
+  background: #352818;
+  border: 1px solid #79582c;
+  border-radius: 11px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.rings-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 23px 0 13px;
+}
+
+.rings-section-heading h2 {
+  margin: 0;
+  color: #f0dfc6;
+  font-size: 18px;
+}
+
+.rings-section-heading p {
+  margin: 4px 0 0;
+  color: #9d8b75;
+  font-size: 11px;
+}
+
+.rings-section-heading > span {
+  color: #b9986d;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.rings-loading {
+  padding: 40px 10px;
+  color: #c0a98a;
+  text-align: center;
+}
+
+.rings-list {
+  display: grid;
+  gap: 15px;
+}
+
+.ring-card {
+  position: relative;
+  padding: 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--ring-color) 13%, transparent), transparent 45%),
+    linear-gradient(145deg, #282019, #19140f);
+  border: 1px solid #49382a;
+  border-radius: 16px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .18);
+}
+
+.ring-card.owned {
+  border-color: color-mix(in srgb, var(--ring-color) 42%, #49382a);
+}
+
+.ring-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ring-artifact-icon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  flex-shrink: 0;
+  color: var(--ring-color);
+  background: color-mix(in srgb, var(--ring-color) 13%, #201811);
+  border: 1px solid color-mix(in srgb, var(--ring-color) 40%, #49382a);
+  border-radius: 15px;
+}
+
+.ring-title-area {
+  flex: 1;
+  min-width: 0;
+}
+
+.ring-title-area h3 {
+  margin: 4px 0;
+  color: #f2dfc3;
+  font-size: 17px;
+}
+
+.ring-quality {
+  color: var(--ring-color);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ring-level {
+  color: #a9957d;
+  font-size: 11px;
+}
+
+.ring-equipped-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  color: #a7e3ad;
+  background: #1b3020;
+  border: 1px solid #34583a;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ring-description {
+  min-height: 52px;
+  margin: 14px 0 10px;
+  color: #b8a58e;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.ring-effect {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 10px;
+  color: #e5c38f;
+  background: rgba(0, 0, 0, .2);
+  border-radius: 9px;
+  font-size: 11px;
+}
+
+.ring-effect svg {
+  color: #d9ad65;
+}
+
+.ring-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin: 12px 0;
+}
+
+.ring-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px;
+  background: #17120e;
+  border: 1px solid #392a1f;
+  border-radius: 10px;
+}
+
+.ring-stats span {
+  color: #a9957e;
+  font-size: 10px;
+}
+
+.ring-stats strong {
+  color: #edc782;
+  font-size: 19px;
+}
+
+.ring-progress {
+  height: 6px;
+  margin: 12px 0;
+  overflow: hidden;
+  background: #100d0a;
+  border-radius: 20px;
+}
+
+.ring-progress > div {
+  height: 100%;
+  background: linear-gradient(90deg, #98622f, #e8b85f);
+  border-radius: inherit;
+  transition: width .25s ease;
+}
+
+.ring-next-upgrade {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px;
+  margin: 12px 0;
+  background: #17120e;
+  border: 1px solid #3b2c20;
+  border-radius: 10px;
+}
+
+.ring-next-upgrade > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ring-next-upgrade span {
+  color: #a9957e;
+  font-size: 10px;
+}
+
+.ring-next-upgrade strong {
+  color: #ead5b3;
+  font-size: 13px;
+}
+
+.ring-cost {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #e9bd70;
+}
+
+.ring-cost strong {
+  color: #f2d7a4;
+}
+
+.ring-cost small {
+  color: #a9957e;
+  font-size: 10px;
+}
+
+.ring-maxed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #f0c979;
+  font-weight: 800;
+}
+
+.ring-action-button,
+.ring-select-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: filter .2s ease, transform .2s ease;
+}
+
+.ring-action-button {
+  color: #24170c;
+  background: linear-gradient(110deg, #d49a49, #f0cb7d);
+  border: 1px solid #f2ce85;
+}
+
+.ring-select-button {
+  margin-top: 9px;
+  color: #d7c09f;
+  background: #282017;
+  border: 1px solid #59432e;
+}
+
+.ring-select-button.selected {
+  color: #a9e2b0;
+  background: #1b3020;
+  border-color: #47734c;
+}
+
+.ring-action-button:disabled,
+.ring-select-button:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+}
+
+.ring-action-button:not(:disabled):active,
+.ring-select-button:not(:disabled):active {
+  transform: scale(.98);
+}
+
+.ring-insufficient {
+  margin: 8px 0 0;
+  color: #e69b8e;
+  font-size: 11px;
+  text-align: center;
+}
+
+.rings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 22px 8px 5px;
+  color: #b49a72;
+  font-size: 11px;
+  text-align: center;
+}
+
+.rings-footer svg {
+  color: #e4b85e;
+  flex-shrink: 0;
+}
+
+@media (max-width: 380px) {
+  .rings-wallet {
+    gap: 8px;
+  }
+
+  .rings-wallet > div {
+    gap: 4px;
+    font-size: 10px;
+  }
+
+  .ring-card {
+    padding: 13px;
+  }
+
+  .ring-equipped-badge {
+    padding: 5px;
+    font-size: 9px;
+  }
+  }
+  
