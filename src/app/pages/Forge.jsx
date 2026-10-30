@@ -1,9 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+
+import React, { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+
 import RuneMerchant from "./RuneMerchant";
 import Sharpening from "./Sharpening";
 import Bonuses from "./Bonuses";
 import Stars from "./Stars";
+import Rings from "./Rings";
 
 import {
   ArrowLeft,
@@ -22,78 +25,46 @@ import "./Forge.css";
 const SECTIONS = [
   {
     id: "runes",
-    title: "Торговец рунами",
-    description: "Улучшения с помощью рун",
+    title: "Торговець рунами",
+    description: "Покращення за допомогою рун",
     icon: Gem,
     open: true,
   },
   {
     id: "sharpening",
     title: "Заточка",
-    description: "Улучшение снаряжения до +35",
+    description: "Покращення спорядження до +35",
     icon: Pickaxe,
     open: true,
   },
-{
-  id: "bonus",
-  title: "Бонуси",
-  description: "Покращення параметрів спорядження до 90 рівня",
-  icon: Sparkles,
-  open: true,
-},
+  {
+    id: "bonus",
+    title: "Бонуси",
+    description: "Покращення параметрів спорядження до 90 рівня",
+    icon: Sparkles,
+    open: true,
+  },
   {
     id: "amulet",
     title: "Амулет",
-    description: "Бонус к опыту",
+    description: "Бонус до досвіду",
     icon: Shield,
     open: false,
   },
   {
-  id: "stars",
-  title: "Зірки",
-  description: "Покращення спорядження до 5 зірок",
-  icon: Star,
-  open: true,
-},
+    id: "stars",
+    title: "Зірки",
+    description: "Покращення спорядження до 5 зірок",
+    icon: Star,
+    open: true,
+  },
   {
     id: "rings",
-    title: "Кольца",
-    description: "Магические умения",
+    title: "Кільця",
+    description: "Магічні властивості та бойові вміння",
     icon: CircleDot,
-    open: false,
+    open: true,
   },
-];
-
-const RUNE_CATALOG = [
-  { id: "rune_strength", name: "Руна силы", stat: "Сила", value: 5, rarity: "Common", price: 100 },
-  { id: "rune_health", name: "Руна жизни", stat: "Здоровье", value: 50, rarity: "Common", price: 100 },
-  { id: "rune_armor", name: "Руна защиты", stat: "Броня", value: 5, rarity: "Common", price: 100 },
-  { id: "rune_luck", name: "Руна удачи", stat: "Удача", value: 2, rarity: "Common", price: 100 },
-
-  { id: "rune_strength_u", name: "Усиленная руна силы", stat: "Сила", value: 12, rarity: "Uncommon", price: 350 },
-  { id: "rune_health_u", name: "Усиленная руна жизни", stat: "Здоровье", value: 120, rarity: "Uncommon", price: 350 },
-  { id: "rune_armor_u", name: "Усиленная руна защиты", stat: "Броня", value: 12, rarity: "Uncommon", price: 350 },
-  { id: "rune_luck_u", name: "Усиленная руна удачи", stat: "Удача", value: 5, rarity: "Uncommon", price: 350 },
-
-  { id: "rune_strength_r", name: "Руна могущества", stat: "Сила", value: 25, rarity: "Rare", price: 900 },
-  { id: "rune_health_r", name: "Руна жизненной силы", stat: "Здоровье", value: 250, rarity: "Rare", price: 900 },
-  { id: "rune_armor_r", name: "Руна крепости", stat: "Броня", value: 25, rarity: "Rare", price: 900 },
-  { id: "rune_luck_r", name: "Руна судьбы", stat: "Удача", value: 10, rarity: "Rare", price: 900 },
-
-  { id: "rune_strength_e", name: "Руна разрушения", stat: "Сила", value: 50, rarity: "Epic", price: 2500 },
-  { id: "rune_health_e", name: "Руна бессмертия", stat: "Здоровье", value: 500, rarity: "Epic", price: 2500 },
-  { id: "rune_armor_e", name: "Руна бастиона", stat: "Броня", value: 50, rarity: "Epic", price: 2500 },
-  { id: "rune_luck_e", name: "Руна рока", stat: "Удача", value: 20, rarity: "Epic", price: 2500 },
-
-  { id: "rune_strength_l", name: "Легендарная руна силы", stat: "Сила", value: 100, rarity: "Legendary", price: 7000 },
-  { id: "rune_health_l", name: "Легендарная руна жизни", stat: "Здоровье", value: 1000, rarity: "Legendary", price: 7000 },
-  { id: "rune_armor_l", name: "Легендарная руна защиты", stat: "Броня", value: 100, rarity: "Legendary", price: 7000 },
-  { id: "rune_luck_l", name: "Легендарная руна судьбы", stat: "Удача", value: 40, rarity: "Legendary", price: 7000 },
-
-  { id: "rune_strength_t", name: "Титаническая руна силы", stat: "Сила", value: 200, rarity: "Titanic", price: 20000 },
-  { id: "rune_health_t", name: "Титаническая руна жизни", stat: "Здоровье", value: 2000, rarity: "Titanic", price: 20000 },
-  { id: "rune_armor_t", name: "Титаническая руна защиты", stat: "Броня", value: 200, rarity: "Titanic", price: 20000 },
-  { id: "rune_luck_t", name: "Титаническая руна удачи", stat: "Удача", value: 80, rarity: "Titanic", price: 20000 },
 ];
 
 const formatNumber = (value) =>
@@ -166,6 +137,11 @@ export default function Forge({ onNavigate = () => {} }) {
     }
   };
 
+  const returnToForge = () => {
+    setSection("home");
+    setNotice("");
+  };
+
   return (
     <main className="forge-page">
       <header className="forge-header">
@@ -181,7 +157,7 @@ export default function Forge({ onNavigate = () => {} }) {
           <div className="forge-eyebrow">
             ХРОНІКИ ЗГАСЛОГО СВІТАНКУ
           </div>
-          <h1>Кузница</h1>
+          <h1>Кузня</h1>
         </div>
 
         <div className="forge-header-icon">
@@ -212,8 +188,11 @@ export default function Forge({ onNavigate = () => {} }) {
 
             <div className="forge-intro-copy">
               <div className="forge-section-label">МАЙСТЕРНЯ</div>
-              <h2>Улучши своё снаряжение</h2>
-              <p>В кузнице можно улучшить своё снаряжение.</p>
+              <h2>Покращуй своє спорядження</h2>
+              <p>
+                У кузні можна розвивати силу спорядження та магічні
+                властивості артефактів.
+              </p>
             </div>
           </section>
 
@@ -223,17 +202,17 @@ export default function Forge({ onNavigate = () => {} }) {
             </div>
 
             <div className="forge-mastery-info">
-              <span>Мастерство</span>
+              <span>Майстерність</span>
               <strong>
                 {loading ? "…" : formatNumber(mastery)}
               </strong>
               <small>
-                Получено после прокачки в тренировке
+                Отримано після прокачування у тренуванні
               </small>
             </div>
           </section>
 
-          <div className="forge-menu-title">РАЗДЕЛЫ КУЗНИ</div>
+          <div className="forge-menu-title">РОЗДІЛИ КУЗНІ</div>
 
           <section className="forge-menu">
             {SECTIONS.map((item) => {
@@ -251,7 +230,7 @@ export default function Forge({ onNavigate = () => {} }) {
                       setNotice("");
                     } else {
                       showNotice(
-                        "Этот раздел пока закрыт. Он будет доступен в следующих обновлениях."
+                        "Цей розділ поки закритий. Він буде доступний у наступних оновленнях."
                       );
                     }
                   }}
@@ -286,12 +265,12 @@ export default function Forge({ onNavigate = () => {} }) {
             </div>
 
             <div>
-              <strong>Где найти ресурсы?</strong>
+              <strong>Де знайти ресурси?</strong>
               <p>
-                Ресурсы для улучшения снаряжения можно добыть в Пещере.
+                Ресурси для покращення спорядження можна добути в Печері.
               </p>
               <button onClick={() => onNavigate("cave")}>
-                Перейти в Пещеру →
+                Перейти до Печери →
               </button>
             </div>
           </section>
@@ -301,53 +280,48 @@ export default function Forge({ onNavigate = () => {} }) {
       {section === "runes" && (
         <RuneMerchant
           gold={profile?.gold ?? 0}
-          onBack={() => {
-            setSection("home");
-            setNotice("");
-          }}
+          onBack={returnToForge}
         />
       )}
 
       {section === "sharpening" && (
-        <Sharpening
-          onBack={() => {
-            setSection("home");
-            setNotice("");
-          }}
+        <Sharpening onBack={returnToForge} />
+      )}
+
+      {section === "bonus" && (
+        <Bonuses onBack={returnToForge} />
+      )}
+
+      {section === "stars" && (
+        <Stars
+          profile={profile}
+          onBack={returnToForge}
         />
       )}
-      {section === "bonus" && (
-  <Bonuses
-    onBack={() => {
-      setSection("home");
-      setNotice("");
-    }}
-  />
-)}
-      {section === "stars" && (
-  <Stars
-    profile={profile}
-    onBack={() => {
-      setSection("home");
-      setNotice("");
-    }}
-  />
-)}
+
+      {section === "rings" && (
+        <Rings
+          profile={profile}
+          onBack={returnToForge}
+        />
+      )}
 
       <footer className="forge-footer">
         <button onClick={() => onNavigate("hero")}>
           Герой
         </button>
+
         <button
           className="active"
           onClick={() => onNavigate("home")}
         >
-          Главная
+          Головна
         </button>
+
         <button onClick={() => onNavigate("clan")}>
           Клан
         </button>
       </footer>
     </main>
   );
-    }
+}
