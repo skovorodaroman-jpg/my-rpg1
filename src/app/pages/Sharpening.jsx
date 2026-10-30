@@ -11,7 +11,6 @@ import {
   Lock,
   Sparkles,
   TrendingUp,
-  Hammer,
   Package,
   Crown,
   RefreshCw,
@@ -171,7 +170,6 @@ export default function Sharpening({ onBack }) {
   const bonus = getBonus(nextLevel);
   const isMaxLevel = level >= MAX_LEVEL;
 
-  // Розрахунок доплати золотом за відсутні мінерали.
   const substitution = useMemo(() => {
     const missing = {};
     let totalGold = 0;
@@ -200,7 +198,6 @@ export default function Sharpening({ onBack }) {
 
   const silverEnough = Number(silver) >= requirements.silver;
   const goldEnough = Number(gold) >= substitution.totalGold;
-
   const hasResources = silverEnough && goldEnough;
 
   const notify = useCallback((message, type = "info") => {
@@ -227,6 +224,7 @@ export default function Sharpening({ onBack }) {
         { data: profile, error: profileError },
         { data: playerItems, error: itemsError },
         { data: resourceRows, error: resourcesError },
+        { data: sharpeningRows, error: sharpeningError },
       ] = await Promise.all([
         supabase
           .from("profiles")
@@ -249,43 +247,49 @@ export default function Sharpening({ onBack }) {
           .from("player_cave_resources")
           .select("resource_key, quantity")
           .eq("user_id", user.id),
+
+        supabase
+          .from("player_slot_sharpening")
+          .select("slot_type, sharpen_level, failed_attempt_bonus")
+          .eq("user_id", user.id),
       ]);
 
       if (profileError) throw profileError;
       if (itemsError) throw itemsError;
       if (resourcesError) throw resourcesError;
+      if (sharpeningError) throw sharpeningError;
 
       const validItems = (playerItems || []).filter((row) => {
-        const item = Array.isArray(row.items) ? row.items[0] : row.items;
+        const item = Array.isArray(row.items)
+          ? row.items[0]
+          : row.items;
 
         return (
           item &&
           item.is_active !== false &&
-          EQUIPMENT_TYPES.has(String(item.item_type || "").toLowerCase())
+          EQUIPMENT_TYPES.has(
+            String(item.item_type || "").toLowerCase()
+          )
         );
       });
 
-      const playerItemIds = validItems.map((item) => item.id);
-
-      let sharpeningRows = [];
-
-      if (playerItemIds.length > 0) {
-        const { data, error } = await supabase
-          .from("player_item_sharpening")
-          .select("player_item_id, sharpen_level, failed_attempt_bonus")
-          .in("player_item_id", playerItemIds);
-
-        if (error) throw error;
-        sharpeningRows = data || [];
-      }
-
-      const sharpeningByItem = new Map(
-        sharpeningRows.map((row) => [row.player_item_id, row])
+      const sharpeningBySlot = new Map(
+        (sharpeningRows || []).map((row) => [
+          String(row.slot_type || "").toLowerCase(),
+          row,
+        ])
       );
 
       const normalizedEquipment = validItems.map((row) => {
-        const item = Array.isArray(row.items) ? row.items[0] : row.items;
-        const sharpening = sharpeningByItem.get(row.id);
+        const item = Array.isArray(row.items)
+          ? row.items[0]
+          : row.items;
+
+        const slotType = String(
+          item.item_type || ""
+        ).toLowerCase();
+
+        const sharpening = sharpeningBySlot.get(slotType);
 
         return {
           id: row.id,
@@ -294,8 +298,11 @@ export default function Sharpening({ onBack }) {
           icon: getItemIcon(item.item_type),
           rarity: getRarityName(item.rarity),
           itemType: item.item_type,
+          slotType,
           imageUrl: item.image_url || null,
-          sharpenLevel: Number(sharpening?.sharpen_level || 0),
+          sharpenLevel: Number(
+            sharpening?.sharpen_level || 0
+          ),
           failedAttemptBonus: Number(
             sharpening?.failed_attempt_bonus || 0
           ),
@@ -319,7 +326,9 @@ export default function Sharpening({ onBack }) {
             row.resource_key
           )
         ) {
-          resourceTotals[row.resource_key] = Number(row.quantity || 0);
+          resourceTotals[row.resource_key] = Number(
+            row.quantity || 0
+          );
         }
       }
 
@@ -331,14 +340,20 @@ export default function Sharpening({ onBack }) {
       setSelectedItemId((currentId) => {
         if (
           currentId &&
-          normalizedEquipment.some((item) => item.id === currentId)
+          normalizedEquipment.some(
+            (item) => item.id === currentId
+          )
         ) {
           return currentId;
         }
+
         return null;
       });
     } catch (error) {
-      notify(error.message || "Не вдалося завантажити дані заточки.", "error");
+      notify(
+        error.message || "Не вдалося завантажити дані заточки.",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -362,6 +377,7 @@ export default function Sharpening({ onBack }) {
           "error"
         );
       }
+
       return;
     }
 
@@ -369,9 +385,12 @@ export default function Sharpening({ onBack }) {
     setNotice("");
 
     try {
-      const { data, error } = await supabase.rpc("sharpen_player_item", {
-        p_player_item_id: selectedItem.id,
-      });
+      const { data, error } = await supabase.rpc(
+        "sharpen_player_item",
+        {
+          p_player_item_id: selectedItem.id,
+        }
+      );
 
       if (error) throw error;
 
@@ -387,18 +406,24 @@ export default function Sharpening({ onBack }) {
 
       if (result.success) {
         notify(
-          `Успіх! ${selectedItem.name} заточено до +${
+          `Успіх! Слот ${selectedItem.slotType} заточено до +${
             result.sharpen_level ?? nextLevel
-          }.${goldSpent > 0 ? ` Доплата: ${formatNumber(goldSpent)} золота.` : ""}`,
+          }.${
+            goldSpent > 0
+              ? ` Доплата: ${formatNumber(goldSpent)} золота.`
+              : ""
+          }`,
           "success"
         );
       } else {
         notify(
-          `Заточка не вдалася. Наступний шанс для цього предмета: ${
+          `Заточка не вдалася. Наступний шанс для цього слота: ${
             result.chance ?? chance
           }% + бонус невдалих спроб.${
             goldSpent > 0
-              ? ` Витрачено ${formatNumber(goldSpent)} золота на заміну ресурсів.`
+              ? ` Витрачено ${formatNumber(
+                  goldSpent
+                )} золота на заміну ресурсів.`
               : ""
           }`,
           "error"
@@ -418,14 +443,20 @@ export default function Sharpening({ onBack }) {
           <button
             className="sharpening-back"
             type="button"
-            onClick={selectedItem ? () => setSelectedItemId(null) : onBack}
+            onClick={
+              selectedItem
+                ? () => setSelectedItemId(null)
+                : onBack
+            }
             aria-label="Назад"
           >
             <ArrowLeft size={21} />
           </button>
 
           <div>
-            <span className="sharpening-eyebrow">МАЙСТЕРНЯ</span>
+            <span className="sharpening-eyebrow">
+              МАЙСТЕРНЯ
+            </span>
             <h1>Заточка</h1>
             <p>Зміцнюй спорядження свого героя</p>
           </div>
@@ -439,6 +470,7 @@ export default function Sharpening({ onBack }) {
           <span>
             ⚪ Срібло: <strong>{formatNumber(silver)}</strong>
           </span>
+
           <span>
             🪙 Золото: <strong>{formatNumber(gold)}</strong>
           </span>
@@ -454,7 +486,10 @@ export default function Sharpening({ onBack }) {
         </div>
 
         {notice && (
-          <div className={`sharpening-notice ${noticeType}`} role="status">
+          <div
+            className={`sharpening-notice ${noticeType}`}
+            role="status"
+          >
             {notice}
           </div>
         )}
@@ -470,6 +505,7 @@ export default function Sharpening({ onBack }) {
                 <h2>Твоє спорядження</h2>
                 <p>Обери предмет для заточки</p>
               </div>
+
               <span>{equipment.length} предметів</span>
             </div>
 
@@ -494,16 +530,21 @@ export default function Sharpening({ onBack }) {
                     >
                       <div className="sharpening-item-icon">
                         {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.name} />
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                          />
                         ) : (
                           <ItemIcon size={29} />
                         )}
+
                         <span>+{item.sharpenLevel}</span>
                       </div>
 
                       <div className="sharpening-item-info">
                         <strong>{item.name}</strong>
                         <span>{item.rarity}</span>
+
                         <small>
                           Заточка +{item.sharpenLevel}/{MAX_LEVEL}
                         </small>
@@ -542,19 +583,31 @@ export default function Sharpening({ onBack }) {
             <div className="sharpening-item-preview">
               <div className="sharpening-preview-icon">
                 {selectedItem.imageUrl ? (
-                  <img src={selectedItem.imageUrl} alt={selectedItem.name} />
+                  <img
+                    src={selectedItem.imageUrl}
+                    alt={selectedItem.name}
+                  />
                 ) : (
-                  React.createElement(selectedItem.icon || Shield, { size: 43 })
+                  React.createElement(
+                    selectedItem.icon || Shield,
+                    { size: 43 }
+                  )
                 )}
+
                 <span>+{level}</span>
               </div>
 
               <div className="sharpening-preview-info">
                 <h2>{selectedItem.name}</h2>
                 <span>{selectedItem.rarity}</span>
+
                 <strong>
                   Рівень заточки: +{level}/{MAX_LEVEL}
                 </strong>
+
+                <small>
+                  Заточка належить слоту: {selectedItem.slotType}
+                </small>
               </div>
             </div>
 
@@ -562,16 +615,23 @@ export default function Sharpening({ onBack }) {
               <div className="sharpening-max-level">
                 <Crown size={30} />
                 <h3>Максимальна заточка!</h3>
-                <p>Цей предмет уже має рівень +{MAX_LEVEL}.</p>
+                <p>
+                  Цей слот уже має рівень +{MAX_LEVEL}.
+                </p>
               </div>
             ) : (
               <>
                 <div className="sharpening-chance-panel">
-                  <span>Шанс заточити до +{nextLevel}</span>
+                  <span>
+                    Шанс заточити до +{nextLevel}
+                  </span>
+
                   <strong>{chance}%</strong>
 
                   <div className="sharpening-progress">
-                    <span style={{ width: `${chance}%` }} />
+                    <span
+                      style={{ width: `${chance}%` }}
+                    />
                   </div>
 
                   <p>
@@ -594,23 +654,25 @@ export default function Sharpening({ onBack }) {
 
                   <div className="sharpening-material-list">
                     {MATERIALS.map((material) => {
-                      const required = requirements[material.id];
+                      const required =
+                        requirements[material.id];
 
                       const available =
                         material.id === "silver"
                           ? silver
                           : materials[material.id] || 0;
 
-                      const enough = Number(available) >= required;
+                      const enough =
+                        Number(available) >= required;
+
                       const shortage = Math.max(
                         0,
                         required - Number(available)
                       );
 
-                      const goldCost =
-                        material.goldPrice
-                          ? shortage * material.goldPrice
-                          : 0;
+                      const goldCost = material.goldPrice
+                        ? shortage * material.goldPrice
+                        : 0;
 
                       const canCoverShortage =
                         goldCost <= gold;
@@ -618,7 +680,8 @@ export default function Sharpening({ onBack }) {
                       return (
                         <div
                           className={`sharpening-material-row ${
-                            enough || (material.goldPrice && canCoverShortage)
+                            enough ||
+                            (material.goldPrice && canCoverShortage)
                               ? "enough"
                               : "missing"
                           }`}
@@ -630,85 +693,87 @@ export default function Sharpening({ onBack }) {
                           </span>
 
                           <span className="sharpening-material-count">
-                            {formatNumber(available)} / {formatNumber(required)}
+                            {formatNumber(available)} /{" "}
+                            {formatNumber(required)}
                           </span>
 
                           <span className="sharpening-material-status">
                             {enough ? (
                               <Check size={17} />
-                            ) : material.goldPrice && canCoverShortage ? (
+                            ) : material.goldPrice &&
+                              canCoverShortage ? (
                               <Coins size={17} />
                             ) : (
                               <Lock size={16} />
                             )}
                           </span>
 
-                          {shortage > 0 && material.goldPrice > 0 && (
-                            <div className="sharpening-material-substitution">
-                              Бракує {formatNumber(shortage)} шт. · доплата{" "}
-                              {formatNumber(goldCost)} золота
-                            </div>
-                          )}
+                          {shortage > 0 &&
+                            material.goldPrice > 0 && (
+                              <div className="sharpening-material-substitution">
+                                Бракує {formatNumber(shortage)} шт.
+                                · доплата{" "}
+                                {formatNumber(goldCost)} золота
+                              </div>
+                            )}
                         </div>
                       );
                     })}
                   </div>
 
                   <div className="sharpening-silver-cost">
-                    <Coins size={20} />
-                    <span>Потрібно срібла</span>
-                    <strong>{formatNumber(requirements.silver)}</strong>
-                  </div>
+  <Coins size={20} />
+  <span>Потрібно срібла</span>
+  <strong>{formatNumber(requirements.silver)}</strong>
+</div>
 
-                  {substitution.totalGold > 0 && (
-                    <div className="sharpening-silver-cost">
-                      <Coins size={20} />
-                      <span>Доплата золотом</span>
-                      <strong>
-                        {formatNumber(substitution.totalGold)}
-                      </strong>
-                    </div>
-                  )}
+{substitution.totalGold > 0 && (
+  <div className="sharpening-silver-cost">
+    <Coins size={20} />
+    <span>Доплата золотом</span>
+    <strong>{formatNumber(substitution.totalGold)}</strong>
+  </div>
+)}
 
-                  <div className="sharpening-silver-cost">
-                    <Sparkles size={20} />
-                    <span>Твоє золото</span>
-                    <strong>{formatNumber(gold)}</strong>
-                  </div>
+<div className="sharpening-silver-cost">
+  <Sparkles size={20} />
+  <span>Твоє золото</span>
+  <strong>{formatNumber(gold)}</strong>
+</div>
 
-                  {!silverEnough && (
+{!silverEnough && (
   <p className="sharpening-missing-note">
-    Не вистачає {formatNumber(requirements.silver - silver)} срібла.
+    Не вистачає{" "}
+    {formatNumber(requirements.silver - silver)} срібла.
   </p>
 )}
 
-                  {!goldEnough && substitution.totalGold > 0 && (
-                    <p className="sharpening-missing-note">
-                      Не вистачає{" "}
-                      {formatNumber(substitution.totalGold - gold)} золота
-                      для заміни відсутніх мінералів.
-                    </p>
-                  )}
-                </div>
+{!goldEnough && substitution.totalGold > 0 && (
+  <p className="sharpening-missing-note">
+    Не вистачає{" "}
+    {formatNumber(substitution.totalGold - gold)} золота
+    для заміни відсутніх мінералів.
+  </p>
+)}
+</div>
 
-                <button
-                  type="button"
-                  className="sharpening-button"
-                  onClick={handleSharpen}
-                  disabled={!hasResources || busy || loading}
-                >
-                  {busy ? "Заточування..." : "Заточити"}
-                </button>
+<button
+  className="sharpening-button"
+  onClick={handleSharpen}
+  disabled={!hasResources || busy || loading}
+>
+  {busy ? "Заточування..." : "Заточити"}
+</button>
 
-                <p className="sharpening-warning">
-                  У разі невдачі ресурси та срібло витрачаються.
-                  Золото також списується за заміну відсутніх мінералів.
-                </p>
-              </>
-            )}
-          </section>
-        )}
-      </div>
-    </main>
-  );
+<p className="sharpening-warning">
+  У разі невдачі ресурси витрачаються, але рівень заточки
+  не зменшується. Бонус до шансу наступної спроби зростає.
+</p>
+</>
+)}
+</section>
+)}
+</div>
+</main>
+);
 }
