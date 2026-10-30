@@ -1,30 +1,21 @@
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 const EQUIPMENT_SLOTS = [
-  { type: "helmet", label: "Шолом", icon: "👑", stat: "strength" },
-  { type: "weapon", label: "Права рука", icon: "⚔️", stat: "strength" },
-  { type: "shield", label: "Ліва рука", icon: "🛡️", stat: "strength" },
-  { type: "shoulders", label: "Наплічники", icon: "🛡️", stat: "health" },
-  { type: "armor", label: "Броня", icon: "🦺", stat: "armor" },
-  { type: "gloves", label: "Рукавиці", icon: "🧤", stat: "luck" },
-  { type: "pants", label: "Штани", icon: "👖", stat: "armor" },
-  { type: "boots", label: "Чоботи", icon: "🥾", stat: "health" },
-  { type: "ring_1", label: "Перше кільце", icon: "💍", stat: "health" },
-  { type: "ring_2", label: "Друге кільце", icon: "💍", stat: "armor" },
+  { type: "helmet", label: "Шолом", icon: "👑" },
+  { type: "weapon", label: "Права рука", icon: "⚔️" },
+  { type: "shoulders", label: "Наплічники", icon: "🛡️" },
+  { type: "armor", label: "Броня", icon: "🦺" },
+  { type: "gloves", label: "Рукавиці", icon: "🧤" },
+  { type: "shield", label: "Ліва рука", icon: "🛡️" },
+  { type: "pants", label: "Штани", icon: "👖" },
+  { type: "boots", label: "Чоботи", icon: "🥾" },
 ];
 
-const SLOT_ALIASES = {
-  helmet: ["helmet", "шолом", "шлем"],
-  weapon: ["weapon", "зброя", "меч", "клинок"],
-  shield: ["shield", "щит"],
-  shoulders: ["shoulders", "наплічники", "наплечники"],
-  armor: ["armor", "броня", "обладунок"],
-  gloves: ["gloves", "рукавиці", "рукавицы", "перчатки"],
-  pants: ["pants", "штани", "штаны"],
-  boots: ["boots", "чоботи", "сапоги"],
-};
+const EXTRA_SLOTS = [
+  { type: "ring_1", label: "Перше кільце", icon: "💍" },
+  { type: "ring_2", label: "Друге кільце", icon: "💍" },
+];
 
 const SLOT_STAT = {
   helmet: "strength",
@@ -39,49 +30,6 @@ const SLOT_STAT = {
   ring_2: "armor",
 };
 
-function getSlotType(row) {
-  if (row?.equipped_slot) return row.equipped_slot;
-
-  const item = row?.item || row || {};
-  const type = String(item.item_type || "").toLowerCase();
-  const name = String(item.name || "").toLowerCase();
-
-  for (const [slot, aliases] of Object.entries(SLOT_ALIASES)) {
-    if (
-      aliases.some((alias) => type === alias || name.includes(alias))
-    ) {
-      return slot;
-    }
-  }
-
-  return null;
-}
-
-function getRuneStat(runeType) {
-  const type = String(runeType || "").toLowerCase();
-
-  const mapping = {
-    strength: "strength",
-    attack: "strength",
-    health: "health",
-    hp: "health",
-    armor: "armor",
-    defense: "armor",
-    luck: "luck",
-  };
-
-  return mapping[type] || null;
-}
-
-function formatNumber(value) {
-  return Math.floor(Number(value) || 0).toLocaleString("uk-UA");
-}
-
-const EXTRA_SLOTS = [
-  { type: "amulet", label: "Амулет", icon: "📿" },
-  { type: "ring", label: "Перстень", icon: "💍" },
-];
-
 const SLOT_ALIASES = {
   helmet: ["helmet", "шолом", "шлем"],
   weapon: ["weapon", "зброя", "меч", "клинок"],
@@ -91,20 +39,17 @@ const SLOT_ALIASES = {
   shield: ["shield", "щит"],
   pants: ["pants", "штани", "штаны"],
   boots: ["boots", "чоботи", "сапоги"],
-  amulet: ["amulet", "амулет"],
-  ring: ["ring", "перстень", "кільце", "кольцо"],
 };
 
-function getSlotType(item) {
-  const type = String(item?.item_type || "").toLowerCase();
-  const name = String(item?.name || "").toLowerCase();
+function getSlotType(row) {
+  if (row?.equipped_slot) return row.equipped_slot;
+
+  const item = row?.item || {};
+  const type = String(item.item_type || "").toLowerCase();
+  const name = String(item.name || "").toLowerCase();
 
   for (const [slot, aliases] of Object.entries(SLOT_ALIASES)) {
-    if (
-      aliases.some(
-        (alias) => type === alias || name.includes(alias)
-      )
-    ) {
+    if (aliases.some((alias) => type === alias || name.includes(alias))) {
       return slot;
     }
   }
@@ -112,8 +57,36 @@ function getSlotType(item) {
   return null;
 }
 
+function getRuneStat(type) {
+  const mapping = {
+    strength: "strength",
+    attack: "strength",
+    health: "health",
+    hp: "health",
+    armor: "armor",
+    defense: "armor",
+    luck: "luck",
+    speed: "speed",
+    crit: "crit",
+    critical: "crit",
+  };
+
+  return mapping[String(type || "").toLowerCase()] || null;
+}
+
 function formatNumber(value) {
   return Math.floor(Number(value) || 0).toLocaleString("uk-UA");
+}
+
+function emptyStats() {
+  return {
+    strength: 0,
+    health: 0,
+    armor: 0,
+    luck: 0,
+    speed: 0,
+    crit: 0,
+  };
 }
 
 export default function Heroes({ profile, player, onNavigate }) {
@@ -122,6 +95,9 @@ export default function Heroes({ profile, player, onNavigate }) {
 
   const [message, setMessage] = useState(null);
   const [equippedItems, setEquippedItems] = useState([]);
+  const [slotBonuses, setSlotBonuses] = useState([]);
+  const [runes, setRunes] = useState([]);
+  const [sharpening, setSharpening] = useState([]);
   const [loadingEquipment, setLoadingEquipment] = useState(true);
   const [equipmentError, setEquipmentError] = useState("");
 
@@ -134,6 +110,9 @@ export default function Heroes({ profile, player, onNavigate }) {
   const loadEquipment = useCallback(async () => {
     if (!userId) {
       setEquippedItems([]);
+      setSlotBonuses([]);
+      setRunes([]);
+      setSharpening([]);
       setLoadingEquipment(false);
       return;
     }
@@ -142,18 +121,52 @@ export default function Heroes({ profile, player, onNavigate }) {
     setEquipmentError("");
 
     try {
-      const { data, error } = await supabase
-        .from("player_items")
-        .select("id, item_id, is_equipped, storage_location, item:items(*)")
-        .eq("user_id", userId)
-        .eq("is_equipped", true);
+      const [
+        equipmentResult,
+        bonusesResult,
+        runesResult,
+        sharpeningResult,
+      ] = await Promise.all([
+        supabase
+          .from("player_items")
+          .select(
+            "id, item_id, is_equipped, equipped_slot, storage_location, item:items(*)"
+          )
+          .eq("user_id", userId)
+          .eq("is_equipped", true),
 
-      if (error) throw error;
+        supabase
+          .from("player_slot_bonuses")
+          .select("slot_type, bonus_level")
+          .eq("user_id", userId),
 
-      setEquippedItems((data || []).filter((row) => row.item));
+        supabase
+          .from("player_runes")
+          .select("slot_id, rune_type, bonus")
+          .eq("user_id", userId),
+
+        supabase
+          .from("player_slot_sharpening")
+          .select("slot_type, sharpen_level")
+          .eq("user_id", userId),
+      ]);
+
+      if (equipmentResult.error) throw equipmentResult.error;
+      if (bonusesResult.error) throw bonusesResult.error;
+      if (runesResult.error) throw runesResult.error;
+      if (sharpeningResult.error) throw sharpeningResult.error;
+
+      setEquippedItems(
+        (equipmentResult.data || []).filter((row) => row.item)
+      );
+      setSlotBonuses(bonusesResult.data || []);
+      setRunes(runesResult.data || []);
+      setSharpening(sharpeningResult.data || []);
     } catch (err) {
-      console.error("Не вдалося завантажити екіпірування:", err);
-      setEquipmentError("Не вдалося завантажити екіпірування.");
+      console.error("Помилка завантаження характеристик героя:", err);
+      setEquipmentError(
+        "Не вдалося завантажити спорядження та характеристики."
+      );
     } finally {
       setLoadingEquipment(false);
     }
@@ -167,28 +180,86 @@ export default function Heroes({ profile, player, onNavigate }) {
     const result = {};
 
     for (const row of equippedItems) {
-      const slot = getSlotType(row.item);
-      if (slot && !result[slot]) result[slot] = row;
+      const slot = getSlotType(row);
+
+      if (slot && !result[slot]) {
+        result[slot] = row;
+      }
     }
 
     return result;
   }, [equippedItems]);
 
   const bonuses = useMemo(() => {
-    return equippedItems.reduce(
-      (total, row) => {
-        const item = row.item || {};
+    const total = emptyStats();
 
-        total.attack += Number(item.attack_bonus || 0);
-        total.defense += Number(item.defense_bonus || 0);
-        total.hp += Number(item.hp_bonus || 0);
-        total.speed += Number(item.speed_bonus || 0);
+    // 1. Базові характеристики екіпірованих предметів
+    for (const row of equippedItems) {
+      const item = row.item || {};
 
-        return total;
-      },
-      { attack: 0, defense: 0, hp: 0, speed: 0 }
-    );
-  }, [equippedItems]);
+      total.strength += Number(item.attack_bonus || 0);
+      total.health += Number(item.hp_bonus || 0);
+      total.armor += Number(item.defense_bonus || 0);
+      total.luck += Number(item.luck_bonus || 0);
+      total.speed += Number(item.speed_bonus || 0);
+      total.crit += Number(item.crit_bonus || 0);
+    }
+
+    // 2. Бонуси слотів: кожен рівень додає 24
+    for (const bonus of slotBonuses) {
+      const stat = SLOT_STAT[bonus.slot_type];
+      if (!stat) continue;
+
+      total[stat] += Number(bonus.bonus_level || 0) * 24;
+    }
+
+    // 3. Руни
+    for (const rune of runes) {
+      const stat = getRuneStat(rune.rune_type);
+      if (!stat) continue;
+
+      total[stat] += Number(rune.bonus || 0);
+    }
+
+    // 4. Заточка: рівень 1 = 24, рівень 2 = 28 і т.д.
+    for (const sharpen of sharpening) {
+      const stat = SLOT_STAT[sharpen.slot_type];
+      if (!stat) continue;
+
+      const sharpenLevel = Number(sharpen.sharpen_level || 0);
+
+      if (sharpenLevel > 0) {
+        total[stat] += 20 + sharpenLevel * 4;
+      }
+    }
+
+    return total;
+  }, [equippedItems, slotBonuses, runes, sharpening]);
+
+  const equipmentPower =
+    bonuses.strength +
+    bonuses.health +
+    bonuses.armor +
+    bonuses.luck +
+    bonuses.speed +
+    bonuses.crit;
+
+  const power = 100 + equipmentPower;
+
+  const totalRuneBonus = runes.reduce(
+    (sum, rune) => sum + Number(rune.bonus || 0),
+    0
+  );
+
+  const totalSharpenLevel = sharpening.reduce(
+    (sum, item) => sum + Number(item.sharpen_level || 0),
+    0
+  );
+
+  const totalSlotLevels = slotBonuses.reduce(
+    (sum, item) => sum + Number(item.bonus_level || 0),
+    0
+  );
 
   const showPlaceholder = (title) => setMessage(title);
 
@@ -198,12 +269,12 @@ export default function Heroes({ profile, player, onNavigate }) {
     {
       icon: "🛡️",
       title: "Спорядження",
-      value: `${equippedItems.length} / 8`,
+      value: `${equippedItems.length} / 10`,
     },
     { icon: "🐉", title: "Вихованець", value: "Рівень 1" },
     { icon: "⚔️", title: "Уміння", value: "0 / 6" },
-    { icon: "🎒", title: "Сумка", value: "Відкрити", action: "bag" },
-    { icon: "📦", title: "Сундук", value: "Відкрити", action: "chest" },
+    { icon: "🎒", title: "Сумка", value: "Відкрити" },
+    { icon: "📦", title: "Сундук", value: "Відкрити" },
     { icon: "✉️", title: "Пошта", value: "0" },
     { icon: "🏋️", title: "Тренування", value: "(+)", plus: true },
     { icon: "⚡", title: "Усиления", value: "(+)", plus: true },
@@ -215,8 +286,9 @@ export default function Heroes({ profile, player, onNavigate }) {
         <div style={styles.heroName}>⚔️ {heroName}</div>
         <div style={styles.heroLevel}>⬆️ {level} ур.</div>
         <div style={styles.heroClan}>🛡️ Без клана</div>
+
         <div style={styles.power}>
-          Мощь: <span>⚔️ {formatNumber(100 + bonuses.attack + bonuses.defense)}</span>
+          Міць: <span>⚔️ {formatNumber(power)}</span>
         </div>
       </header>
 
@@ -287,13 +359,60 @@ export default function Heroes({ profile, player, onNavigate }) {
 
       <section style={styles.statsBlock}>
         <div style={styles.statsTitle}>Характеристики героя</div>
-        <StatRow icon="❤️" label="Здоров’я" value={`+${formatNumber(bonuses.hp)}`} />
-        <StatRow icon="⚔️" label="Атака" value={`+${formatNumber(bonuses.attack)}`} />
-        <StatRow icon="🛡️" label="Захист" value={`+${formatNumber(bonuses.defense)}`} />
-        <StatRow icon="⚡" label="Швидкість" value={`+${formatNumber(bonuses.speed)}`} />
+
+        <StatRow
+          icon="❤️"
+          label="Здоров'я"
+          value={`+${formatNumber(bonuses.health)}`}
+        />
+        <StatRow
+          icon="⚔️"
+          label="Сила"
+          value={`+${formatNumber(bonuses.strength)}`}
+        />
+        <StatRow
+          icon="🛡️"
+          label="Броня"
+          value={`+${formatNumber(bonuses.armor)}`}
+        />
+        <StatRow
+          icon="🍀"
+          label="Удача"
+          value={`+${formatNumber(bonuses.luck)}`}
+        />
+        <StatRow
+          icon="⚡"
+          label="Швидкість"
+          value={`+${formatNumber(bonuses.speed)}`}
+        />
+        <StatRow
+          icon="🎯"
+          label="Критичний шанс"
+          value={`${formatNumber(bonuses.crit)}%`}
+        />
+
         <div style={styles.equippedCount}>
           Надіто предметів: {equippedItems.length}
         </div>
+      </section>
+
+      <section style={styles.statsBlock}>
+        <div style={styles.statsTitle}>Додаткові посилення</div>
+        <StatRow
+          icon="🔮"
+          label="Бонус від рун"
+          value={`+${formatNumber(totalRuneBonus)}`}
+        />
+        <StatRow
+          icon="⚒️"
+          label="Сумарний рівень заточки"
+          value={`+${formatNumber(totalSharpenLevel)}`}
+        />
+        <StatRow
+          icon="✨"
+          label="Рівні бонусів слотів"
+          value={formatNumber(totalSlotLevels)}
+        />
       </section>
 
       <div style={styles.quickBar}>
@@ -340,6 +459,7 @@ export default function Heroes({ profile, player, onNavigate }) {
               <span style={styles.menuIcon}>{item.icon}</span>
               <span style={styles.menuTitle}>{item.title}</span>
             </div>
+
             <div
               style={{
                 ...styles.menuValue,
@@ -348,44 +468,28 @@ export default function Heroes({ profile, player, onNavigate }) {
             >
               {item.value}
             </div>
+
             <span style={styles.arrow}>›</span>
           </div>
         ))}
       </div>
 
-      <div style={styles.detailsBlock}>
-        {[
-          ["🔮 Руны", "—"],
-          ["⚒️ Заточка", "+0"],
-          ["✨ Бонус", "0 / 900"],
-          ["📿 Амулет", "+0%"],
-        ].map(([title, value]) => (
-          <div
-            key={title}
-            style={styles.detailRow}
-            onClick={() => showPlaceholder(title.replace(/^[^\s]+\s/, ""))}
-          >
-            <span>{title}</span>
-            <span>{value}</span>
-          </div>
-        ))}
-      </div>
-
       <div style={styles.infoBlock}>
-        <span>🛡️ Бонус кланового опыта</span>
+        <span>🛡️ Бонус кланового досвіду</span>
         <strong>100%</strong>
       </div>
 
       <div style={styles.xpBlock}>
         <div style={styles.xpText}>
           <span>⬆️ {level} ур.</span>
-          <span>Опыт: {formatNumber(experience)} / 100</span>
+          <span>Досвід: {formatNumber(experience)}</span>
         </div>
+
         <div style={styles.xpBar}>
           <div
             style={{
               ...styles.xpProgress,
-              width: `${Math.min(100, (experience % 100))}%`,
+              width: `${Math.min(100, experience % 100)}%`,
             }}
           />
         </div>
@@ -399,6 +503,7 @@ export default function Heroes({ profile, player, onNavigate }) {
           <span>🏆 Рейтинг Колізею</span>
           <span>—</span>
         </div>
+
         <div
           style={styles.rankingRow}
           onClick={() => showPlaceholder("Ліга обраних")}
@@ -459,9 +564,10 @@ function EquipmentSlot({ slot, row, loading, onClick }) {
           style={styles.equipmentImage}
           onError={(event) => {
             event.currentTarget.style.display = "none";
-            const fallback = event.currentTarget.parentElement?.querySelector(
-              ".equipment-fallback"
-            );
+            const fallback =
+              event.currentTarget.parentElement?.querySelector(
+                ".equipment-fallback"
+              );
             if (fallback) fallback.style.display = "flex";
           }}
         />
@@ -483,9 +589,13 @@ function EquipmentSlot({ slot, row, loading, onClick }) {
             ? `+${item.attack_bonus}`
             : Number(item.defense_bonus || 0) > 0
               ? `+${item.defense_bonus}`
-              : item.level
-                ? `Р${item.level}`
-                : "✓"}
+              : Number(item.hp_bonus || 0) > 0
+                ? `+${item.hp_bonus}`
+                : Number(item.luck_bonus || 0) > 0
+                  ? `+${item.luck_bonus}`
+                  : item.level
+                    ? `Р${item.level}`
+                    : "✓"}
         </span>
       )}
     </button>
@@ -495,7 +605,9 @@ function EquipmentSlot({ slot, row, loading, onClick }) {
 function StatRow({ icon, label, value }) {
   return (
     <div style={styles.statRow}>
-      <span>{icon} {label}</span>
+      <span>
+        {icon} {label}
+      </span>
       <strong>{value}</strong>
     </div>
   );
@@ -548,7 +660,10 @@ const styles = {
     padding: 2,
     boxSizing: "border-box",
   },
-  equippedSlot: { borderColor: "#b98b43", boxShadow: "0 0 8px #6b482633" },
+  equippedSlot: {
+    borderColor: "#b98b43",
+    boxShadow: "0 0 8px #6b482633",
+  },
   rarity_rare: { borderColor: "#478ed1" },
   rarity_epic: { borderColor: "#a16bd7" },
   rarity_legendary: { borderColor: "#e7a638" },
@@ -585,7 +700,8 @@ const styles = {
     overflow: "hidden",
     border: "1px solid #594027",
     borderRadius: 6,
-    background: "radial-gradient(circle, #382313 0%, #170d08 65%, #0d0906 100%)",
+    background:
+      "radial-gradient(circle, #382313 0%, #170d08 65%, #0d0906 100%)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -613,13 +729,17 @@ const styles = {
     borderBottom: "1px solid #2a1c10",
   },
   statsBlock: {
-    margin: 10,
+ margin: 10,
     padding: 12,
     border: "1px solid #3d2a1a",
     borderRadius: 5,
     background: "#160e09",
   },
-  statsTitle: { fontWeight: 700, marginBottom: 8, color: "#e1bd7c" },
+  statsTitle: {
+    fontWeight: 700,
+    marginBottom: 8,
+    color: "#e1bd7c",
+  },
   statRow: {
     display: "flex",
     justifyContent: "space-between",
@@ -627,9 +747,24 @@ const styles = {
     borderBottom: "1px solid #28190e",
     color: "#b99a70",
   },
-  equippedCount: { marginTop: 10, fontSize: 12, color: "#887055" },
-  errorNotice: { margin: 10, padding: 10, background: "#3b1712", color: "#ffb7a8" },
-  retryButton: { marginLeft: 10, padding: 5, background: "#28190e", color: "#d4a359", border: "1px solid #594027" },
+  equippedCount: {
+    marginTop: 10,
+    fontSize: 12,
+    color: "#887055",
+  },
+  errorNotice: {
+    margin: 10,
+    padding: 10,
+    background: "#3b1712",
+    color: "#ffb7a8",
+  },
+  retryButton: {
+    marginLeft: 10,
+    padding: 5,
+    background: "#28190e",
+    color: "#d4a359",
+    border: "1px solid #594027",
+  },
   quickBar: {
     display: "grid",
     gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
@@ -663,21 +798,22 @@ const styles = {
     cursor: "pointer",
     background: "linear-gradient(90deg, #160d08, #120a06)",
   },
-  menuLeft: { display: "flex", alignItems: "center", flex: 1, minWidth: 0 },
-  menuIcon: { width: 28, fontSize: 18, textAlign: "center", marginRight: 5 },
+  menuLeft: {
+    display: "flex",
+    alignItems: "center",
+    flex: 1,
+    minWidth: 0,
+  },
+  menuIcon: {
+    width: 28,
+    fontSize: 18,
+    textAlign: "center",
+    marginRight: 5,
+  },
   menuTitle: { color: "#d4a359", fontWeight: 600 },
   menuValue: { color: "#887055", fontSize: 12, marginRight: 5 },
   plus: { color: "#72b043", fontWeight: 700 },
   arrow: { color: "#6f573c", fontSize: 20 },
-  detailsBlock: { borderBottom: "1px solid #3d2a1a" },
-  detailRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "8px 14px 8px 18px",
-    borderBottom: "1px solid #28190e",
-    color: "#887055",
-    cursor: "pointer",
-  },
   infoBlock: {
     display: "flex",
     justifyContent: "space-between",
@@ -685,7 +821,12 @@ const styles = {
     borderBottom: "1px solid #3d2a1a",
   },
   xpBlock: { padding: 10, borderBottom: "1px solid #3d2a1a" },
-  xpText: { display: "flex", justifyContent: "space-between", color: "#d4a359", fontSize: 12 },
+  xpText: {
+    display: "flex",
+    justifyContent: "space-between",
+    color: "#d4a359",
+    fontSize: 12,
+  },
   xpBar: {
     marginTop: 7,
     height: 8,
@@ -735,8 +876,17 @@ const styles = {
     textAlign: "center",
   },
   placeholderIcon: { fontSize: 40, marginBottom: 10 },
-  placeholderTitle: { color: "#d4a359", fontSize: 18, fontWeight: 700 },
-  placeholderText: { marginTop: 10, color: "#887055", fontSize: 13, lineHeight: 1.5 },
+  placeholderTitle: {
+    color: "#d4a359",
+    fontSize: 18,
+    fontWeight: 700,
+  },
+  placeholderText: {
+    marginTop: 10,
+    color: "#887055",
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
   closeButton: {
     marginTop: 18,
     padding: "9px 25px",
@@ -748,4 +898,4 @@ const styles = {
     fontWeight: 700,
   },
 };
-                                                       
+    
