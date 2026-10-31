@@ -9,13 +9,15 @@ import {
   ChevronRight,
   Microscope,
 } from "lucide-react";
+
+import Boosts from "./Boosts";
 import "./Laboratory.css";
 
 const SECTIONS = [
   {
     id: "boosts",
     title: "Посилення",
-    description: "Дослідження та постійне покращення героя",
+    description: "Ефекти та благословення для твого героя",
     icon: Zap,
     color: "#e8a23b",
   },
@@ -42,12 +44,25 @@ const SECTIONS = [
   },
 ];
 
-function LaboratorySection({ section, onBack }) {
+function LaboratorySection({ section, onBack, onProfileUpdate }) {
   const Icon = section.icon;
+
+  if (section.id === "boosts") {
+    return (
+      <Boosts
+        onBack={onBack}
+        onProfileUpdate={onProfileUpdate}
+      />
+    );
+  }
 
   return (
     <div className="lab-inner-page">
-      <button className="lab-back-button" onClick={onBack}>
+      <button
+        className="lab-back-button"
+        type="button"
+        onClick={onBack}
+      >
         <ArrowLeft size={18} />
         До лабораторії
       </button>
@@ -79,7 +94,10 @@ function LaboratorySection({ section, onBack }) {
   );
 }
 
-export default function Laboratory({ onNavigate }) {
+export default function Laboratory({
+  onNavigate,
+  onProfileUpdate,
+}) {
   const [section, setSection] = useState("home");
 
   const returnToLaboratory = () => {
@@ -93,34 +111,38 @@ export default function Laboratory({ onNavigate }) {
   return (
     <main className="laboratory-page">
       <div className="laboratory-container">
-        <header className="laboratory-header">
-          <button
-            className="laboratory-back"
-            onClick={() =>
-              section !== "home"
-                ? returnToLaboratory()
-                : onNavigate?.("home")
-            }
-            aria-label="Назад"
-          >
-            <ArrowLeft size={21} />
-          </button>
+        {section === "home" && (
+          <header className="laboratory-header">
+            <button
+              className="laboratory-back"
+              type="button"
+              onClick={() => onNavigate?.("home")}
+              aria-label="Назад"
+            >
+              <ArrowLeft size={21} />
+            </button>
 
-          <div>
-            <span className="lab-eyebrow">МАЙСТЕРНЯ ЗНАНЬ</span>
-            <h1>Лабораторія</h1>
-            <p>Відкривай нові можливості свого героя</p>
-          </div>
+            <div>
+              <span className="lab-eyebrow">
+                МАЙСТЕРНЯ ЗНАНЬ
+              </span>
+              <h1>Лабораторія</h1>
+              <p>
+                Відкривай нові можливості свого героя
+              </p>
+            </div>
 
-          <div className="laboratory-header-icon">
-            <Microscope size={25} />
-          </div>
-        </header>
+            <div className="laboratory-header-icon">
+              <Microscope size={25} />
+            </div>
+          </header>
+        )}
 
         {selectedSection ? (
           <LaboratorySection
             section={selectedSection}
             onBack={returnToLaboratory}
+            onProfileUpdate={onProfileUpdate}
           />
         ) : (
           <>
@@ -143,6 +165,7 @@ export default function Laboratory({ onNavigate }) {
                 <h2>Розділи лабораторії</h2>
                 <p>Обери напрям досліджень</p>
               </div>
+
               <Sparkles size={21} />
             </div>
 
@@ -153,9 +176,12 @@ export default function Laboratory({ onNavigate }) {
                 return (
                   <button
                     key={item.id}
+                    type="button"
                     className="lab-section-card"
                     onClick={() => setSection(item.id)}
-                    style={{ "--section-color": item.color }}
+                    style={{
+                      "--section-color": item.color,
+                    }}
                   >
                     <div className="lab-card-icon">
                       <Icon size={29} />
@@ -184,4 +210,4 @@ export default function Laboratory({ onNavigate }) {
       </div>
     </main>
   );
-}
+        }
