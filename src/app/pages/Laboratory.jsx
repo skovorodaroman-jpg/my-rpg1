@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import Boosts from "./Boosts";
+import Elixirs from "./Elixirs";
 import "./Laboratory.css";
 
 const SECTIONS = [
@@ -44,7 +45,13 @@ const SECTIONS = [
   },
 ];
 
-function LaboratorySection({ section, onBack, onProfileUpdate }) {
+function LaboratorySection({
+  section,
+  onBack,
+  onProfileUpdate,
+  profile,
+  player,
+}) {
   const Icon = section.icon;
 
   if (section.id === "boosts") {
@@ -53,6 +60,42 @@ function LaboratorySection({ section, onBack, onProfileUpdate }) {
         onBack={onBack}
         onProfileUpdate={onProfileUpdate}
       />
+    );
+  }
+
+  if (section.id === "elixirs") {
+    return (
+      <div className="lab-inner-page">
+        <button
+          className="lab-back-button"
+          type="button"
+          onClick={onBack}
+        >
+          <ArrowLeft size={18} />
+          До лабораторії
+        </button>
+
+        <div className="lab-inner-header">
+          <div
+            className="lab-inner-icon"
+            style={{ "--section-color": section.color }}
+          >
+            <Icon size={34} />
+          </div>
+
+          <div>
+            <span className="lab-eyebrow">ЛАБОРАТОРІЯ</span>
+            <h2>{section.title}</h2>
+            <p>{section.description}</p>
+          </div>
+        </div>
+
+        <Elixirs
+          profile={profile}
+          player={player}
+          onProfileUpdate={onProfileUpdate}
+        />
+      </div>
     );
   }
 
@@ -97,6 +140,8 @@ function LaboratorySection({ section, onBack, onProfileUpdate }) {
 export default function Laboratory({
   onNavigate,
   onProfileUpdate,
+  profile,
+  player,
 }) {
   const [section, setSection] = useState("home");
 
@@ -143,6 +188,8 @@ export default function Laboratory({
             section={selectedSection}
             onBack={returnToLaboratory}
             onProfileUpdate={onProfileUpdate}
+            profile={profile}
+            player={player}
           />
         ) : (
           <>
@@ -210,4 +257,4 @@ export default function Laboratory({
       </div>
     </main>
   );
-        }
+    }
