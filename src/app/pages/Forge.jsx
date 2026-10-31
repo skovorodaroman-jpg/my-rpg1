@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
@@ -7,6 +6,7 @@ import Sharpening from "./Sharpening";
 import Bonuses from "./Bonuses";
 import Stars from "./Stars";
 import Rings from "./Rings";
+import Amulet from "./Amulet";
 
 import {
   ArrowLeft,
@@ -47,9 +47,9 @@ const SECTIONS = [
   {
     id: "amulet",
     title: "Амулет",
-    description: "Бонус до досвіду",
+    description: "Магічна властивість збільшує отримуваний досвід",
     icon: Shield,
-    open: false,
+    open: true,
   },
   {
     id: "stars",
@@ -292,6 +292,12 @@ export default function Forge({ onNavigate = () => {} }) {
         <Bonuses onBack={returnToForge} />
       )}
 
+      {section === "amulet" && (
+        <Amulet
+          onBack={returnToForge}
+        />
+      )}
+
       {section === "stars" && (
         <Stars
           profile={profile}
@@ -324,4 +330,4 @@ export default function Forge({ onNavigate = () => {} }) {
       </footer>
     </main>
   );
-}
+    }
