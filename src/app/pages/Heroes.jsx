@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
@@ -41,6 +42,13 @@ const SLOT_ALIASES = {
   boots: ["boots", "чоботи", "сапоги"],
 };
 
+const ELIXIR_NAMES = {
+  strength: "Еліксир сили",
+  defense: "Еліксир захисту",
+  agility: "Еліксир спритності",
+  health: "Еліксир здоров'я",
+};
+
 function getSlotType(row) {
   if (row?.equipped_slot) return row.equipped_slot;
 
@@ -78,6 +86,22 @@ function formatNumber(value) {
   return Math.floor(Number(value) || 0).toLocaleString("uk-UA");
 }
 
+function formatRemaining(expiresAt, currentTime) {
+  const remaining = Math.max(
+    0,
+    new Date(expiresAt).getTime() - currentTime
+  );
+
+  const totalSeconds = Math.floor(remaining / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${hours} год ${String(minutes).padStart(2, "0")} хв ${String(
+    seconds
+  ).padStart(2, "0")} с`;
+}
+
 function emptyStats() {
   return {
     strength: 0,
@@ -101,6 +125,7 @@ export default function Heroes({ profile, player, onNavigate }) {
   const [activeElixirs, setActiveElixirs] = useState([]);
   const [loadingEquipment, setLoadingEquipment] = useState(true);
   const [equipmentError, setEquipmentError] = useState("");
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   const heroName = hero.display_name || hero.username || "Аріан";
   const level = Number(hero.level || 1);
@@ -114,6 +139,7 @@ export default function Heroes({ profile, player, onNavigate }) {
       setSlotBonuses([]);
       setRunes([]);
       setSharpening([]);
+      setActiveElixirs([]);
       setLoadingEquipment(false);
       return;
     }
@@ -127,6 +153,7 @@ export default function Heroes({ profile, player, onNavigate }) {
         bonusesResult,
         runesResult,
         sharpeningResult,
+        elixirsResult,
       ] = await Promise.all([
         supabase
           .from("player_items")
@@ -150,21 +177,31 @@ export default function Heroes({ profile, player, onNavigate }) {
           .from("player_slot_sharpening")
           .select("slot_type, sharpen_level")
           .eq("user_id", userId),
+
+        supabase
+          .from("player_elixirs")
+          .select("elixir_key, bonus, expires_at")
+          .eq("user_id", userId)
+          .gt("expires_at", new Date().toISOString()),
       ]);
 
       if (equipmentResult.error) throw equipmentResult.error;
       if (bonusesResult.error) throw bonusesResult.error;
       if (runesResult.error) throw runesResult.error;
       if (sharpeningResult.error) throw sharpeningResult.error;
+      if (elixirsResult.error) throw elixirsResult.error;
 
       setEquippedItems(
         (equipmentResult.data || []).filter((row) => row.item)
       );
+
       setSlotBonuses(bonusesResult.data || []);
       setRunes(runesResult.data || []);
       setSharpening(sharpeningResult.data || []);
+      setActiveElixirs(elixirsResult.data || []);
     } catch (err) {
       console.error("Помилка завантаження характеристик героя:", err);
+
       setEquipmentError(
         "Не вдалося завантажити спорядження та характеристики."
       );
@@ -175,6 +212,28 @@ export default function Heroes({ profile, player, onNavigate }) {
 
   useEffect(() => {
     loadEquipment();
+  }, [loadEquipment]);
+
+  // Оновлення таймера та перевірка завершення еліксирів
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setCurrentTime(now);
+
+      setActiveElixirs((current) => {
+        const valid = current.filter(
+          (item) => new Date(item.expires_at).getTime() > now
+        );
+
+        if (valid.length !== current.length) {
+          loadEquipment();
+        }
+
+        return valid;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, [loadEquipment]);
 
   const equipmentBySlot = useMemo(() => {
@@ -222,7 +281,7 @@ export default function Heroes({ profile, player, onNavigate }) {
       total[stat] += Number(rune.bonus || 0);
     }
 
-    // 4. Заточка: рівень 1 = 24, рівень 2 = 28 і т.д.
+    // 4. Заточка
     for (const sharpen of sharpening) {
       const stat = SLOT_STAT[sharpen.slot_type];
       if (!stat) continue;
@@ -234,8 +293,45 @@ export default function Heroes({ profile, player, onNavigate }) {
       }
     }
 
+    // 5. Активні еліксири
+    for (const elixir of activeElixirs) {
+      if (new Date(elixir.expires_at).getTime() <= currentTime) {
+        continue;
+      }
+
+      const bonus = Number(elixir.bonus || 0);
+
+      switch (elixir.elixir_key) {
+        case "strength":
+          total.strength += bonus;
+          break;
+
+        case "defense":
+          total.armor += bonus;
+          break;
+
+        case "agility":
+          total.speed += bonus;
+          break;
+
+        case "health":
+          total.health += bonus;
+          break;
+
+        default:
+          break;
+      }
+    }
+
     return total;
-  }, [equippedItems, slotBonuses, runes, sharpening]);
+  }, [
+    equippedItems,
+    slotBonuses,
+    runes,
+    sharpening,
+    activeElixirs,
+    currentTime,
+  ]);
 
   const equipmentPower =
     bonuses.strength +
@@ -358,6 +454,35 @@ export default function Heroes({ profile, player, onNavigate }) {
         </div>
       )}
 
+      {/* Активні еліксири */}
+      <section style={styles.statsBlock}>
+        <div style={styles.statsTitle}>🧪 Активні еліксири</div>
+
+        {activeElixirs.length === 0 ? (
+          <div style={styles.noElixirs}>
+            Немає активних еліксирів.
+          </div>
+        ) : (
+          activeElixirs.map((elixir) => (
+            <div key={elixir.elixir_key} style={styles.elixirRow}>
+              <div>
+                <strong>
+                  {ELIXIR_NAMES[elixir.elixir_key] || "Еліксир"}
+                </strong>
+
+                <div style={styles.elixirBonus}>
+                  Бонус: +{formatNumber(elixir.bonus)}
+                </div>
+              </div>
+
+              <div style={styles.elixirTimer}>
+                {formatRemaining(elixir.expires_at, currentTime)}
+              </div>
+            </div>
+          ))
+        )}
+      </section>
+
       <section style={styles.statsBlock}>
         <div style={styles.statsTitle}>Характеристики героя</div>
 
@@ -399,16 +524,19 @@ export default function Heroes({ profile, player, onNavigate }) {
 
       <section style={styles.statsBlock}>
         <div style={styles.statsTitle}>Додаткові посилення</div>
+
         <StatRow
           icon="🔮"
           label="Бонус від рун"
           value={`+${formatNumber(totalRuneBonus)}`}
         />
+
         <StatRow
           icon="⚒️"
           label="Сумарний рівень заточки"
           value={`+${formatNumber(totalSharpenLevel)}`}
         />
+
         <StatRow
           icon="✨"
           label="Рівні бонусів слотів"
@@ -624,16 +752,38 @@ const styles = {
     paddingBottom: 80,
     boxSizing: "border-box",
   },
+
   heroHeader: {
     padding: 12,
     textAlign: "center",
     borderBottom: "1px solid #3d2a1a",
     background: "linear-gradient(180deg, #1c120b, #140d08)",
   },
-  heroName: { fontSize: 18, fontWeight: 700, color: "#72b043" },
-  heroLevel: { marginTop: 4, fontSize: 13 },
-  heroClan: { marginTop: 4, fontSize: 12, color: "#887055" },
-  power: { marginTop: 8, color: "#ffaa00", fontSize: 17, fontWeight: 700 },
+
+  heroName: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: "#72b043",
+  },
+
+  heroLevel: {
+    marginTop: 4,
+    fontSize: 13,
+  },
+
+  heroClan: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#887055",
+  },
+
+  power: {
+    marginTop: 8,
+    color: "#ffaa00",
+    fontSize: 17,
+    fontWeight: 700,
+  },
+
   equipmentArea: {
     display: "flex",
     justifyContent: "center",
@@ -642,7 +792,13 @@ const styles = {
     padding: "14px 6px 8px",
     borderBottom: "1px solid #2a1c10",
   },
-  equipmentColumn: { display: "flex", flexDirection: "column", gap: 6 },
+
+  equipmentColumn: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+
   equipmentSlot: {
     position: "relative",
     width: 48,
@@ -661,14 +817,28 @@ const styles = {
     padding: 2,
     boxSizing: "border-box",
   },
+
   equippedSlot: {
     borderColor: "#b98b43",
     boxShadow: "0 0 8px #6b482633",
   },
-  rarity_rare: { borderColor: "#478ed1" },
-  rarity_epic: { borderColor: "#a16bd7" },
-  rarity_legendary: { borderColor: "#e7a638" },
-  rarity_mythic: { borderColor: "#e85a56" },
+
+  rarity_rare: {
+    borderColor: "#478ed1",
+  },
+
+  rarity_epic: {
+    borderColor: "#a16bd7",
+  },
+
+  rarity_legendary: {
+    borderColor: "#e7a638",
+  },
+
+  rarity_mythic: {
+    borderColor: "#e85a56",
+  },
+
   equipmentImage: {
     display: "block",
     width: "100%",
@@ -677,6 +847,7 @@ const styles = {
     padding: 2,
     boxSizing: "border-box",
   },
+
   slotFallback: {
     width: "100%",
     height: "100%",
@@ -684,6 +855,7 @@ const styles = {
     justifyContent: "center",
     fontSize: 22,
   },
+
   itemBonus: {
     position: "absolute",
     right: 1,
@@ -694,6 +866,7 @@ const styles = {
     color: "#e7bd67",
     fontSize: 9,
   },
+
   heroImage: {
     width: "min(145px, 38vw)",
     height: 210,
@@ -709,11 +882,18 @@ const styles = {
     justifyContent: "center",
     textAlign: "center",
   },
-  heroAvatar: { width: "100%", height: "100%", objectFit: "cover" },
+
+  heroAvatar: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+
   heroImageGlow: {
     fontSize: 74,
     filter: "drop-shadow(0 0 15px rgba(255,170,0,0.25))",
   },
+
   heroImageText: {
     marginTop: 8,
     padding: "0 4px",
@@ -721,7 +901,13 @@ const styles = {
     color: "#d4a359",
     overflowWrap: "anywhere",
   },
-  heroLevelBadge: { marginTop: 5, color: "#a98b64", fontSize: 11 },
+
+  heroLevelBadge: {
+    marginTop: 5,
+    color: "#a98b64",
+    fontSize: 11,
+  },
+
   amuletRow: {
     display: "flex",
     justifyContent: "center",
@@ -729,18 +915,21 @@ const styles = {
     padding: 8,
     borderBottom: "1px solid #2a1c10",
   },
+
   statsBlock: {
- margin: 10,
+    margin: 10,
     padding: 12,
     border: "1px solid #3d2a1a",
     borderRadius: 5,
     background: "#160e09",
   },
+
   statsTitle: {
     fontWeight: 700,
     marginBottom: 8,
     color: "#e1bd7c",
   },
+
   statRow: {
     display: "flex",
     justifyContent: "space-between",
@@ -748,17 +937,20 @@ const styles = {
     borderBottom: "1px solid #28190e",
     color: "#b99a70",
   },
+
   equippedCount: {
     marginTop: 10,
     fontSize: 12,
     color: "#887055",
   },
+
   errorNotice: {
     margin: 10,
     padding: 10,
     background: "#3b1712",
     color: "#ffb7a8",
   },
+
   retryButton: {
     marginLeft: 10,
     padding: 5,
@@ -766,6 +958,7 @@ const styles = {
     color: "#d4a359",
     border: "1px solid #594027",
   },
+
   quickBar: {
     display: "grid",
     gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
@@ -774,6 +967,7 @@ const styles = {
     borderBottom: "1px solid #3d2a1a",
     background: "#110a06",
   },
+
   quickButton: {
     minHeight: 48,
     border: "1px solid #392718",
@@ -788,7 +982,11 @@ const styles = {
     gap: 2,
     fontSize: 18,
   },
-  list: { borderBottom: "1px solid #3d2a1a" },
+
+  list: {
+    borderBottom: "1px solid #3d2a1a",
+  },
+
   menuItem: {
     minHeight: 44,
     padding: "7px 10px",
@@ -799,35 +997,61 @@ const styles = {
     cursor: "pointer",
     background: "linear-gradient(90deg, #160d08, #120a06)",
   },
+
   menuLeft: {
     display: "flex",
     alignItems: "center",
     flex: 1,
     minWidth: 0,
   },
+
   menuIcon: {
     width: 28,
     fontSize: 18,
     textAlign: "center",
     marginRight: 5,
   },
-  menuTitle: { color: "#d4a359", fontWeight: 600 },
-  menuValue: { color: "#887055", fontSize: 12, marginRight: 5 },
-  plus: { color: "#72b043", fontWeight: 700 },
-  arrow: { color: "#6f573c", fontSize: 20 },
+
+  menuTitle: {
+    color: "#d4a359",
+    fontWeight: 600,
+  },
+
+  menuValue: {
+    color: "#887055",
+    fontSize: 12,
+    marginRight: 5,
+  },
+
+  plus: {
+    color: "#72b043",
+    fontWeight: 700,
+  },
+
+  arrow: {
+    color: "#6f573c",
+    fontSize: 20,
+  },
+
   infoBlock: {
     display: "flex",
     justifyContent: "space-between",
     padding: 10,
     borderBottom: "1px solid #3d2a1a",
   },
-  xpBlock: { padding: 10, borderBottom: "1px solid #3d2a1a" },
+
+  xpBlock: {
+    padding: 10,
+    borderBottom: "1px solid #3d2a1a",
+  },
+
   xpText: {
     display: "flex",
     justifyContent: "space-between",
     color: "#d4a359",
     fontSize: 12,
   },
+
   xpBar: {
     marginTop: 7,
     height: 8,
@@ -836,11 +1060,16 @@ const styles = {
     borderRadius: 2,
     overflow: "hidden",
   },
+
   xpProgress: {
     height: "100%",
     background: "linear-gradient(90deg, #557d32, #72b043)",
   },
-  rankingBlock: { borderBottom: "1px solid #3d2a1a" },
+
+  rankingBlock: {
+    borderBottom: "1px solid #3d2a1a",
+  },
+
   rankingRow: {
     display: "flex",
     justifyContent: "space-between",
@@ -849,6 +1078,7 @@ const styles = {
     color: "#d4a359",
     cursor: "pointer",
   },
+
   resources: {
     display: "flex",
     justifyContent: "center",
@@ -856,6 +1086,7 @@ const styles = {
     padding: 10,
     fontWeight: 700,
   },
+
   overlay: {
     position: "fixed",
     inset: 0,
@@ -866,6 +1097,7 @@ const styles = {
     padding: 20,
     zIndex: 1000,
   },
+
   placeholderCard: {
     width: "100%",
     maxWidth: 330,
@@ -876,18 +1108,25 @@ const styles = {
     borderRadius: 8,
     textAlign: "center",
   },
-  placeholderIcon: { fontSize: 40, marginBottom: 10 },
+
+  placeholderIcon: {
+    fontSize: 40,
+    marginBottom: 10,
+  },
+
   placeholderTitle: {
     color: "#d4a359",
     fontSize: 18,
     fontWeight: 700,
   },
+
   placeholderText: {
     marginTop: 10,
     color: "#887055",
     fontSize: 13,
     lineHeight: 1.5,
   },
+
   closeButton: {
     marginTop: 18,
     padding: "9px 25px",
@@ -899,4 +1138,3 @@ const styles = {
     fontWeight: 700,
   },
 };
-    
