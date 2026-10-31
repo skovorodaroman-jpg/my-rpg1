@@ -1,0 +1,467 @@
+
+.amulet-page {
+  min-height: 100%;
+  padding: 18px 14px 35px;
+  color: #ead9bd;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(119, 75, 34, 0.2), transparent 45%),
+    #100c09;
+}
+
+.amulet-container {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.amulet-loading {
+  padding: 60px 20px;
+  text-align: center;
+  color: #c6a77d;
+}
+
+.amulet-header {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 18px;
+}
+
+.amulet-back {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border: 1px solid #59402b;
+  border-radius: 12px;
+  color: #e8c797;
+  background: #211710;
+  cursor: pointer;
+}
+
+.amulet-eyebrow {
+  color: #b68a52;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.amulet-header h1 {
+  margin: 3px 0;
+  color: #f0d5a8;
+  font-size: 27px;
+}
+
+.amulet-header p {
+  margin: 0;
+  color: #9b8975;
+  font-size: 12px;
+}
+
+.amulet-header-icon {
+  margin-left: auto;
+  color: #d9a95d;
+}
+
+.amulet-description {
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid #483523;
+  border-radius: 12px;
+  color: #c6b39b;
+  background: rgba(39, 27, 18, 0.85);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.amulet-notice {
+  margin-bottom: 15px;
+  padding: 12px;
+  border: 1px solid #5a4931;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.amulet-notice.success {
+  color: #a9dba8;
+  background: rgba(48, 93, 46, 0.2);
+}
+
+.amulet-notice.error {
+  color: #f0a09a;
+  background: rgba(120, 35, 30, 0.2);
+}
+
+.amulet-notice.info {
+  color: #e2c18b;
+  background: rgba(130, 91, 40, 0.16);
+}
+
+.amulet-hero-card {
+  position: relative;
+  overflow: hidden;
+  padding: 24px 18px 20px;
+  border: 1px solid #73512d;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(202, 147, 66, 0.2), transparent 45%),
+    linear-gradient(145deg, #2b1d13, #17100c 70%);
+  text-align: center;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
+}
+
+.amulet-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 165px;
+}
+
+.amulet-art-glow {
+  position: absolute;
+  width: 145px;
+  height: 145px;
+  border-radius: 50%;
+  background: rgba(220, 158, 70, 0.18);
+  filter: blur(30px);
+}
+
+.amulet-art-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 118px;
+  height: 118px;
+  border: 2px solid #b98743;
+  border-radius: 35px 35px 50% 50%;
+  color: #f0c46e;
+  background: linear-gradient(145deg, #5c391d, #20130d);
+  box-shadow:
+    0 0 30px rgba(211, 153, 69, 0.3),
+    inset 0 0 25px rgba(235, 187, 107, 0.12);
+  transform: rotate(45deg);
+}
+
+.amulet-art-frame > svg:first-child {
+  transform: rotate(-45deg);
+  filter: drop-shadow(0 0 8px rgba(245, 197, 104, 0.6));
+}
+
+.amulet-sparkle {
+  position: absolute;
+  color: #ffe2a4;
+}
+
+.sparkle-one {
+  top: 4px;
+  right: -13px;
+}
+
+.sparkle-two {
+  bottom: 5px;
+  left: -12px;
+}
+
+.amulet-quality {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 6px 16px;
+  border: 1px solid #a77b42;
+  border-radius: 30px;
+  color: #e8c27e;
+  background: rgba(153, 103, 40, 0.16);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.amulet-hero-card h2 {
+  margin: 12px 0 18px;
+  color: #f1dfc4;
+  font-size: 19px;
+}
+
+.amulet-total-bonus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px;
+  border: 1px solid #5c452b;
+  border-radius: 11px;
+  background: rgba(13, 10, 8, 0.55);
+}
+
+.amulet-total-bonus span {
+  color: #b8a38a;
+  font-size: 13px;
+}
+
+.amulet-total-bonus strong {
+  color: #f3c46f;
+  font-size: 27px;
+}
+
+.amulet-bonus-breakdown {
+  display: flex;
+  justify-content: space-around;
+  gap: 10px;
+  margin-top: 13px;
+  color: #a9957b;
+  font-size: 11px;
+}
+
+.amulet-parts-panel,
+.amulet-sharpen-panel,
+.amulet-resources-panel,
+.amulet-offer-panel {
+  margin-top: 17px;
+  padding: 16px;
+  border: 1px solid #493727;
+  border-radius: 15px;
+  background: linear-gradient(145deg, #211710, #17110d);
+}
+
+.amulet-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.amulet-section-heading h3,
+.amulet-resources-panel h3,
+.amulet-offer-panel h3 {
+  margin: 0 0 5px;
+  color: #e9d0aa;
+  font-size: 16px;
+}
+
+.amulet-section-heading p {
+  margin: 0;
+  color: #9b8873;
+  font-size: 11px;
+}
+
+.amulet-section-heading > strong,
+.amulet-sharpen-level {
+  color: #f0c16e;
+  font-size: 21px;
+  white-space: nowrap;
+}
+
+.amulet-parts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+}
+
+.amulet-part {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 75px;
+  padding: 9px 4px;
+  border: 1px solid #49392a;
+  border-radius: 10px;
+  color: #806e5c;
+  background: #15100c;
+  font-size: 10px;
+}
+
+.amulet-part.collected {
+  border-color: #9a713e;
+  color: #e9c57f;
+  background: rgba(151, 103, 43, 0.18);
+}
+
+.amulet-parts-progress {
+  overflow: hidden;
+  height: 7px;
+  margin-top: 16px;
+  border-radius: 20px;
+  background: #0d0907;
+}
+
+.amulet-parts-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #91602e, #e9bd69);
+  transition: width 0.3s ease;
+}
+
+.amulet-next-quality {
+  margin: 12px 0 0;
+  color: #c3a578;
+  font-size: 12px;
+  text-align: center;
+}
+
+.amulet-offer-panel {
+  border-color: #9a713e;
+  text-align: center;
+}
+
+.amulet-offer-panel > p {
+  color: #a9957d;
+  font-size: 12px;
+}
+
+.amulet-offer-resource {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin: 17px 0 8px;
+  color: #f1cf8e;
+  font-size: 18px;
+}
+
+.amulet-offer-resource > span {
+  font-size: 28px;
+}
+
+.amulet-resource-balance {
+  color: #b4a18a;
+}
+
+.amulet-insufficient {
+  color: #e99b8d !important;
+}
+
+.amulet-confirm-button,
+.amulet-cancel-button {
+  width: 100%;
+  min-height: 45px;
+  margin-top: 10px;
+  border-radius: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.amulet-confirm-button {
+  border: 1px solid #b88a4c;
+  color: #20150b;
+  background: linear-gradient(135deg, #edc77d, #b67a32);
+}
+
+.amulet-cancel-button {
+  border: 1px solid #594332;
+  color: #c8b59c;
+  background: #201710;
+}
+
+.amulet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 17px;
+}
+
+.amulet-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 53px;
+  padding: 10px 7px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.amulet-improve-button {
+  border: 1px solid #a77b42;
+  color: #21170d;
+  background: linear-gradient(135deg, #e9c77f, #b9813b);
+}
+
+.amulet-sharpen-button {
+  border: 1px solid #765c3c;
+  color: #e7c994;
+  background: linear-gradient(135deg, #3a291b, #21160f);
+}
+
+.amulet-actions button:disabled,
+.amulet-confirm-button:disabled,
+.amulet-cancel-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.amulet-sharpen-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.amulet-sharpen-info > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 5px;
+  border: 1px solid #443324;
+  border-radius: 10px;
+  color: #c6a978;
+  background: #15100c;
+}
+
+.amulet-sharpen-info span {
+  color: #9b8975;
+  font-size: 11px;
+}
+
+.amulet-sharpen-info strong {
+  color: #e8c27e;
+  font-size: 17px;
+}
+
+.amulet-resources-panel h3 {
+  margin-bottom: 12px;
+}
+
+.amulet-resource-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(110, 82, 53, 0.3);
+  color: #b8a58d;
+  font-size: 12px;
+}
+
+.amulet-resource-row:last-child {
+  border-bottom: 0;
+}
+
+.amulet-resource-row strong {
+  color: #e4c58e;
+}
+
+.amulet-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+  color: #917d64;
+  font-size: 11px;
+  text-align: center;
+}
+
+@media (max-width: 360px) {
+  .amulet-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .amulet-bonus-breakdown {
+    flex-direction: column;
+  }
+  }
+  
