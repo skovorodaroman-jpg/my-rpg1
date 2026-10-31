@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -40,6 +39,15 @@ const PART_NAMES = [
   "Печатка",
 ];
 
+const SHARPEN_COSTS = [
+  100, 150, 200, 250, 300,
+  500, 700, 900, 1100, 1300,
+  1700, 2100, 2500, 2900, 3300,
+  4100, 4900, 5700, 6500, 7300,
+  8900, 10500, 12100, 13700, 15300,
+  18500, 21700, 24900, 28100, 31300,
+];
+
 function formatNumber(value) {
   return Number(value || 0).toLocaleString("uk-UA");
 }
@@ -69,7 +77,9 @@ export default function Amulet({ onBack }) {
       if (authError) throw authError;
 
       const user = authData?.user;
-      if (!user) throw new Error("Увійди в гру, щоб користуватися амулетом.");
+      if (!user) {
+        throw new Error("Увійди в гру, щоб користуватися амулетом.");
+      }
 
       const [
         { data: amuletData, error: amuletError },
@@ -99,6 +109,7 @@ export default function Amulet({ onBack }) {
       if (profileError) throw profileError;
 
       const resourceMap = {};
+
       (resourceData || []).forEach((row) => {
         resourceMap[row.resource_key] = Number(row.quantity || 0);
       });
@@ -107,7 +118,10 @@ export default function Amulet({ onBack }) {
       setResources(resourceMap);
       setGold(Number(profile?.gold || 0));
     } catch (error) {
-      notify(error.message || "Не вдалося завантажити амулет.", "error");
+      notify(
+        error.message || "Не вдалося завантажити амулет.",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -130,16 +144,23 @@ export default function Amulet({ onBack }) {
 
   const collectedParts = parts.filter(Boolean).length;
   const allPartsCollected = collectedParts === 6;
+
   const qualityLevel = Number(amulet?.upgrade_level || 0);
   const sharpenLevel = Number(amulet?.sharpen_level || 0);
 
   const quality = QUALITIES[qualityLevel] || QUALITIES[0];
+
   const upgradeBonus = QUALITIES
     .slice(0, qualityLevel + 1)
     .reduce((sum, item) => sum + item.bonus, 0);
 
   const sharpenBonus = sharpenLevel * 2;
   const totalBonus = upgradeBonus + sharpenBonus;
+
+  // Вартість наступної заточки
+  const nextSharpenCost = SHARPEN_COSTS[sharpenLevel] || 0;
+  const missingGold = Math.max(0, nextSharpenCost - gold);
+  const canSharpen = gold >= nextSharpenCost;
 
   async function handleImprove() {
     if (!amulet || busy || loading) return;
@@ -165,7 +186,9 @@ export default function Amulet({ onBack }) {
         await loadData();
 
         notify(
-          `Амулет покращено! Нова якість: ${result?.quality_name || "наступна якість"}.`,
+          `Амулет покращено! Нова якість: ${
+            result?.quality_name || "наступна якість"
+          }.`,
           "success"
         );
       } else {
@@ -176,7 +199,10 @@ export default function Amulet({ onBack }) {
         if (error) throw error;
 
         const result = Array.isArray(data) ? data[0] : data;
-        if (!result) throw new Error("Не вдалося отримати пропозицію обміну.");
+
+        if (!result) {
+          throw new Error("Не вдалося отримати пропозицію обміну.");
+        }
 
         setOffer({
           resourceKey: result.resource_key,
@@ -184,7 +210,10 @@ export default function Amulet({ onBack }) {
         });
       }
     } catch (error) {
-      notify(error.message || "Не вдалося покращити амулет.", "error");
+      notify(
+        error.message || "Не вдалося покращити амулет.",
+        "error"
+      );
     } finally {
       setBusy(false);
     }
@@ -197,7 +226,10 @@ export default function Amulet({ onBack }) {
     setNotice("");
 
     try {
-      const { data, error } = await supabase.rpc("exchange_amulet_part");
+      const { data, error } = await supabase.rpc(
+        "exchange_amulet_part"
+      );
+
       if (error) throw error;
 
       const result = Array.isArray(data) ? data[0] : data;
@@ -219,7 +251,10 @@ export default function Amulet({ onBack }) {
         );
       }
     } catch (error) {
-      notify(error.message || "Не вдалося обміняти ресурс.", "error");
+      notify(
+        error.message || "Не вдалося обміняти ресурс.",
+        "error"
+      );
     } finally {
       setBusy(false);
     }
@@ -230,6 +265,14 @@ export default function Amulet({ onBack }) {
 
     if (sharpenLevel >= 30) {
       notify("Амулет уже заточений максимально.", "info");
+      return;
+    }
+
+    if (!canSharpen) {
+      notify(
+        `Недостатньо золота. Потрібно ще ${formatNumber(missingGold)}.`,
+        "error"
+      );
       return;
     }
 
@@ -252,13 +295,19 @@ export default function Amulet({ onBack }) {
         "success"
       );
     } catch (error) {
-      notify(error.message || "Не вдалося заточити амулет.", "error");
+      notify(
+        error.message || "Не вдалося заточити амулет.",
+        "error"
+      );
     } finally {
       setBusy(false);
     }
   }
 
-  const offerResource = offer ? RESOURCES[offer.resourceKey] : null;
+  const offerResource = offer
+    ? RESOURCES[offer.resourceKey]
+    : null;
+
   const offerAvailable = offer
     ? Number(resources[offer.resourceKey] || 0)
     : 0;
@@ -266,7 +315,9 @@ export default function Amulet({ onBack }) {
   if (loading && !amulet) {
     return (
       <main className="amulet-page">
-        <div className="amulet-loading">Завантаження амулета...</div>
+        <div className="amulet-loading">
+          Завантаження амулета...
+        </div>
       </main>
     );
   }
@@ -285,7 +336,9 @@ export default function Amulet({ onBack }) {
           </button>
 
           <div>
-            <span className="amulet-eyebrow">МАГІЧНА РЕЛІКВІЯ</span>
+            <span className="amulet-eyebrow">
+              МАГІЧНА РЕЛІКВІЯ
+            </span>
             <h1>Амулет</h1>
             <p>Сила, що примножує досвід героя</p>
           </div>
@@ -294,13 +347,16 @@ export default function Amulet({ onBack }) {
         </header>
 
         <div className="amulet-description">
-          Магічне властивість амулета збільшує отримуваний досвід
+          Магічна властивість амулета збільшує отримуваний досвід
           у битвах. Збирай частини, покращуй якість та заточуй
           амулет, щоб отримати до +100% досвіду.
         </div>
 
         {notice && (
-          <div className={`amulet-notice ${noticeType}`} role="status">
+          <div
+            className={`amulet-notice ${noticeType}`}
+            role="status"
+          >
             {notice}
           </div>
         )}
@@ -310,12 +366,21 @@ export default function Amulet({ onBack }) {
             <div className="amulet-art-glow" />
             <div className="amulet-art-frame">
               <Gem size={76} strokeWidth={1.2} />
-              <Sparkles className="amulet-sparkle sparkle-one" size={20} />
-              <Sparkles className="amulet-sparkle sparkle-two" size={15} />
+              <Sparkles
+                className="amulet-sparkle sparkle-one"
+                size={20}
+              />
+              <Sparkles
+                className="amulet-sparkle sparkle-two"
+                size={15}
+              />
             </div>
           </div>
 
-          <div className="amulet-quality">{quality.name}</div>
+          <div className="amulet-quality">
+            {quality.name}
+          </div>
+
           <h2>Стародавній амулет</h2>
 
           <div className="amulet-total-bonus">
@@ -335,13 +400,16 @@ export default function Amulet({ onBack }) {
               <h3>Частини амулета</h3>
               <p>Збери всі шість частин поточної якості</p>
             </div>
+
             <strong>{collectedParts}/6</strong>
           </div>
 
           <div className="amulet-parts-grid">
             {PART_NAMES.map((name, index) => (
               <div
-                className={`amulet-part ${parts[index] ? "collected" : ""}`}
+                className={`amulet-part ${
+                  parts[index] ? "collected" : ""
+                }`}
                 key={name}
               >
                 {parts[index] ? (
@@ -349,18 +417,24 @@ export default function Amulet({ onBack }) {
                 ) : (
                   <Lock size={20} />
                 )}
+
                 <span>{name}</span>
               </div>
             ))}
           </div>
 
           <div className="amulet-parts-progress">
-            <span style={{ width: `${(collectedParts / 6) * 100}%` }} />
+            <span
+              style={{
+                width: `${(collectedParts / 6) * 100}%`,
+              }}
+            />
           </div>
 
           {qualityLevel < 5 ? (
             <p className="amulet-next-quality">
-              Наступна якість: {QUALITIES[qualityLevel + 1].name}
+              Наступна якість:{" "}
+              {QUALITIES[qualityLevel + 1].name}
             </p>
           ) : (
             <p className="amulet-next-quality">
@@ -372,12 +446,16 @@ export default function Amulet({ onBack }) {
         {offer && (
           <section className="amulet-offer-panel">
             <h3>Підтвердження обміну</h3>
-            <p>Для отримання випадкової частинки потрібно:</p>
+            <p>
+              Для отримання випадкової частинки потрібно:
+            </p>
 
             <div className="amulet-offer-resource">
               <span>{offerResource?.icon || "◾"}</span>
+
               <strong>
-                {formatNumber(offer.quantity)} {offerResource?.name || offer.resourceKey}
+                {formatNumber(offer.quantity)}{" "}
+                {offerResource?.name || offer.resourceKey}
               </strong>
             </div>
 
@@ -392,7 +470,9 @@ export default function Amulet({ onBack }) {
                 disabled={busy}
                 onClick={confirmExchange}
               >
-                {busy ? "Обмінюємо..." : "Підтвердити обмін"}
+                {busy
+                  ? "Обмінюємо..."
+                  : "Підтвердити обмін"}
               </button>
             ) : (
               <p className="amulet-insufficient">
@@ -416,9 +496,14 @@ export default function Amulet({ onBack }) {
             type="button"
             className="amulet-improve-button"
             onClick={handleImprove}
-            disabled={busy || loading || (qualityLevel >= 5 && allPartsCollected)}
+            disabled={
+              busy ||
+              loading ||
+              (qualityLevel >= 5 && allPartsCollected)
+            }
           >
             <Sparkles size={19} />
+
             {busy
               ? "Зачекай..."
               : allPartsCollected
@@ -430,9 +515,15 @@ export default function Amulet({ onBack }) {
             type="button"
             className="amulet-sharpen-button"
             onClick={handleSharpen}
-            disabled={busy || loading || sharpenLevel >= 30}
+            disabled={
+              busy ||
+              loading ||
+              sharpenLevel >= 30 ||
+              !canSharpen
+            }
           >
             <Hammer size={19} />
+
             {sharpenLevel >= 30
               ? "Максимальна заточка"
               : `Заточити +${sharpenLevel + 1}`}
@@ -445,6 +536,7 @@ export default function Amulet({ onBack }) {
               <h3>Заточка амулета</h3>
               <p>Покращуй магічну силу за золото</p>
             </div>
+
             <span className="amulet-sharpen-level">
               +{sharpenLevel}/30
             </span>
@@ -456,24 +548,64 @@ export default function Amulet({ onBack }) {
               <span>Твоє золото</span>
               <strong>{formatNumber(gold)}</strong>
             </div>
+
             <div>
               <Sparkles size={18} />
               <span>Бонус заточки</span>
               <strong>+{sharpenBonus}%</strong>
             </div>
+
+            <div>
+              <Hammer size={18} />
+              <span>Вартість наступної заточки</span>
+              <strong>
+                {sharpenLevel >= 30
+                  ? "Максимум"
+                  : `${formatNumber(nextSharpenCost)} золота`}
+              </strong>
+            </div>
+
+            {sharpenLevel < 30 && (
+              <div
+                className={
+                  canSharpen
+                    ? "amulet-gold-enough"
+                    : "amulet-gold-missing"
+                }
+              >
+                <span>
+                  {canSharpen
+                    ? "Золота достатньо для заточки"
+                    : `Не вистачає ${formatNumber(missingGold)} золота`}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="amulet-parts-progress">
-            <span style={{ width: `${(sharpenLevel / 30) * 100}%` }} />
+            <span
+              style={{
+                width: `${(sharpenLevel / 30) * 100}%`,
+              }}
+            />
           </div>
         </section>
 
         <section className="amulet-resources-panel">
           <h3>Ресурси Печери</h3>
+
           {Object.entries(RESOURCES).map(([key, resource]) => (
-            <div className="amulet-resource-row" key={key}>
-              <span>{resource.icon} {resource.name}</span>
-              <strong>{formatNumber(resources[key] || 0)}</strong>
+            <div
+              className="amulet-resource-row"
+              key={key}
+            >
+              <span>
+                {resource.icon} {resource.name}
+              </span>
+
+              <strong>
+                {formatNumber(resources[key] || 0)}
+              </strong>
             </div>
           ))}
         </section>
