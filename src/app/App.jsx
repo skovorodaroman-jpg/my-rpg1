@@ -77,12 +77,7 @@ const SUBSECTIONS = {
     { id: "stars", label: "Зірки", icon: "⭐" },
     { id: "rings", label: "Кільця", icon: "💍" },
   ],
-  laboratory: [
-    { id: "boosts", label: "Посилення", icon: "⚡" },
-    { id: "elixirs", label: "Еліксири", icon: "🧪" },
-    { id: "stone", label: "Камінь", icon: "🪨" },
-    { id: "herb", label: "Трава", icon: "🌿" },
-  ],
+  
 };
 
 const PROFILE_FIELDS = [
