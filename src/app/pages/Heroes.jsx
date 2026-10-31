@@ -98,6 +98,7 @@ export default function Heroes({ profile, player, onNavigate }) {
   const [slotBonuses, setSlotBonuses] = useState([]);
   const [runes, setRunes] = useState([]);
   const [sharpening, setSharpening] = useState([]);
+  const [activeElixirs, setActiveElixirs] = useState([]);
   const [loadingEquipment, setLoadingEquipment] = useState(true);
   const [equipmentError, setEquipmentError] = useState("");
 
