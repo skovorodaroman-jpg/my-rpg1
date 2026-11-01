@@ -83,7 +83,9 @@ export default function StoneAndGrass({
       } = await supabase.auth.getUser();
 
       if (authError) throw authError;
-      if (!user) throw new Error("Увійди в гру, щоб користуватися лабораторією.");
+      if (!user) {
+        throw new Error("Увійди в гру, щоб користуватися лабораторією.");
+      }
 
       const [
         { data: boostRows, error: boostError },
@@ -128,6 +130,7 @@ export default function StoneAndGrass({
     loadData();
   }, [loadData]);
 
+  // Підготовка рецепта. Нічого не списує.
   const prepareCraft = async (boostType) => {
     if (busy) return;
 
@@ -148,11 +151,8 @@ export default function StoneAndGrass({
         throw new Error("Не вдалося підготувати рецепт.");
       }
 
-      if (Number(recipe.missing) > 0) {
-        setPendingRecipe(recipe);
-      } else {
-        await confirmCraft(recipe.session_id, false);
-      }
+      // Завжди показуємо вибраний ресурс перед виготовленням.
+      setPendingRecipe(recipe);
     } catch (error) {
       notify(error.message || "Помилка підготовки рецепта.", "error");
     } finally {
@@ -160,6 +160,7 @@ export default function StoneAndGrass({
     }
   };
 
+  // Підтвердження виготовлення.
   const confirmCraft = async (sessionId, confirmPurchase) => {
     if (busy) return;
 
@@ -241,6 +242,7 @@ export default function StoneAndGrass({
           <Coins size={19} color="#e8b84f" />
           <span>Золото:</span>
           <strong>{formatNumber(gold)}</strong>
+
           <button
             type="button"
             style={styles.refreshButton}
@@ -294,7 +296,8 @@ export default function StoneAndGrass({
 
                   <div style={styles.cardContent}>
                     <div style={styles.cardHeading}>
-                      <h2>{boost.title}</h2>
+                      <h2 style={styles.cardTitle}>{boost.title}</h2>
+
                       <span style={styles.stock}>
                         ×{formatNumber(quantities[boost.type])}
                       </span>
@@ -338,7 +341,7 @@ export default function StoneAndGrass({
         )}
 
         <div style={styles.info}>
-          <Package size={19} />
+          <Package size={19} style={{ flexShrink: 0 }} />
           <div>
             <strong>Як працює виготовлення?</strong>
             <p>
@@ -378,7 +381,7 @@ export default function StoneAndGrass({
             </div>
 
             <h2 style={styles.modalTitle}>
-              Підтвердження покупки
+              Підтвердження виготовлення
             </h2>
 
             <p style={styles.modalText}>
@@ -388,7 +391,7 @@ export default function StoneAndGrass({
                   ? "Каменя"
                   : "Трави"}
               </strong>{" "}
-              випадково вибрано ресурс:
+              випадково вибрано такий ресурс:
             </p>
 
             <div style={styles.recipeResource}>
@@ -397,19 +400,33 @@ export default function StoneAndGrass({
             </div>
 
             <div style={styles.recipeDetails}>
-              <div>
-                <span>Потрібно</span>
+              <div style={styles.detailRow}>
+                <span>Потрібно для рецепта</span>
                 <strong>4 шт.</strong>
               </div>
-              <div>
+
+              <div style={styles.detailRow}>
                 <span>Є в наявності</span>
                 <strong>{pendingRecipe.available} шт.</strong>
               </div>
-              <div>
-                <span>Доведеться купити</span>
+
+              <div style={styles.detailRow}>
+                <span>Буде витрачено з запасу</span>
+                <strong>
+                  {Math.min(
+                    Number(pendingRecipe.available || 0),
+                    4
+                  )}{" "}
+                  шт.
+                </strong>
+              </div>
+
+              <div style={styles.detailRow}>
+                <span>Потрібно докупити</span>
                 <strong>{pendingRecipe.missing} шт.</strong>
               </div>
-              <div>
+
+              <div style={styles.detailRow}>
                 <span>Ціна за одиницю</span>
                 <strong>15 золота</strong>
               </div>
@@ -427,6 +444,8 @@ export default function StoneAndGrass({
               Number(pendingRecipe.gold_cost) && (
               <div style={styles.warning}>
                 Недостатньо золота для покупки.
+                Потрібно: {formatNumber(pendingRecipe.gold_cost)},
+                у наявності: {formatNumber(pendingRecipe.gold_balance)}.
               </div>
             )}
 
@@ -439,7 +458,10 @@ export default function StoneAndGrass({
                   Number(pendingRecipe.gold_cost)
               }
               onClick={() =>
-                confirmCraft(pendingRecipe.session_id, true)
+                confirmCraft(
+                  pendingRecipe.session_id,
+                  Number(pendingRecipe.missing) > 0
+                )
               }
             >
               {busy ? (
@@ -447,7 +469,10 @@ export default function StoneAndGrass({
               ) : (
                 <CheckCircle size={19} />
               )}
-              Підтвердити покупку і виготовити
+
+              {Number(pendingRecipe.missing) > 0
+                ? "Підтвердити покупку і виготовити"
+                : "Підтвердити виготовлення"}
             </button>
 
             <button
@@ -518,7 +543,7 @@ const styles = {
     alignItems: "center",
     gap: 8,
     margin: "14px 0",
-    padding: "12px",
+    padding: 12,
     background: "#1d1711",
     border: "1px solid #403020",
     borderRadius: 9,
@@ -593,8 +618,10 @@ const styles = {
     justifyContent: "space-between",
     gap: 8,
   },
-  cardHeadingH2: {
+  cardTitle: {
     margin: 0,
+    color: "#e8c995",
+    fontSize: 19,
   },
   stock: {
     color: "#e8c477",
@@ -722,6 +749,14 @@ const styles = {
     padding: 12,
     background: "#17120e",
     borderRadius: 8,
+  },
+  detailRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 10,
+    textAlign: "left",
+    color: "#bba27e",
+    fontSize: 12,
   },
   totalCost: {
     display: "flex",
