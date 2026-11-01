@@ -13,6 +13,7 @@ import {
   Check,
   AlertCircle,
   FlaskConical,
+  Sparkles,
 } from "lucide-react";
 import "./Inventory.css";
 
@@ -36,8 +37,63 @@ const RARITY_CLASSES = {
   mythic: "mythic",
 };
 
+const ELIXIR_LABELS = {
+  strength: "Еліксир сили",
+  defense: "Еліксир захисту",
+  agility: "Еліксир спритності",
+  health: "Еліксир здоров'я",
+};
+
 function getType(item) {
   return String(item?.item_type || "").toLowerCase();
+}
+
+function isElixir(item) {
+  const type = getType(item);
+  const name = String(item?.name || "").toLowerCase();
+
+  return (
+    type.includes("elixir") ||
+    name.includes("еліксир") ||
+    name.includes("эликсир") ||
+    Boolean(item?.elixir_key)
+  );
+}
+
+function getElixirKey(item) {
+  const directKey = String(item?.elixir_key || "").toLowerCase();
+
+  if (ELIXIR_LABELS[directKey]) return directKey;
+
+  const name = String(item?.name || "").toLowerCase();
+  const description = String(item?.description || "").toLowerCase();
+  const text = `${name} ${description}`;
+
+  if (
+    text.includes("strength") ||
+    text.includes("сили") ||
+    text.includes("сила")
+  ) return "strength";
+
+  if (
+    text.includes("defense") ||
+    text.includes("захист") ||
+    text.includes("защита")
+  ) return "defense";
+
+  if (
+    text.includes("agility") ||
+    text.includes("сприт") ||
+    text.includes("ловк")
+  ) return "agility";
+
+  if (
+    text.includes("health") ||
+    text.includes("здоров") ||
+    text.includes("житт")
+  ) return "health";
+
+  return null;
 }
 
 function isChestItem(item) {
@@ -62,27 +118,30 @@ function getItemIcon(item) {
 
   if (name.includes("меч") || name.includes("клинок")) return "⚔️";
   if (name.includes("щит")) return "🛡️";
+
   if (
     name.includes("шолом") ||
     name.includes("шлем") ||
     name.includes("корона") ||
     type === "helmet"
   ) return "👑";
+
   if (name.includes("чоб") || name.includes("сапог") || type === "boots") {
     return "🥾";
   }
+
   if (name.includes("рукав") || name.includes("перчат") || type === "gloves") {
     return "🧤";
   }
+
   if (name.includes("перстень") || name.includes("кільц")) return "💍";
   if (name.includes("амулет")) return "📿";
   if (name.includes("посох")) return "🪄";
+
   if (isChestItem(item)) {
-    return type.includes("potion") || type.includes("elixir") ||
-      name.includes("еліксир") || name.includes("зілля")
-      ? "🧪"
-      : "🌿";
+    return isElixir(item) || type.includes("potion") ? "🧪" : "🌿";
   }
+
   if (name.includes("кристал")) return "💎";
   if (type.includes("weapon")) return "⚔️";
   if (type.includes("armor") || type === "shield") return "🛡️";
@@ -93,6 +152,7 @@ function getItemIcon(item) {
 function getItemTypeLabel(item) {
   const type = getType(item);
 
+  if (isElixir(item)) return "Еліксир";
   if (type.includes("weapon")) return "Зброя";
   if (type.includes("armor")) return "Обладунок";
   if (type === "helmet") return "Шолом";
@@ -102,7 +162,7 @@ function getItemTypeLabel(item) {
   if (type === "pants") return "Штани";
   if (type === "boots") return "Чоботи";
   if (type.includes("accessory")) return "Аксесуар";
-  if (type.includes("potion") || type.includes("elixir")) return "Еліксир";
+  if (type.includes("potion")) return "Зілля";
   if (type.includes("resource") || type.includes("material")) return "Ресурс";
   if (type.includes("consumable")) return "Витратний предмет";
 
@@ -121,8 +181,6 @@ function getQuantity(row) {
   return Math.max(1, Number(row?.quantity || 1));
 }
 
-// Кожна одиниця неекіпірованого спорядження займає 1 місце.
-// Еліксири й ресурси зберігаються лише в сундуку.
 function getBagSlots(rows) {
   return rows.reduce((total, row) => {
     if (
@@ -221,6 +279,62 @@ export default function Inventory({
   useEffect(() => {
     loadInventory();
   }, [loadInventory]);
+
+  async function activateElixir(row) {
+    if (!userId || !row?.id || busyId !== null) return;
+
+    const elixirKey = getElixirKey(row.item);
+
+    if (!elixirKey) {
+      showMessage(
+        "Не вдалося визначити тип еліксиру. Перевір назву або elixir_key предмета.",
+        true
+      );
+      return;
+    }
+
+    if (row.storage_location !== "chest" && !isChestItem(row.item)) {
+      showMessage("Активувати еліксир можна лише із сундука.", true);
+      return;
+    }
+
+    setBusyId(row.id);
+    setError("");
+    setMessage("");
+
+    try {
+      const { data, error: rpcError } = await supabase.rpc(
+        "activate_player_elixir",
+        {
+          p_elixir_key: elixirKey,
+        }
+      );
+
+      if (rpcError) throw rpcError;
+
+      if (data && data.success === false) {
+        throw new Error(data.message || "Не вдалося активувати еліксир.");
+      }
+
+      await loadInventory();
+
+      if (onProfileUpdate) {
+        await onProfileUpdate();
+      }
+
+      showMessage(
+        `${ELIXIR_LABELS[elixirKey]} активовано! Бонус діятиме 4 години.`
+      );
+    } catch (err) {
+      console.error("Помилка активації еліксиру:", err);
+      showMessage(
+        err?.message || "Не вдалося активувати еліксир.",
+        true
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function moveItem(row, destination) {
     if (!userId || !row?.id) return;
@@ -513,6 +627,8 @@ export default function Inventory({
     const isBusy = busyId === row.id || busyId === "bulk";
     const isChest = location === "chest";
     const chestOnly = isChestItem(item);
+    const elixir = isElixir(item);
+    const elixirKey = elixir ? getElixirKey(item) : null;
 
     return (
       <article className={`inventory-item ${rarity}`} key={row.id}>
@@ -548,12 +664,15 @@ export default function Inventory({
             <div className="inventory-item-name">
               {item.name || "Невідомий предмет"}
             </div>
+
             <span className={`inventory-rarity ${rarity}`}>
               {RARITY_LABELS[item.rarity] || getItemTypeLabel(item)}
             </span>
+
             <span className="inventory-item-type">
               {getItemTypeLabel(item)}
             </span>
+
             <span className="inventory-item-level">
               Рівень {item.level || 1}
             </span>
@@ -606,19 +725,37 @@ export default function Inventory({
 
           <div className="inventory-actions">
             {isChest ? (
-              <button
-                className="inventory-btn"
-                onClick={() => moveItem(row, "bag")}
-                disabled={isBusy || chestOnly || row.is_equipped}
-                title={
-                  chestOnly
-                    ? "Еліксири й ресурси залишаються в сундуку"
-                    : "Повернути до сумки"
-                }
-              >
-                <ArrowLeftRight size={14} />
-                До сумки
-              </button>
+              <>
+                {elixir && (
+                  <button
+                    className="inventory-btn green"
+                    onClick={() => activateElixir(row)}
+                    disabled={isBusy || !elixirKey}
+                    title={
+                      elixirKey
+                        ? "Активувати еліксир на 4 години"
+                        : "Не вдалося визначити тип еліксиру"
+                    }
+                  >
+                    <Sparkles size={14} />
+                    {isBusy ? "Активуємо..." : "Активувати"}
+                  </button>
+                )}
+
+                <button
+                  className="inventory-btn"
+                  onClick={() => moveItem(row, "bag")}
+                  disabled={isBusy || chestOnly || row.is_equipped}
+                  title={
+                    chestOnly
+                      ? "Еліксири й ресурси залишаються в сундуку"
+                      : "Повернути до сумки"
+                  }
+                >
+                  <ArrowLeftRight size={14} />
+                  До сумки
+                </button>
+              </>
             ) : chestOnly ? (
               <span className="inventory-item-type">
                 Зберігається в сундуку
@@ -627,6 +764,7 @@ export default function Inventory({
               <>
                 <button
                   className="inventory-btn green"
+                  
                   onClick={() => toggleEquip(row)}
                   disabled={isBusy || item.is_active === false}
                   title={row.is_equipped ? "Зняти предмет" : "Надіти предмет"}
@@ -727,7 +865,7 @@ export default function Inventory({
           <span>{bagSlots}/{BAG_LIMIT}</span>
         </button>
 
-              <button
+        <button
           className={`inventory-tab ${activeTab === "chest" ? "active" : ""}`}
           onClick={() => setActiveTab("chest")}
         >
@@ -755,7 +893,8 @@ export default function Inventory({
           </button>
         </div>
       )}
-        {loading ? (
+
+      {loading ? (
         <div className="inventory-empty">
           <RefreshCw className="inventory-spinning" size={28} />
           <div className="inventory-empty-title">
@@ -806,6 +945,7 @@ export default function Inventory({
               >
                 + Тестове спорядження
               </button>
+
               <button
                 className="inventory-btn"
                 onClick={() => addTestItem("potion")}
@@ -813,6 +953,7 @@ export default function Inventory({
               >
                 <FlaskConical size={14} /> Тестовий еліксир
               </button>
+
               <button
                 className="inventory-btn"
                 onClick={() => addTestItem("resource")}
@@ -822,7 +963,8 @@ export default function Inventory({
               </button>
             </div>
           )}
-            {bag.length ? (
+
+          {bag.length ? (
             <>
               <div className="inventory-actions">
                 <button
@@ -893,9 +1035,11 @@ export default function Inventory({
         </section>
       )}
 
-        <footer className="inventory-footer">
+      <footer className="inventory-footer">
         Хроніки Згаслого Світанку · Інвентар мандрівника
       </footer>
     </main>
   );
-}
+                  }
+
+     
