@@ -4,7 +4,6 @@ import {
   FlaskConical,
   Zap,
   Gem,
-  Leaf,
   Sparkles,
   ChevronRight,
   Microscope,
@@ -12,6 +11,7 @@ import {
 
 import Boosts from "./Boosts";
 import Elixirs from "./Elixirs";
+import StoneAndGrass from "./StoneAndGrass";
 import "./Laboratory.css";
 
 const SECTIONS = [
@@ -30,18 +30,11 @@ const SECTIONS = [
     color: "#a879d8",
   },
   {
-    id: "stone",
-    title: "Камінь",
-    description: "Таємниці магічних каменів та їхні властивості",
+    id: "stoneAndGrass",
+    title: "Камінь і трава",
+    description: "Найпотужніші посилення в бою",
     icon: Gem,
     color: "#65a9c9",
-  },
-  {
-    id: "herb",
-    title: "Трава",
-    description: "Рідкісні рослини та алхімічні інгредієнти",
-    icon: Leaf,
-    color: "#76ad65",
   },
 ];
 
@@ -99,42 +92,43 @@ function LaboratorySection({
     );
   }
 
-  return (
-    <div className="lab-inner-page">
-      <button
-        className="lab-back-button"
-        type="button"
-        onClick={onBack}
-      >
-        <ArrowLeft size={18} />
-        До лабораторії
-      </button>
-
-      <div className="lab-inner-header">
-        <div
-          className="lab-inner-icon"
-          style={{ "--section-color": section.color }}
+  if (section.id === "stoneAndGrass") {
+    return (
+      <div className="lab-inner-page">
+        <button
+          className="lab-back-button"
+          type="button"
+          onClick={onBack}
         >
-          <Icon size={34} />
+          <ArrowLeft size={18} />
+          До лабораторії
+        </button>
+
+        <div className="lab-inner-header">
+          <div
+            className="lab-inner-icon"
+            style={{ "--section-color": section.color }}
+          >
+            <Icon size={34} />
+          </div>
+
+          <div>
+            <span className="lab-eyebrow">ЛАБОРАТОРІЯ</span>
+            <h2>{section.title}</h2>
+            <p>{section.description}</p>
+          </div>
         </div>
 
-        <div>
-          <span className="lab-eyebrow">ЛАБОРАТОРІЯ</span>
-          <h2>{section.title}</h2>
-          <p>{section.description}</p>
-        </div>
+        <StoneAndGrass
+          profile={profile}
+          player={player}
+          onProfileUpdate={onProfileUpdate}
+        />
       </div>
+    );
+  }
 
-      <div className="lab-coming-soon">
-        <Sparkles size={32} />
-        <h3>Розділ готується</h3>
-        <p>
-          Незабаром тут з'являться можливості розділу
-          «{section.title}».
-        </p>
-      </div>
-    </div>
-  );
+  return null;
 }
 
 export default function Laboratory({
@@ -257,4 +251,4 @@ export default function Laboratory({
       </div>
     </main>
   );
-    }
+        }
