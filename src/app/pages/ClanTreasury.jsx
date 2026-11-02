@@ -10,6 +10,9 @@ import {
   Lock,
   CheckCircle2,
   AlertCircle,
+  Trophy,
+  Medal,
+  Crown,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import "./ClanTreasury.css";
@@ -19,7 +22,10 @@ const formatNumber = (value) =>
 
 export default function ClanTreasury({ onBack }) {
   const [treasury, setTreasury] = useState(null);
+  const [goldRanking, setGoldRanking] = useState([]);
+  const [silverRanking, setSilverRanking] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [rankingLoading, setRankingLoading] = useState(true);
   const [donating, setDonating] = useState(false);
   const [resource, setResource] = useState("gold");
   const [amount, setAmount] = useState("");
@@ -52,19 +58,46 @@ export default function ClanTreasury({ onBack }) {
     }
   }, []);
 
+  const loadRankings = useCallback(async () => {
+    setRankingLoading(true);
+
+    try {
+      const [goldResult, silverResult] = await Promise.all([
+        supabase.rpc("get_clan_treasury_ranking", {
+          p_resource_type: "gold",
+        }),
+        supabase.rpc("get_clan_treasury_ranking", {
+          p_resource_type: "silver",
+        }),
+      ]);
+
+      if (goldResult.error) throw goldResult.error;
+      if (silverResult.error) throw silverResult.error;
+
+      setGoldRanking(goldResult.data || []);
+      setSilverRanking(silverResult.data || []);
+    } catch (error) {
+      setNotice({
+        type: "error",
+        text: error.message || "Не вдалося завантажити рейтинги.",
+      });
+    } finally {
+      setRankingLoading(false);
+    }
+  }, []);
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([loadTreasury(), loadRankings()]);
+  }, [loadTreasury, loadRankings]);
+
   useEffect(() => {
-    loadTreasury();
-  }, [loadTreasury]);
+    refreshAll();
+  }, [refreshAll]);
 
   const remaining =
     resource === "gold"
       ? Number(treasury?.remaining_gold || 0)
       : Number(treasury?.remaining_silver || 0);
-
-  const balance =
-    resource === "gold"
-      ? Number(treasury?.treasury_gold || 0)
-      : Number(treasury?.treasury_silver || 0);
 
   const dailyLimit =
     resource === "gold"
@@ -118,7 +151,7 @@ export default function ClanTreasury({ onBack }) {
       }
 
       setAmount("");
-      await loadTreasury();
+      await refreshAll();
 
       setNotice({
         type: "success",
@@ -134,6 +167,65 @@ export default function ClanTreasury({ onBack }) {
     } finally {
       setDonating(false);
     }
+  }
+
+  function RankingList({ title, icon, rows, currency, loading }) {
+    return (
+      <section className="treasury-ranking">
+        <div className="treasury-section-heading">
+          {icon}
+          <strong>{title}</strong>
+        </div>
+
+        {loading ? (
+          <div className="treasury-ranking-empty">
+            <RefreshCw size={17} className="treasury-spin" />
+            Завантаження рейтингу...
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="treasury-ranking-empty">
+            Поки що немає даних для рейтингу.
+          </div>
+        ) : (
+          <div className="treasury-ranking-list">
+            {rows.map((clan, index) => {
+              const position = Number(
+                clan.rank_position || index + 1
+              );
+
+              return (
+                <article
+                  className={`treasury-ranking-row rank-${position}`}
+                  key={clan.clan_id}
+                >
+                  <div className="treasury-rank-position">
+                    {position === 1 ? (
+                      <Crown size={21} />
+                    ) : position === 2 ? (
+                      <Medal size={21} />
+                    ) : position === 3 ? (
+                      <Medal size={20} />
+                    ) : (
+                      `#${position}`
+                    )}
+                  </div>
+
+                  <div className="treasury-rank-info">
+                    <strong>{clan.clan_name}</strong>
+                    <small>Рівень {clan.clan_level}</small>
+                  </div>
+
+                  <div className="treasury-rank-balance">
+                    <strong>{formatNumber(clan.treasury_balance)}</strong>
+                    <small>{currency}</small>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    );
   }
 
   if (loading && !treasury) {
@@ -179,17 +271,13 @@ export default function ClanTreasury({ onBack }) {
         <article className="treasury-balance-card gold">
           <div className="treasury-balance-icon">🪙</div>
           <span>Золото казни</span>
-          <strong>
-            {formatNumber(treasury?.treasury_gold)}
-          </strong>
+          <strong>{formatNumber(treasury?.treasury_gold)}</strong>
         </article>
 
         <article className="treasury-balance-card silver">
           <div className="treasury-balance-icon">⚪</div>
           <span>Срібло казни</span>
-          <strong>
-            {formatNumber(treasury?.treasury_silver)}
-          </strong>
+          <strong>{formatNumber(treasury?.treasury_silver)}</strong>
         </article>
       </section>
 
@@ -339,6 +427,30 @@ export default function ClanTreasury({ onBack }) {
         )}
       </section>
 
+      <div className="treasury-ranking-title">
+        <Trophy size={22} />
+        <div>
+          <strong>Рейтинги казни</strong>
+          <small>Порівнюй багатство всіх активних кланів</small>
+        </div>
+      </div>
+
+      <RankingList
+        title="Рейтинг за золотом"
+        icon={<span>🪙</span>}
+        rows={goldRanking}
+        currency="золота"
+        loading={rankingLoading}
+      />
+
+      <RankingList
+        title="Рейтинг за сріблом"
+        icon={<span>⚪</span>}
+        rows={silverRanking}
+        currency="срібла"
+        loading={rankingLoading}
+      />
+
       <section className="treasury-info">
         <Sparkles size={19} />
         <div>
@@ -353,12 +465,12 @@ export default function ClanTreasury({ onBack }) {
       <button
         type="button"
         className="treasury-refresh"
-        onClick={loadTreasury}
-        disabled={loading || donating}
+        onClick={refreshAll}
+        disabled={loading || rankingLoading || donating}
       >
         <RefreshCw size={16} />
-        Оновити казну
+        Оновити казну та рейтинги
       </button>
     </main>
   );
-          }
+  }
