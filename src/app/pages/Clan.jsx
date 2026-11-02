@@ -2,8 +2,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import {
-  Shield, Users, Crown, Swords, Coins, RefreshCw,
+  Shield, Users, Crown, Swords, RefreshCw,
   LogOut, Settings, ChevronLeft, ChevronRight, Plus,
+  Search, UserPlus, Check, X, Mail, Clock,
 } from "lucide-react";
 
 const PAGE_SIZE = 10;
@@ -29,6 +30,10 @@ const ROLE_ORDER = {
 const number = (value) =>
   Math.floor(Number(value) || 0).toLocaleString("uk-UA");
 
+function getErrorMessage(error) {
+  return error?.message || "Сталася невідома помилка.";
+}
+
 export default function Clan({ profile, player }) {
   const currentPlayer = player || profile || {};
   const userId = currentPlayer.id;
@@ -41,8 +46,24 @@ export default function Clan({ profile, player }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [page, setPage] = useState(0);
+
   const [clanName, setClanName] = useState("");
   const [description, setDescription] = useState("");
+
+  const [activeClans, setActiveClans] = useState([]);
+  const [incomingInvitations, setIncomingInvitations] = useState([]);
+  const [myApplications, setMyApplications] = useState([]);
+  const [clanApplications, setClanApplications] = useState([]);
+  const [clanlessPlayers, setClanlessPlayers] = useState([]);
+
+  const [clanSearch, setClanSearch] = useState("");
+  const [playerSearch, setPlayerSearch] = useState("");
+
+  const [loadingExtra, setLoadingExtra] = useState(false);
+
+  const myRole = myMembership?.role;
+  const canManage = ["leader", "deputy", "general", "officer"].includes(myRole);
+  const isLeader = myRole === "leader";
 
   const loadClan = useCallback(async () => {
     if (!userId) {
@@ -154,21 +175,133 @@ export default function Clan({ profile, player }) {
       setPage(0);
     } catch (err) {
       console.error("Clan load error:", err);
-      setError(err.message || "Не вдалося завантажити клан.");
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   }, [userId]);
 
+  const loadExtra = useCallback(async () => {
+    if (!userId) return;
+
+    setLoadingExtra(true);
+
+    try {
+      const [
+        invitationsResult,
+        applicationsResult,
+        clansResult,
+      ] = await Promise.all([
+        supabase
+          .from("clan_invitations")
+          .select("id, clan_id, inviter_id, status, created_at")
+          .eq("invited_user_id", userId)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false }),
+
+        supabase
+          .from("clan_applications")
+          .select("id, clan_id, user_id, status, created_at")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false }),
+
+        supabase
+          .from("clans")
+          .select("id, name, description, level, max_members, created_at")
+          .eq("is_active", true)
+          .order("level", { ascending: false })
+          .limit(100),
+      ]);
+
+      if (invitationsResult.error) throw invitationsResult.error;
+      if (applicationsResult.error) throw applicationsResult.error;
+      if (clansResult.error) throw clansResult.error;
+
+      const invitationRows = invitationsResult.data || [];
+      const applicationRows = applicationsResult.data || [];
+      const clanRows = clansResult.data || [];
+
+      const clanIds = [
+        ...new Set([
+          ...invitationRows.map((row) => row.clan_id),
+          ...applicationRows.map((row) => row.clan_id),
+        ]),
+      ];
+
+      let relatedClans = [];
+
+      if (clanIds.length) {
+        const { data, error: relatedError } = await supabase
+          .from("clans")
+          .select("id, name, level")
+          .in("id", clanIds);
+
+        if (relatedError) throw relatedError;
+        relatedClans = data || [];
+      }
+
+      const clanMap = new Map(
+        [...clanRows, ...relatedClans].map((item) => [item.id, item])
+      );
+
+      setIncomingInvitations(
+        invitationRows.map((row) => ({
+          ...row,
+          clan: clanMap.get(row.clan_id),
+        }))
+      );
+
+      setMyApplications(
+        applicationRows.map((row) => ({
+          ...row,
+          clan: clanMap.get(row.clan_id),
+        }))
+      );
+
+      setActiveClans(clanRows);
+    } catch (err) {
+      console.error("Clan extra load error:", err);
+      setError(getErrorMessage(err));
+    } finally {
+      setLoadingExtra(false);
+    }
+  }, [userId]);
+
+  const loadManagementData = useCallback(async () => {
+    if (!clan?.id || !canManage) {
+      setClanApplications([]);
+      setClanlessPlayers([]);
+      return;
+    }
+
+    try {
+      const { data, error: applicationsError } = await supabase
+        .from("clan_applications")
+        .select("id, clan_id, user_id, status, created_at")
+        .eq("clan_id", clan.id)
+        .eq("status", "pending")
+        .order("created_at", { ascending: true });
+
+      if (applicationsError) throw applicationsError;
+
+      setClanApplications(data || []);
+    } catch (err) {
+      console.error("Clan applications load error:", err);
+      setError(getErrorMessage(err));
+    }
+  }, [clan?.id, canManage]);
+
   useEffect(() => {
     loadClan();
-  }, [loadClan]);
+    loadExtra();
+  }, [loadClan, loadExtra]);
 
-  const myRole = myMembership?.role;
-  const canManage = ["leader", "deputy", "general", "officer"].includes(myRole);
-  const isLeader = myRole === "leader";
+  useEffect(() => {
+    loadManagementData();
+  }, [loadManagementData]);
 
   const totalPages = Math.max(1, Math.ceil(members.length / PAGE_SIZE));
+
   const visibleMembers = useMemo(
     () => members.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
     [members, page]
@@ -176,16 +309,34 @@ export default function Clan({ profile, player }) {
 
   const totalPower = members.reduce((sum, member) => sum + member.power, 0);
 
-  async function createClan(event) {
-    event.preventDefault();
-
-    if (!clanName.trim() || busy) return;
+  async function runAction(action, successMessage) {
+    if (busy) return;
 
     setBusy(true);
     setNotice("");
     setError("");
 
     try {
+      await action();
+      setNotice(successMessage);
+
+      await Promise.all([
+        loadClan(),
+        loadExtra(),
+      ]);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createClan(event) {
+    event.preventDefault();
+
+    if (!clanName.trim() || busy) return;
+
+    await runAction(async () => {
       const { error: rpcError } = await supabase.rpc("create_clan", {
         p_name: clanName.trim(),
         p_description: description.trim() || null,
@@ -195,41 +346,125 @@ export default function Clan({ profile, player }) {
 
       setClanName("");
       setDescription("");
-      setNotice("Клан успішно створено!");
-      await loadClan();
-    } catch (err) {
-      setError(err.message || "Не вдалося створити клан.");
-    } finally {
-      setBusy(false);
-    }
+    }, "Клан успішно створено!");
   }
 
   async function leaveClan() {
     if (busy || !window.confirm("Точно хочеш вийти з клану?")) return;
 
-    setBusy(true);
-    setNotice("");
-    setError("");
-
-    try {
+    await runAction(async () => {
       const { error: rpcError } = await supabase.rpc("leave_clan");
+      if (rpcError) throw rpcError;
+    }, "Ти залишив клан.");
+  }
+
+  async function applyToClan(clanId) {
+    await runAction(async () => {
+      const { error: rpcError } = await supabase.rpc("apply_to_clan", {
+        p_clan_id: clanId,
+      });
 
       if (rpcError) throw rpcError;
+    }, "Заявку до клану надіслано!");
+  }
 
-      setNotice("Ти залишив клан.");
-      await loadClan();
+  async function acceptApplication(applicationId) {
+    await runAction(async () => {
+      const { error: rpcError } = await supabase.rpc(
+        "accept_clan_application",
+        { p_application_id: applicationId }
+      );
+
+      if (rpcError) throw rpcError;
+    }, "Гравця прийнято до клану!");
+  }
+
+  async function rejectApplication(applicationId) {
+    await runAction(async () => {
+      const { error: rpcError } = await supabase.rpc(
+        "reject_clan_application",
+        { p_application_id: applicationId }
+      );
+
+      if (rpcError) throw rpcError;
+    }, "Заявку відхилено.");
+  }
+
+  async function acceptInvitation(invitationId) {
+    await runAction(async () => {
+      const { error: rpcError } = await supabase.rpc(
+        "accept_clan_invitation",
+        { p_invitation_id: invitationId }
+      );
+
+      if (rpcError) throw rpcError;
+    }, "Ти вступив до клану!");
+  }
+
+  async function rejectInvitation(invitationId) {
+    await runAction(async () => {
+      const { error: rpcError } = await supabase.rpc(
+        "reject_clan_invitation",
+        { p_invitation_id: invitationId }
+      );
+
+      if (rpcError) throw rpcError;
+    }, "Запрошення відхилено.");
+  }
+
+  async function searchPlayers() {
+    if (!canManage || busy) return;
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const { data, error: searchError } = await supabase.rpc(
+        "search_clanless_players",
+        { p_search: playerSearch.trim() || null }
+      );
+
+      if (searchError) throw searchError;
+
+      setClanlessPlayers(data || []);
+
+      if (!data?.length) {
+        setNotice("Гравців без клану за цим запитом не знайдено.");
+      }
     } catch (err) {
-      setError(err.message || "Не вдалося вийти з клану.");
+      setError(getErrorMessage(err));
     } finally {
       setBusy(false);
     }
   }
 
+  async function invitePlayer(playerId) {
+    if (!clan?.id) return;
+
+    await runAction(async () => {
+      const { error: rpcError } = await supabase.rpc("invite_to_clan", {
+        p_clan_id: clan.id,
+        p_invited_user_id: playerId,
+      });
+
+      if (rpcError) throw rpcError;
+
+      setClanlessPlayers((current) =>
+        current.filter((item) => item.user_id !== playerId)
+      );
+    }, "Запрошення гравцю надіслано!");
+  }
+
+  const filteredClans = activeClans.filter((item) =>
+    item.name?.toLowerCase().includes(clanSearch.trim().toLowerCase())
+  );
+
   if (loading) {
     return <div style={styles.center}>Завантаження клану...</div>;
   }
 
-  if (error && !clan) {
+  if (error && !clan && !userId) {
     return (
       <div style={styles.page}>
         <div style={styles.noticeError}>{error}</div>
@@ -250,10 +485,133 @@ export default function Clan({ profile, player }) {
             <h1 style={styles.heading}>Клани</h1>
             <p style={styles.muted}>Твоя сила — у єдності.</p>
           </div>
+          <button
+            style={styles.iconButton}
+            onClick={() => {
+              loadExtra();
+              loadClan();
+            }}
+            title="Оновити"
+          >
+            <RefreshCw size={18} />
+          </button>
         </header>
 
         {notice && <div style={styles.notice}>{notice}</div>}
         {error && <div style={styles.noticeError}>{error}</div>}
+
+        {incomingInvitations.length > 0 && (
+          <section style={styles.panel}>
+            <h2 style={styles.subheading}>
+              <Mail size={18} /> Запрошення до клану
+            </h2>
+
+            {incomingInvitations.map((invitation) => (
+              <article key={invitation.id} style={styles.requestCard}>
+                <div style={{ flex: 1 }}>
+                  <strong style={styles.itemTitle}>
+                    {invitation.clan?.name || "Клан"}
+                  </strong>
+                  <p style={styles.muted}>
+                    Рівень {invitation.clan?.level || 1}
+                  </p>
+                </div>
+
+                <button
+                  style={styles.acceptButton}
+                  disabled={busy}
+                  onClick={() => acceptInvitation(invitation.id)}
+                  title="Прийняти"
+                >
+                  <Check size={17} />
+                </button>
+                <button
+                  style={styles.rejectButton}
+                  disabled={busy}
+                  onClick={() => rejectInvitation(invitation.id)}
+                  title="Відхилити"
+                >
+                  <X size={17} />
+                </button>
+              </article>
+            ))}
+          </section>
+        )}
+
+        {myApplications.some((item) => item.status === "pending") && (
+          <section style={styles.panel}>
+            <h2 style={styles.subheading}>
+              <Clock size={18} /> Мої заявки
+            </h2>
+
+            {myApplications
+              .filter((item) => item.status === "pending")
+              .map((application) => (
+                <div key={application.id} style={styles.requestCard}>
+                  <div style={{ flex: 1 }}>
+                    <strong style={styles.itemTitle}>
+                      {application.clan?.name || "Клан"}
+                    </strong>
+                    <p style={styles.muted}>Очікує розгляду</p>
+                  </div>
+                  <span style={styles.pendingLabel}>Очікування</span>
+                </div>
+              ))}
+          </section>
+        )}
+
+        <section style={styles.panel}>
+          <h2 style={styles.subheading}>Знайти клан</h2>
+          <p style={styles.muted}>
+            Обери клан і надішли заявку на вступ.
+          </p>
+
+          <div style={styles.searchRow}>
+            <input
+              value={clanSearch}
+              onChange={(event) => setClanSearch(event.target.value)}
+              placeholder="Назва клану..."
+              style={styles.input}
+            />
+            <button
+              style={styles.iconButton}
+              onClick={loadExtra}
+              disabled={loadingExtra}
+              title="Оновити список"
+            >
+              <Search size={17} />
+            </button>
+          </div>
+
+          {loadingExtra ? (
+            <p style={styles.muted}>Завантаження кланів...</p>
+          ) : filteredClans.length === 0 ? (
+            <div style={styles.empty}>
+              <Users size={28} />
+              <span>Активних кланів не знайдено.</span>
+            </div>
+          ) : (
+            <div style={styles.list}>
+              {filteredClans.map((item) => (
+                <article key={item.id} style={styles.requestCard}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <strong style={styles.itemTitle}>{item.name}</strong>
+                    <p style={styles.muted}>
+                      Рівень {item.level} · Максимум {item.max_members || 50}
+                    </p>
+                  </div>
+                  <button
+                    style={styles.buttonSmall}
+                    disabled={busy}
+                    onClick={() => applyToClan(item.id)}
+                  >
+                    Подати заявку
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
         <section style={styles.panel}>
           <h2 style={styles.subheading}>Створити власний клан</h2>
@@ -292,7 +650,7 @@ export default function Clan({ profile, player }) {
         <div style={styles.empty}>
           <Users size={30} />
           <strong>Ти ще не вступив до клану</strong>
-          <span>Пошук кланів та заявки додамо наступним етапом.</span>
+          <span>Знайди клан або створи власний.</span>
         </div>
       </main>
     );
@@ -324,7 +682,11 @@ export default function Clan({ profile, player }) {
         <button
           style={styles.iconButton}
           title="Оновити"
-          onClick={loadClan}
+          onClick={() => {
+            loadClan();
+            loadExtra();
+            loadManagementData();
+          }}
           disabled={busy}
         >
           <RefreshCw size={18} />
@@ -332,7 +694,8 @@ export default function Clan({ profile, player }) {
       </header>
 
       {notice && <div style={styles.notice}>{notice}</div>}
-      {error && <div style={styles.noticeError}>{error}</div>}
+      {error && <div style={styles.noticeError}>{error
+}</div>}
 
       <section style={styles.stats}>
         <div style={styles.stat}>
@@ -376,7 +739,9 @@ export default function Clan({ profile, player }) {
       <section style={styles.panel}>
         <div style={styles.panelTitle}>
           <h2 style={styles.subheading}>Учасники клану</h2>
-          <span style={styles.muted}>{memberCount} / {clan.max_members || 50}</span>
+          <span style={styles.muted}>
+            {memberCount} / {clan.max_members || 50}
+          </span>
         </div>
 
         {visibleMembers.length === 0 ? (
@@ -461,6 +826,97 @@ export default function Clan({ profile, player }) {
         </div>
       </section>
 
+      {canManage && (
+        <>
+          <section style={styles.panel}>
+            <h2 style={styles.subheading}>
+              <Users size={18} /> Заявки до клану
+              <span style={styles.countBadge}>{clanApplications.length}</span>
+            </h2>
+
+            {clanApplications.length === 0 ? (
+              <p style={styles.muted}>Нових заявок поки немає.</p>
+            ) : (
+              clanApplications.map((application) => (
+                <article key={application.id} style={styles.requestCard}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <strong style={styles.itemTitle}>
+                      Гравець {application.user_id.slice(0, 8)}
+                    </strong>
+                    <p style={styles.muted}>
+                      Заявка від{" "}
+                      {new Date(application.created_at).toLocaleDateString("uk-UA")}
+                    </p>
+                  </div>
+                  <button
+                    style={styles.acceptButton}
+                    disabled={busy}
+                    onClick={() => acceptApplication(application.id)}
+                    title="Прийняти"
+                  >
+                    <Check size={17} />
+                  </button>
+                  <button
+                    style={styles.rejectButton}
+                    disabled={busy}
+                    onClick={() => rejectApplication(application.id)}
+                    title="Відхилити"
+                  >
+                    <X size={17} />
+                  </button>
+                </article>
+              ))
+            )}
+          </section>
+
+          <section style={styles.panel}>
+            <h2 style={styles.subheading}>
+              <UserPlus size={18} /> Запросити гравців
+            </h2>
+            <p style={styles.muted}>
+              Знайди гравців, які ще не перебувають у клані.
+            </p>
+
+            <div style={styles.searchRow}>
+              <input
+                value={playerSearch}
+                onChange={(event) => setPlayerSearch(event.target.value)}
+                placeholder="Ім'я або нік гравця..."
+                style={styles.input}
+              />
+              <button
+                style={styles.iconButton}
+                onClick={searchPlayers}
+                disabled={busy}
+                title="Шукати"
+              >
+                <Search size={17} />
+              </button>
+            </div>
+
+            {clanlessPlayers.map((candidate) => (
+              <article key={candidate.user_id} style={styles.requestCard}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <strong style={styles.itemTitle}>
+                    {candidate.display_name || candidate.username || "Гравець"}
+                  </strong>
+                  <p style={styles.muted}>
+                    Рівень {candidate.level} · Сила {number(candidate.power)}
+                  </p>
+                </div>
+                <button
+                  style={styles.buttonSmall}
+                  disabled={busy}
+                  onClick={() => invitePlayer(candidate.user_id)}
+                >
+                  <UserPlus size={15} /> Запросити
+                </button>
+              </article>
+            ))}
+          </section>
+        </>
+      )}
+
       <section style={styles.panel}>
         <h2 style={styles.subheading}>Розділи клану</h2>
         <div style={styles.modules}>
@@ -489,12 +945,9 @@ export default function Clan({ profile, player }) {
           </h2>
           <p style={styles.muted}>
             Твоя роль дозволяє керувати учасниками та налаштуваннями клану.
-            Інструменти керування підключимо окремо.
           </p>
           {isLeader && (
-            <div style={styles.hint}>
-              Ти є лідером клану.
-            </div>
+            <div style={styles.hint}>Ти є лідером клану.</div>
           )}
         </section>
       )}
@@ -548,131 +1001,359 @@ const styles = {
     color: "#e8a23b",
     background: "#21170f",
   },
-  emblemImage: { width: "100%", height: "100%", objectFit: "cover" },
-  eyebrow: { color: "#a58a67", fontSize: 9, letterSpacing: 2 },
-  heading: { margin: "5px 0", fontSize: 19, color: "#f0d3a0" },
-  muted: { margin: "5px 0", color: "#a58f72", fontSize: 11, lineHeight: 1.5 },
+  emblemImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  eyebrow: {
+    color: "#a58a67",
+    fontSize: 9,
+    letterSpacing: 2,
+  },
+  heading: {
+    margin: "5px 0",
+    fontSize: 19,
+    color: "#f0d3a0",
+  },
+  muted: {
+    margin: "5px 0",
+    color: "#a58f72",
+    fontSize: 11,
+    lineHeight: 1.5,
+  },
   iconButton: {
-    width: 36, height: 36, display: "grid", placeItems: "center",
-    border: "1px solid #60482b", borderRadius: 7,
-    background: "#21170f", color: "#e8a23b",
+    width: 38,
+    height: 38,
+    flexShrink: 0,
+    display: "grid",
+    placeItems: "center",
+    border: "1px solid #60482b",
+    borderRadius: 7,
+    background: "#21170f",
+    color: "#e8a23b",
   },
   stats: {
-    display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))",
-    gap: 8, margin: "12px 0",
+    display: "grid",
+    gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+    gap: 8,
+    margin: "12px 0",
   },
   stat: {
-    display: "flex", flexDirection: "column", alignItems: "center",
-    gap: 5, padding: 12, border: "1px solid #443222",
-    borderRadius: 9, background: "#1b140f", color: "#d4b382",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 5,
+    padding: 12,
+    border: "1px solid #443222",
+    borderRadius: 9,
+    background: "#1b140f",
+    color: "#d4b382",
   },
-  "stat strong": { fontSize: 15, color: "#f0d3a0" },
-"stat small": { fontSize: 10, color: "#a58f72" },
   panel: {
-    marginTop: 12, padding: 14, border: "1px solid #443222",
-    borderRadius: 10, background: "#1b140f",
+    marginTop: 12,
+    padding: 14,
+    border: "1px solid #443222",
+    borderRadius: 10,
+    background: "#1b140f",
   },
   panelTitle: {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 8,
   },
   subheading: {
-    display: "flex", alignItems: "center", gap: 7,
-    margin: "0 0 10px", color: "#edc98f", fontSize: 15,
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    margin: "0 0 10px",
+    color: "#edc98f",
+    fontSize: 15,
   },
-  level: { color: "#e8a23b", fontSize: 10, fontWeight: 700 },
+  level: {
+    color: "#e8a23b",
+    fontSize: 10,
+    fontWeight: 700,
+  },
+  countBadge: {
+    marginLeft: "auto",
+    padding: "3px 8px",
+    borderRadius: 12,
+    background: "#49331d",
+    color: "#f0d3a0",
+    fontSize: 11,
+  },
   progressTrack: {
-    height: 8, overflow: "hidden", borderRadius: 8,
+    height: 8,
+    overflow: "hidden",
+    borderRadius: 8,
     background: "#33261b",
   },
   progressFill: {
-    width: "0%", height: "100%", background: "#b68137",
+    width: "0%",
+    height: "100%",
+    background: "#b68137",
   },
-  hint: { marginTop: 9, color: "#89765e", fontSize: 10, lineHeight: 1.5 },
-  memberList: { display: "flex", flexDirection: "column", gap: 7 },
+  hint: {
+    marginTop: 9,
+    color: "#89765e",
+    fontSize: 10,
+    lineHeight: 1.5,
+  },
+  memberList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 7,
+  },
   member: {
-    display: "flex", alignItems: "center", gap: 10,
-    padding: 9, border: "1px solid #392b1e",
-    borderRadius: 8, background: "#17110d",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: 9,
+    border: "1px solid #392b1e",
+    borderRadius: 8,
+    background: "#17110d",
   },
   avatar: {
-    position: "relative", width: 42, height: 42, flexShrink: 0,
-    display: "grid", placeItems: "center", overflow: "hidden",
-    border: "1px solid #59432b", borderRadius: 7,
-    background: "#2b2016", fontSize: 20,
+    position: "relative",
+    width: 42,
+    height: 42,
+    flexShrink: 0,
+    display: "grid",
+    placeItems: "center",
+    overflow: "hidden",
+    border: "1px solid #59432b",
+    borderRadius: 7,
+    background: "#2b2016",
+    fontSize: 20,
   },
-  avatarImage: { width: "100%", height: "100%", objectFit: "cover" },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
   onlineDot: {
-    position: "absolute", right: 2, bottom: 2, width: 8, height: 8,
-    border: "1px solid #17110d", borderRadius: "50%",
+    position: "absolute",
+    right: 2,
+    bottom: 2,
+    width: 8,
+    height: 8,
+    border: "1px solid #17110d",
+    borderRadius: "50%",
   },
-  memberName: { color: "#f0d3a0", fontSize: 12 },
-  memberMeta: { marginTop: 3, color: "#a58f72", fontSize: 10 },
-  memberRole: { marginTop: 3, color: "#d5a04e", fontSize: 10 },
+  memberName: {
+    color: "#f0d3a0",
+    fontSize: 12,
+  },
+  memberMeta: {
+    marginTop: 3,
+    color: "#a58f72",
+    fontSize: 10,
+  },
+  memberRole: {
+    marginTop: 3,
+    color: "#d5a04e",
+    fontSize: 10,
+  },
   pagination: {
-    display: "flex", alignItems: "center", justifyContent: "center",
-    gap: 18, marginTop: 13, color: "#d4b382", fontSize: 12,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 18,
+    marginTop: 13,
+    color: "#d4b382",
+    fontSize: 12,
   },
   pageButton: {
-    width: 32, height: 30, display: "grid", placeItems: "center",
-    border: "1px solid #60482b", borderRadius: 6,
-    background: "#21170f", color: "#e8a23b",
+    width: 32,
+    height: 30,
+    display: "grid",
+    placeItems: "center",
+    border: "1px solid #60482b",
+    borderRadius: 6,
+    background: "#21170f",
+    color: "#e8a23b",
   },
-  description: { color: "#b9a184", fontSize: 12, lineHeight: 1.6 },
+  description: {
+    color: "#b9a184",
+    fontSize: 12,
+    lineHeight: 1.6,
+  },
   infoRow: {
-    display: "flex", justifyContent: "space-between", gap: 10,
-    padding: "9px 0", borderBottom: "1px solid #38291d",
-    color: "#a58f72", fontSize: 11,
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: "9px 0",
+    borderBottom: "1px solid #38291d",
+    color: "#a58f72",
+    fontSize: 11,
   },
   modules: {
-    display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+    display: "grid",
+    gridTemplateColumns: "repeat(2,minmax(0,1fr))",
     gap: 8,
   },
   module: {
-    display: "flex", flexDirection: "column", gap: 5,
-    minHeight: 75, padding: 10, border: "1px solid #493622",
-    borderRadius: 8, background: "#17110d",
+    display: "flex",
+    flexDirection: "column",
+    gap: 5,
+    minHeight: 75,
+    padding: 10,
+    border: "1px solid #493622",
+    borderRadius: 8,
+    background: "#17110d",
   },
-  "module span": { fontSize: 21 },
-"module strong": { color: "#e0bd88", fontSize: 11 },
-"module small": { color: "#88745b", fontSize: 9 },
-  actions: { marginTop: 14 },
+  actions: {
+    marginTop: 14,
+  },
   leaveButton: {
-    width: "100%", display: "flex", justifyContent: "center",
-    alignItems: "center", gap: 8, padding: 12,
-    border: "1px solid #754033", borderRadius: 8,
-    background: "#321b16", color: "#e2a18b", fontWeight: 700,
+    width: "100%",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    padding: 12,
+    border: "1px solid #754033",
+    borderRadius: 8,
+    background: "#321b16",
+    color: "#e2a18b",
+    fontWeight: 700,
   },
   notice: {
-    marginTop: 10, padding: 11, border: "1px solid #557342",
-    borderRadius: 7, background: "#1d2a19", color: "#b9d69d",
+    marginTop: 10,
+    padding: 11,
+    border: "1px solid #557342",
+    borderRadius: 7,
+    background: "#1d2a19",
+    color: "#b9d69d",
     fontSize: 12,
   },
   noticeError: {
-    marginTop: 10, padding: 11, border: "1px solid #754033",
-    borderRadius: 7, background: "#321b16", color: "#f0b1a0",
+    marginTop: 10,
+    padding: 11,
+    border: "1px solid #754033",
+    borderRadius: 7,
+    background: "#321b16",
+    color: "#f0b1a0",
     fontSize: 12,
   },
   empty: {
-    display: "flex", flexDirection: "column", alignItems: "center",
-    gap: 9, padding: 25, color: "#a58f72", textAlign: "center",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 9,
+    padding: 25,
+    color: "#a58f72",
+    textAlign: "center",
     fontSize: 12,
   },
-  form: { display: "flex", flexDirection: "column", gap: 9, marginTop: 12 },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 9,
+    marginTop: 12,
+  },
   input: {
-    width: "100%", boxSizing: "border-box", padding: 12,
-    border: "1px solid #60482b", borderRadius: 7,
-    background: "#120e0b", color: "#f0d3a0",
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
+    padding: 12,
+    border: "1px solid #60482b",
+    borderRadius: 7,
+    background: "#120e0b",
+    color: "#f0d3a0",
   },
   textarea: {
-    width: "100%", minHeight: 75, boxSizing: "border-box", padding: 12,
-    border: "1px solid #60482b", borderRadius: 7,
-    background: "#120e0b", color: "#f0d3a0", resize: "vertical",
+    width: "100%",
+    minHeight: 75,
+    boxSizing: "border-box",
+    padding: 12,
+    border: "1px solid #60482b",
+    borderRadius: 7,
+    background: "#120e0b",
+    color: "#f0d3a0",
+    resize: "vertical",
   },
   button: {
-    display: "flex", alignItems: "center", justifyContent: "center",
-    gap: 8, padding: 12, border: "1px solid #a77b3c",
-    borderRadius: 7, background: "#5a3c1e", color: "#ffe0ad",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: 12,
+    border: "1px solid #a77b3c",
+    borderRadius: 7,
+    background: "#5a3c1e",
+    color: "#ffe0ad",
     fontWeight: 700,
   },
+  searchRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+  },
+  list: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 7,
+    marginTop: 10,
+  },
+  requestCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+    padding: 10,
+    border: "1px solid #493622",
+    borderRadius: 8,
+    background: "#17110d",
+  },
+  itemTitle: {
+    color: "#f0d3a0",
+    fontSize: 12,
+    overflowWrap: "anywhere",
+  },
+  acceptButton: {
+    width: 34,
+    height: 34,
+    flexShrink: 0,
+    display: "grid",
+    placeItems: "center",
+    border: "1px solid #557342",
+    borderRadius: 7,
+    background: "#1d2a19",
+    color: "#a9d18b",
+  },
+  rejectButton: {
+    width: 34,
+    height: 34,
+    flexShrink: 0,
+    display: "grid",
+    placeItems: "center",
+    border: "1px solid #754033",
+    borderRadius: 7,
+    background: "#321b16",
+    color: "#e2a18b",
+  },
+  buttonSmall: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    flexShrink: 0,
+    padding: "8px 10px",
+    border: "1px solid #a77b3c",
+    borderRadius: 7,
+    background: "#5a3c1e",
+    color: "#ffe0ad",
+    fontSize: 10,
+    fontWeight: 700,
+  },
+  pendingLabel: {
+    flexShrink: 0,
+    color: "#d6b16f",
+    fontSize: 10,
+  },
 };
+                    
