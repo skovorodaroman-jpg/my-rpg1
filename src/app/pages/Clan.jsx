@@ -566,8 +566,8 @@ const styles = {
     gap: 5, padding: 12, border: "1px solid #443222",
     borderRadius: 9, background: "#1b140f", color: "#d4b382",
   },
-  stat strong: { fontSize: 15, color: "#f0d3a0" },
-  stat small: { fontSize: 10, color: "#a58f72" },
+  "stat strong": { fontSize: 15, color: "#f0d3a0" },
+"stat small": { fontSize: 10, color: "#a58f72" },
   panel: {
     marginTop: 12, padding: 14, border: "1px solid #443222",
     borderRadius: 10, background: "#1b140f",
@@ -633,9 +633,9 @@ const styles = {
     minHeight: 75, padding: 10, border: "1px solid #493622",
     borderRadius: 8, background: "#17110d",
   },
-  module span: { fontSize: 21 },
-  module strong: { color: "#e0bd88", fontSize: 11 },
-  module small: { color: "#88745b", fontSize: 9 },
+  "module span": { fontSize: 21 },
+"module strong": { color: "#e0bd88", fontSize: 11 },
+"module small": { color: "#88745b", fontSize: 9 },
   actions: { marginTop: 14 },
   leaveButton: {
     width: "100%", display: "flex", justifyContent: "center",
