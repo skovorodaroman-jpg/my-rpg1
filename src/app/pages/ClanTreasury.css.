@@ -1,0 +1,336 @@
+
+.treasury-page {
+  min-height: 100vh;
+  padding: 14px 12px 90px;
+  box-sizing: border-box;
+  color: #d4b382;
+  background: linear-gradient(180deg, #120e0b, #1d1714);
+  font-family: Arial, sans-serif;
+}
+
+.treasury-header {
+  text-align: center;
+  padding: 8px 0 22px;
+}
+
+.treasury-back {
+  display: block;
+  padding: 7px 12px;
+  color: #d4b382;
+  background: #241c17;
+  border: 1px solid #493626;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.treasury-heading-icon {
+  width: 65px;
+  height: 65px;
+  margin: 18px auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e8b85c;
+  background: #302317;
+  border: 1px solid #80613a;
+  border-radius: 50%;
+}
+
+.treasury-header h1 {
+  margin: 8px 0;
+  color: #e8b85c;
+  font-size: 25px;
+}
+
+.treasury-header p {
+  margin: 0;
+  color: #a88e6a;
+  font-size: 13px;
+}
+
+.treasury-balances {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.treasury-balance-card {
+  min-width: 0;
+  padding: 15px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  background: linear-gradient(145deg, #302317, #1d1714);
+  border: 1px solid #493626;
+  border-radius: 9px;
+}
+
+.treasury-balance-card.gold strong {
+  color: #e8b85c;
+}
+
+.treasury-balance-card.silver strong {
+  color: #d4dce4;
+}
+
+.treasury-balance-card strong {
+  font-size: clamp(18px, 5vw, 25px);
+  overflow-wrap: anywhere;
+}
+
+.treasury-balance-card span {
+  font-size: 12px;
+  color: #b99a70;
+}
+
+.treasury-balance-icon {
+  font-size: 27px;
+}
+
+.treasury-loyalty,
+.treasury-donation {
+  margin-top: 14px;
+  padding: 15px;
+  background: #1d1714;
+  border: 1px solid #493626;
+  border-radius: 9px;
+}
+
+.treasury-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #e8b85c;
+  font-size: 15px;
+}
+
+.treasury-loyalty-value {
+  margin-top: 13px;
+  font-size: 25px;
+  font-weight: 800;
+  color: #e8b85c;
+}
+
+.treasury-progress {
+  height: 9px;
+  margin: 9px 0;
+  overflow: hidden;
+  background: #100d0b;
+  border: 1px solid #493626;
+  border-radius: 10px;
+}
+
+.treasury-progress span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #80613a, #e8b85c);
+  transition: width 0.3s ease;
+}
+
+.treasury-loyalty small {
+  color: #a88e6a;
+  font-size: 11px;
+}
+
+.treasury-resource-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 15px 0;
+}
+
+.treasury-resource-switch button {
+  padding: 11px;
+  border: 1px solid #493626;
+  border-radius: 6px;
+  background: #120e0b;
+  color: #b99a70;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.treasury-resource-switch button.active {
+  color: #ffe2a6;
+  border-color: #b98b43;
+  background: #3b2a18;
+}
+
+.treasury-limit-card {
+  padding: 11px;
+  background: #120e0b;
+  border: 1px solid #493626;
+  border-radius: 7px;
+}
+
+.treasury-limit-card > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid #30251d;
+  font-size: 12px;
+}
+
+.treasury-limit-card > div:last-child {
+  border-bottom: 0;
+}
+
+.treasury-limit-card span {
+  color: #a88e6a;
+}
+
+.treasury-remaining strong {
+  color: #83c58c;
+}
+
+.treasury-input-label {
+  display: block;
+  margin: 15px 0 7px;
+  font-size: 13px;
+}
+
+.treasury-input {
+  width: 100%;
+  padding: 12px;
+  box-sizing: border-box;
+  color: #f5dfba;
+  background: #100d0b;
+  border: 1px solid #80613a;
+  border-radius: 6px;
+  outline: none;
+  font-size: 16px;
+}
+
+.treasury-input:focus {
+  border-color: #e8b85c;
+}
+
+.treasury-quick-amounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.treasury-quick-amounts button {
+  flex: 1;
+  min-width: 65px;
+  padding: 8px 5px;
+  color: #d4b382;
+  background: #302317;
+  border: 1px solid #59452e;
+  border-radius: 5px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.treasury-quick-amounts button:disabled {
+  opacity: 0.4;
+}
+
+.treasury-donate-button {
+  width: 100%;
+  margin-top: 15px;
+  padding: 13px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  color: #fff0d0;
+  background: linear-gradient(180deg, #956b34, #62421f);
+  border: 1px solid #c2934d;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.treasury-donate-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.treasury-limit-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  color: #d99a76;
+  font-size: 12px;
+}
+
+.treasury-info {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 13px;
+  color: #e8b85c;
+  background: #302317;
+  border: 1px solid #59452e;
+  border-radius: 8px;
+}
+
+.treasury-info p {
+  margin: 6px 0 0;
+  color: #b99a70;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.treasury-refresh {
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  color: #b99a70;
+  background: transparent;
+  border: 1px solid #493626;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.treasury-notice {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  padding: 11px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.treasury-notice.success {
+  color: #a7e0b3;
+  background: #183122;
+  border: 1px solid #477d56;
+}
+
+.treasury-notice.error {
+  color: #ffc0ae;
+  background: #3b211c;
+  border: 1px solid #8c4c3e;
+}
+
+.treasury-loading {
+  min-height: 220px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  color: #d4b382;
+}
+
+.treasury-spin {
+  animation: treasury-rotate 1s linear infinite;
+}
+
+@keyframes treasury-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
