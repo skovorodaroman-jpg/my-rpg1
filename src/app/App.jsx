@@ -256,6 +256,35 @@ export default function App() {
     });
   }, []);
 
+  // Автоматичне оновлення статусу гравця
+useEffect(() => {
+  if (!session?.user?.id) return;
+
+  const userId = session.user.id;
+  let active = true;
+
+  const updateLastSeen = async () => {
+    if (!active) return;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq("id", userId);
+
+    if (error) {
+      console.error("Не вдалося оновити статус онлайн:", error);
+    }
+  };
+
+  updateLastSeen();
+
+  const interval = setInterval(updateLastSeen, 60 * 1000);
+
+  return () => {
+    active = false;
+    clearInterval(interval);
+  };
+}, [session?.user?.id]);
   useEffect(() => {
     let mounted = true;
 
