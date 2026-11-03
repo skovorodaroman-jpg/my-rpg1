@@ -22,16 +22,39 @@ const TABS = [
 ];
 
 const EVENT_INFO = {
-  member_joined: { label: "Вступ до клану", icon: "➕", color: "green" },
-  member_left: { label: "Вихід із клану", icon: "🚪", color: "red" },
-  deputy_assigned: { label: "Новий заступник", icon: "🛡️", color: "blue" },
-  leader_changed: { label: "Зміна лідера", icon: "👑", color: "gold" },
-  gold_contribution: { label: "Внесок золота", icon: "🪙", color: "gold" },
-  statue_upgraded: { label: "Покращення статуї", icon: "🗿", color: "purple" },
-  clan_level_up: { label: "Новий рівень клану", icon: "⬆️", color: "purple" },
-  clan_experience_gained: {
-    label: "Отримання кланового досвіду",
-    icon: "✨",
+  member_joined: {
+    label: "Вступ до клану",
+    icon: "➕",
+    color: "green",
+  },
+  member_left: {
+    label: "Вихід із клану",
+    icon: "🚪",
+    color: "red",
+  },
+  deputy_assigned: {
+    label: "Новий заступник",
+    icon: "🛡️",
+    color: "blue",
+  },
+  leader_changed: {
+    label: "Зміна лідера",
+    icon: "👑",
+    color: "gold",
+  },
+  gold_contribution: {
+    label: "Внесок золота",
+    icon: "🪙",
+    color: "gold",
+  },
+  statue_upgraded: {
+    label: "Покращення статуї",
+    icon: "🗿",
+    color: "purple",
+  },
+  clan_level_up: {
+    label: "Новий рівень клану",
+    icon: "⬆️",
     color: "purple",
   },
 };
@@ -50,6 +73,7 @@ function isOnline(lastSeen) {
 
   return (
     Number.isFinite(timestamp) &&
+    Date.now() - timestamp >= 0 &&
     Date.now() - timestamp <= 5 * 60 * 1000
   );
 }
@@ -214,6 +238,7 @@ export default function ClanJournal() {
       }));
 
       const clanList = clansResult.data || [];
+
       const position = clanList.findIndex(
         (item) => item.id === clanId
       );
@@ -227,6 +252,7 @@ export default function ClanJournal() {
       });
     } catch (err) {
       console.error("Помилка завантаження журналу клану:", err);
+
       setError(
         err.message || "Не вдалося завантажити журнал клану."
       );
@@ -261,6 +287,7 @@ export default function ClanJournal() {
         <div className="clan-journal-error">
           <strong>Не вдалося відкрити журнал</strong>
           <p>{error}</p>
+
           <button onClick={() => loadData()}>
             <RefreshCw size={16} />
             Спробувати ще раз
@@ -287,6 +314,12 @@ export default function ClanJournal() {
   const onlineCount = members.filter((member) =>
     isOnline(member.profile?.last_seen_at)
   ).length;
+
+  const totalMemberExperience = members.reduce(
+    (sum, member) =>
+      sum + Number(member.clan_experience || 0),
+    0
+  );
 
   return (
     <main className="clan-journal-page">
@@ -453,14 +486,6 @@ export default function ClanJournal() {
                         </span>
                       )}
 
-                      {event.event_type ===
-                        "clan_experience_gained" && (
-                        <span className="cj-event-amount">
-                          <Sparkles size={14} />
-                          +{number(event.amount)} кланового досвіду
-                        </span>
-                      )}
-
                       <small>
                         {event.actor
                           ? getPlayerName(event.actor)
@@ -493,13 +518,7 @@ export default function ClanJournal() {
           <div className="cj-total-member-exp">
             <span>Сумарний внесок учасників</span>
             <strong>
-              {number(
-                members.reduce(
-                  (sum, member) =>
-                    sum + Number(member.clan_experience || 0),
-                  0
-                )
-              )}
+              {number(totalMemberExperience)}
             </strong>
           </div>
 
@@ -533,6 +552,7 @@ export default function ClanJournal() {
                     <strong>
                       {getPlayerName(member.profile)}
                     </strong>
+
                     <small>
                       {member.title || member.role || "Учасник"}
                     </small>
@@ -601,6 +621,7 @@ export default function ClanJournal() {
                     <strong>
                       {getPlayerName(member.profile)}
                     </strong>
+
                     <small>
                       {member.title || member.role || "Учасник"}
                     </small>
@@ -628,4 +649,4 @@ export default function ClanJournal() {
       )}
     </main>
   );
-  }
+            }
