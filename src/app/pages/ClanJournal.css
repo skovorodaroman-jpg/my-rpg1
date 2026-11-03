@@ -45,6 +45,7 @@
   border-radius: 6px;
   background: #302317;
   color: #e8b85c;
+  cursor: pointer;
 }
 
 .clan-spin {
@@ -56,6 +57,8 @@
     transform: rotate(360deg);
   }
 }
+
+/* Header */
 
 .cj-header {
   display: flex;
@@ -117,11 +120,15 @@
   border-radius: 7px;
   background: #1b140f;
   color: #e8b85c;
+  cursor: pointer;
 }
 
 .cj-refresh:disabled {
   opacity: 0.5;
+  cursor: wait;
 }
+
+/* Ranking */
 
 .cj-ranking-card {
   padding: 15px;
@@ -232,6 +239,8 @@
   line-height: 1.4;
 }
 
+/* Tabs */
+
 .cj-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -252,6 +261,8 @@
   background: #1d1714;
   color: #a88e6a;
   font-size: 11px;
+  cursor: pointer;
+  transition: 0.2s ease;
 }
 
 .cj-tabs button.active {
@@ -260,6 +271,8 @@
   color: #f0c77f;
   box-shadow: inset 0 0 12px #b8894918;
 }
+
+/* Sections */
 
 .cj-section {
   padding: 13px;
@@ -323,6 +336,8 @@
   font-size: 11px;
   line-height: 1.5;
 }
+
+/* Events */
 
 .cj-event-list,
 .cj-member-list {
@@ -410,6 +425,27 @@
   font-weight: 700;
 }
 
+/* Members and experience */
+
+.cj-total-member-exp {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid #80613a;
+  border-radius: 7px;
+  background: #2b2016;
+  color: #b99b70;
+  font-size: 12px;
+}
+
+.cj-total-member-exp strong {
+  color: #f0c77f;
+  font-size: 17px;
+}
+
 .cj-member-row {
   min-height: 62px;
   display: flex;
@@ -435,7 +471,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: visible;
+  overflow: hidden;
   border: 1px solid #80613a;
   border-radius: 50%;
   background: #17110d;
@@ -502,6 +538,8 @@
   font-size: 9px;
 }
 
+/* Online status */
+
 .cj-online-summary {
   display: flex;
   align-items: center;
@@ -549,6 +587,8 @@
   font-size: 10px;
   line-height: 1.5;
 }
+
+/* Desktop */
 
 @media (min-width: 600px) {
   .clan-journal-page {
