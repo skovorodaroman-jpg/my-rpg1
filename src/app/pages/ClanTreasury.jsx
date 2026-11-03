@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Coins,
@@ -13,6 +12,7 @@ import {
   Trophy,
   Medal,
   Crown,
+  RotateCcw,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import "./ClanTreasury.css";
@@ -24,30 +24,58 @@ export default function ClanTreasury({ onBack }) {
   const [treasury, setTreasury] = useState(null);
   const [goldRanking, setGoldRanking] = useState([]);
   const [silverRanking, setSilverRanking] = useState([]);
+  const [memberRole, setMemberRole] = useState("");
   const [loading, setLoading] = useState(true);
   const [rankingLoading, setRankingLoading] = useState(true);
   const [donating, setDonating] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [resource, setResource] = useState("gold");
   const [amount, setAmount] = useState("");
   const [notice, setNotice] = useState(null);
+
+  const canReset = ["leader", "deputy"].includes(memberRole);
 
   const loadTreasury = useCallback(async () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.rpc(
-        "get_clan_treasury_state"
-      );
+      const [
+        treasuryResult,
+        authResult,
+      ] = await Promise.all([
+        supabase.rpc("get_clan_treasury_state"),
+        supabase.auth.getUser(),
+      ]);
 
-      if (error) throw error;
+      if (treasuryResult.error) throw treasuryResult.error;
+      if (authResult.error) throw authResult.error;
 
-      const result = Array.isArray(data) ? data[0] : data;
+      const result = Array.isArray(treasuryResult.data)
+        ? treasuryResult.data[0]
+        : treasuryResult.data;
 
       if (!result) {
         throw new Error("Не вдалося отримати дані казни.");
       }
 
       setTreasury(result);
+
+      const userId = authResult.data?.user?.id;
+
+      if (!userId) {
+        throw new Error("Потрібно увійти в гру.");
+      }
+
+      const { data: membership, error: membershipError } =
+        await supabase
+          .from("clan_members")
+          .select("role")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+      if (membershipError) throw membershipError;
+
+      setMemberRole(membership?.role || "");
     } catch (error) {
       setNotice({
         type: "error",
@@ -63,10 +91,10 @@ export default function ClanTreasury({ onBack }) {
 
     try {
       const [goldResult, silverResult] = await Promise.all([
-        supabase.rpc("get_clan_treasury_ranking", {
+        supabase.rpc("get_clan_member_contribution_ranking", {
           p_resource_type: "gold",
         }),
-        supabase.rpc("get_clan_treasury_ranking", {
+        supabase.rpc("get_clan_member_contribution_ranking", {
           p_resource_type: "silver",
         }),
       ]);
@@ -169,6 +197,49 @@ export default function ClanTreasury({ onBack }) {
     }
   }
 
+  async function handleResetRankings() {
+    if (!canReset || resetting) return;
+
+    const confirmed = window.confirm(
+      "Обнулити рейтинги внесків золота та срібла для всього клану? Баланс казни та валюта гравців не зміняться."
+    );
+
+    if (!confirmed) return;
+
+    setResetting(true);
+    setNotice(null);
+
+    try {
+      const { data, error } = await supabase.rpc(
+        "reset_clan_contribution_rankings"
+      );
+
+      if (error) throw error;
+
+      const result = Array.isArray(data) ? data[0] : data;
+
+      if (!result?.success) {
+        throw new Error(
+          result?.message || "Не вдалося обнулити рейтинги."
+        );
+      }
+
+      await loadRankings();
+
+      setNotice({
+        type: "success",
+        text: "Рейтинги золота та срібла успішно обнулено!",
+      });
+    } catch (error) {
+      setNotice({
+        type: "error",
+        text: error.message || "Помилка обнулення рейтингів.",
+      });
+    } finally {
+      setResetting(false);
+    }
+  }
+
   function RankingList({ title, icon, rows, currency, loading }) {
     return (
       <section className="treasury-ranking">
@@ -184,19 +255,19 @@ export default function ClanTreasury({ onBack }) {
           </div>
         ) : rows.length === 0 ? (
           <div className="treasury-ranking-empty">
-            Поки що немає даних для рейтингу.
+            Поки що немає учасників для рейтингу.
           </div>
         ) : (
           <div className="treasury-ranking-list">
-            {rows.map((clan, index) => {
+            {rows.map((player, index) => {
               const position = Number(
-                clan.rank_position || index + 1
+                player.rank_position || index + 1
               );
 
               return (
                 <article
                   className={`treasury-ranking-row rank-${position}`}
-                  key={clan.clan_id}
+                  key={player.user_id}
                 >
                   <div className="treasury-rank-position">
                     {position === 1 ? (
@@ -210,13 +281,26 @@ export default function ClanTreasury({ onBack }) {
                     )}
                   </div>
 
+                  <div className="treasury-rank-avatar">
+                    {player.avatar_url ? (
+                      <img
+                        src={player.avatar_url}
+                        alt={player.player_name}
+                      />
+                    ) : (
+                      <Shield size={21} />
+                    )}
+                  </div>
+
                   <div className="treasury-rank-info">
-                    <strong>{clan.clan_name}</strong>
-                    <small>Рівень {clan.clan_level}</small>
+                    <strong>{player.player_name}</strong>
+                    <small>Учасник клану</small>
                   </div>
 
                   <div className="treasury-rank-balance">
-                    <strong>{formatNumber(clan.treasury_balance)}</strong>
+                    <strong>
+                      {formatNumber(player.total_contributed)}
+                    </strong>
                     <small>{currency}</small>
                   </div>
                 </article>
@@ -430,8 +514,8 @@ export default function ClanTreasury({ onBack }) {
       <div className="treasury-ranking-title">
         <Trophy size={22} />
         <div>
-          <strong>Рейтинги казни</strong>
-          <small>Порівнюй багатство всіх активних кланів</small>
+          <strong>Рейтинг внесків клану</strong>
+          <small>Хто найбільше допоміг спільній скарбниці</small>
         </div>
       </div>
 
@@ -451,6 +535,27 @@ export default function ClanTreasury({ onBack }) {
         loading={rankingLoading}
       />
 
+      {canReset && (
+        <button
+          type="button"
+          className="treasury-reset-button"
+          onClick={handleResetRankings}
+          disabled={resetting || rankingLoading}
+        >
+          {resetting ? (
+            <>
+              <RefreshCw size={18} className="treasury-spin" />
+              Обнулення...
+            </>
+          ) : (
+            <>
+              <RotateCcw size={18} />
+              Обнулити рейтинги внесків
+            </>
+          )}
+        </button>
+      )}
+
       <section className="treasury-info">
         <Sparkles size={19} />
         <div>
@@ -466,11 +571,11 @@ export default function ClanTreasury({ onBack }) {
         type="button"
         className="treasury-refresh"
         onClick={refreshAll}
-        disabled={loading || rankingLoading || donating}
+        disabled={loading || rankingLoading || donating || resetting}
       >
         <RefreshCw size={16} />
         Оновити казну та рейтинги
       </button>
     </main>
   );
-  }
+          }
