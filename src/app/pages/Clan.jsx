@@ -798,10 +798,7 @@ export default function Clan({ profile, player }) {
     );
   }
 
-  const experience = Number(clan.experience || 0);
-  const clanLevel = Number(clan.level || 1);
-  const statueLevel = Number(clan.statue_level ?? 0);
-  const memberCount = members.length;
+    const clanLevel = Number(clan.level || 1);
 
   return (
     <main style={styles.page}>
