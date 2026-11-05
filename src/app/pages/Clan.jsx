@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import {
@@ -8,7 +9,6 @@ import {
 
 const PAGE_SIZE = 10;
 
-// Сторінки Clan*.jsx у цій самій папці підключаються автоматично.
 const CLAN_MODULES = [
   { id: "statue", icon: "🗿", title: "Статуя клану", file: "ClanStatues.jsx" },
   { id: "dungeon", icon: "⚔️", title: "Підземелля клану", file: "ClanDungeon.jsx" },
@@ -58,6 +58,9 @@ export default function Clan({ profile, player }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [page, setPage] = useState(0);
+
+  const [nextLevelXp, setNextLevelXp] = useState(0);
+  const [levelXpLoading, setLevelXpLoading] = useState(false);
 
   const [clanName, setClanName] = useState("");
   const [description, setDescription] = useState("");
@@ -315,6 +318,47 @@ export default function Clan({ profile, player }) {
     loadManagementData();
   }, [loadManagementData]);
 
+  // Завантажуємо вимогу XP для переходу на наступний рівень.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadNextLevelRequirement() {
+      const level = Number(clan?.level || 1);
+
+      if (!clan || level >= 100) {
+        setNextLevelXp(0);
+        return;
+      }
+
+      setLevelXpLoading(true);
+
+      try {
+        const { data, error: xpError } = await supabase
+          .from("clan_level_requirements")
+          .select("required_xp")
+          .eq("level", level)
+          .maybeSingle();
+
+        if (xpError) throw xpError;
+
+        if (!cancelled) {
+          setNextLevelXp(Number(data?.required_xp || 0));
+        }
+      } catch (err) {
+        console.error("Clan level XP load error:", err);
+        if (!cancelled) setNextLevelXp(0);
+      } finally {
+        if (!cancelled) setLevelXpLoading(false);
+      }
+    }
+
+    loadNextLevelRequirement();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clan?.id, clan?.level]);
+
   const totalPages = Math.max(1, Math.ceil(members.length / PAGE_SIZE));
 
   const visibleMembers = useMemo(
@@ -323,6 +367,20 @@ export default function Clan({ profile, player }) {
   );
 
   const totalPower = members.reduce((sum, member) => sum + member.power, 0);
+
+  const experience = Number(clan?.experience || 0);
+  const currentLevel = Number(clan?.level || 1);
+  const statueLevel = Number(clan?.statue_level ?? 0);
+  const memberCount = members.length;
+
+  const progressPercent =
+    currentLevel >= 100
+      ? 100
+      : nextLevelXp > 0
+        ? Math.min(100, (experience / nextLevelXp) * 100)
+        : 0;
+
+  const remainingXp = Math.max(0, nextLevelXp - experience);
 
   async function runAction(action, successMessage) {
     if (busy) return;
@@ -517,12 +575,13 @@ export default function Clan({ profile, player }) {
       </div>
     );
   }
+
   if (!clan) {
     return (
       <main style={styles.page}>
         <header style={styles.hero}>
           <div style={styles.emblem}><Shield size={42} /></div>
-          <div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={styles.eyebrow}>ХРОНІКИ ЗГАСЛОГО СВІТАНКУ</div>
             <h1 style={styles.heading}>Клани</h1>
             <p style={styles.muted}>Твоя сила — у єдності.</p>
@@ -636,7 +695,7 @@ export default function Clan({ profile, player }) {
             <div style={styles.list}>
               {filteredClans.map((item) => (
                 <article key={item.id} style={styles.requestCard}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
                     <strong style={styles.itemTitle}>{item.name}</strong>
                     <p style={styles.muted}>
                       Рівень {item.level} · Максимум {item.max_members || 50}
@@ -717,10 +776,16 @@ export default function Clan({ profile, player }) {
           />
         ) : (
           <section style={styles.panel}>
-            <button type="button" style={styles.backButton} onClick={closeClanModule}>
+            <button
+              type="button"
+              style={styles.backButton}
+              onClick={closeClanModule}
+            >
               <ChevronLeft size={17} /> Назад до клану
             </button>
-            <div style={styles.modulePlaceholderIcon}>{activeModule.icon}</div>
+            <div style={styles.modulePlaceholderIcon}>
+              {activeModule.icon}
+            </div>
             <h2 style={styles.subheading}>{activeModule.title}</h2>
             <p style={styles.muted}>
               Сторінку ще не створено. Коли додаси файл{" "}
@@ -734,6 +799,7 @@ export default function Clan({ profile, player }) {
   }
 
   const experience = Number(clan.experience || 0);
+  const clanLevel = Number(clan.level || 1);
   const statueLevel = Number(clan.statue_level ?? 0);
   const memberCount = members.length;
 
@@ -742,7 +808,11 @@ export default function Clan({ profile, player }) {
       <header style={styles.hero}>
         <div style={styles.emblem}>
           {clan.image_url ? (
-            <img src={clan.image_url} alt="Герб клану" style={styles.emblemImage} />
+            <img
+              src={clan.image_url}
+              alt="Герб клану"
+              style={styles.emblemImage}
+            />
           ) : (
             <Shield size={42} />
           )}
@@ -752,7 +822,7 @@ export default function Clan({ profile, player }) {
           <div style={styles.eyebrow}>ТВОЯ ГІЛЬДІЯ</div>
           <h1 style={styles.heading}>{clan.name}</h1>
           <p style={styles.muted}>
-            Рівень {clan.level} · {memberCount}/{clan.max_members || 50} учасників
+            Рівень {clanLevel} · {memberCount}/{clan.max_members || 50} учасників
           </p>
         </div>
 
@@ -782,7 +852,7 @@ export default function Clan({ profile, player }) {
         <div style={styles.stat}>
           <Crown size={20} />
           <strong>{number(experience)}</strong>
-          <small>Досвід клану</small>
+          <small>Досвід до наступного рівня</small>
         </div>
         <div style={styles.stat}>
           <Shield size={20} />
@@ -799,16 +869,21 @@ export default function Clan({ profile, player }) {
       <section style={styles.panel}>
         <div style={styles.panelTitle}>
           <h2 style={styles.subheading}>Розвиток клану</h2>
-          <span style={styles.level}>РІВЕНЬ {clan.level}</span>
+          <span style={styles.level}>РІВЕНЬ {clanLevel}</span>
         </div>
-        <p style={styles.muted}>
-          Загальний досвід: {number(experience)} XP
-        </p>
+
+        <div style={styles.xpNumbers}>
+          <strong>{number(experience)} XP</strong>
+          <span>до наступного рівня</span>
+        </div>
+
         <div style={styles.progressTrack}>
           <div style={styles.progressFill} />
         </div>
+
         <p style={styles.hint}>
-          Вимоги до наступного рівня будуть підключені після визначення таблиці досвіду кланів.
+          Для відображення точного прогресу потрібно завантажити вимогу XP
+          для наступного рівня з таблиці clan_level_requirements.
         </p>
       </section>
 
@@ -828,7 +903,11 @@ export default function Clan({ profile, player }) {
               <article key={member.id} style={styles.member}>
                 <div style={styles.avatar}>
                   {member.avatar ? (
-                    <img src={member.avatar} alt="" style={styles.avatarImage} />
+                    <img
+                      src={member.avatar}
+                      alt=""
+                      style={styles.avatarImage}
+                    />
                   ) : (
                     "⚔️"
                   )}
@@ -871,7 +950,9 @@ export default function Clan({ profile, player }) {
             <button
               style={styles.pageButton}
               disabled={page >= totalPages - 1}
-              onClick={() => setPage((value) => Math.min(totalPages - 1, value + 1))}
+              onClick={() =>
+                setPage((value) => Math.min(totalPages - 1, value + 1))
+              }
             >
               <ChevronRight size={18} />
             </button>
@@ -894,7 +975,9 @@ export default function Clan({ profile, player }) {
         </div>
         <div style={styles.infoRow}>
           <span>Твоя роль</span>
-          <strong>{myMembership?.title || ROLE_NAMES[myRole] || myRole}</strong>
+          <strong>
+            {myMembership?.title || ROLE_NAMES[myRole] || myRole}
+          </strong>
         </div>
         <div style={styles.infoRow}>
           <span>Твій внесок у досвід</span>
@@ -907,7 +990,9 @@ export default function Clan({ profile, player }) {
           <section style={styles.panel}>
             <h2 style={styles.subheading}>
               <Users size={18} /> Заявки до клану
-              <span style={styles.countBadge}>{clanApplications.length}</span>
+              <span style={styles.countBadge}>
+                {clanApplications.length}
+              </span>
             </h2>
 
             {clanApplications.length === 0 ? (
@@ -921,7 +1006,9 @@ export default function Clan({ profile, player }) {
                     </strong>
                     <p style={styles.muted}>
                       Заявка від{" "}
-                      {new Date(application.created_at).toLocaleDateString("uk-UA")}
+                      {new Date(application.created_at).toLocaleDateString(
+                        "uk-UA"
+                      )}
                     </p>
                   </div>
                   <button
@@ -992,6 +1079,7 @@ export default function Clan({ profile, player }) {
           </section>
         </>
       )}
+
       <section style={styles.panel}>
         <h2 style={styles.subheading}>Розділи клану</h2>
         <div style={styles.modules}>
@@ -1005,9 +1093,7 @@ export default function Clan({ profile, player }) {
             >
               <span style={styles.moduleIcon}>{module.icon}</span>
               <strong>{module.title}</strong>
-              <small>
-                {module.id === "statue" ? "Відкрити розділ" : "Відкрити розділ"}
-              </small>
+              <small>Відкрити розділ</small>
             </button>
           ))}
         </div>
@@ -1169,6 +1255,15 @@ const styles = {
     width: "0%",
     height: "100%",
     background: "#b68137",
+  },
+  xpNumbers: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+    margin: "8px 0",
+    color: "#edc98f",
+    fontSize: 12,
   },
   hint: {
     marginTop: 9,
