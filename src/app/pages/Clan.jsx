@@ -870,7 +870,7 @@ export default function Clan({ profile, player }) {
           </button>
         </form>
       </section>
-    </div>
+    
   ) : (
     <>
       {activeModule ? (
