@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import {
-  Shield, Users, Crown, Swords, RefreshCw,
-  LogOut, Settings, ChevronLeft, ChevronRight, Plus,
-  Search, UserPlus, Check, X, Mail, Clock,
+  Shield, Users, Crown, RefreshCw, LogOut, Settings,
+  ChevronLeft, ChevronRight, Plus, Search, UserPlus,
+  Check, X, Mail, Clock, Trophy, CalendarDays,
+  Swords, Star, History, User, Zap,
 } from "lucide-react";
 
 const PAGE_SIZE = 10;
@@ -46,6 +47,22 @@ function getErrorMessage(error) {
   return error?.message || "Сталася невідома помилка.";
 }
 
+// Поточна дата саме за київським часом.
+function getKyivDate() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Kyiv",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function formatDate(date) {
+  if (!date) return "";
+  const [year, month, day] = date.split("-");
+  return `${day}.${month}.${year}`;
+}
+
 export default function Clan({ profile, player }) {
   const currentPlayer = player || profile || {};
   const userId = currentPlayer.id;
@@ -53,14 +70,20 @@ export default function Clan({ profile, player }) {
   const [clan, setClan] = useState(null);
   const [members, setMembers] = useState([]);
   const [myMembership, setMyMembership] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [page, setPage] = useState(0);
 
+  const [page, setPage] = useState(0);
   const [nextLevelXp, setNextLevelXp] = useState(0);
   const [levelXpLoading, setLevelXpLoading] = useState(false);
+
+  // Щоденна статистика кланового XP.
+  const [dailyRows, setDailyRows] = useState([]);
+  const [dailyLoading, setDailyLoading] = useState(false);
+  const [selectedDailyDate, setSelectedDailyDate] = useState(getKyivDate());
 
   const [clanName, setClanName] = useState("");
   const [description, setDescription] = useState("");
@@ -83,6 +106,7 @@ export default function Clan({ profile, player }) {
   const canManage = ["leader", "deputy", "general", "officer"].includes(myRole);
   const isLeader = myRole === "leader";
 
+  // Завантаження клану та його учасників.
   const loadClan = useCallback(async () => {
     if (!userId) {
       setLoading(false);
@@ -108,6 +132,7 @@ export default function Clan({ profile, player }) {
       if (!membership) {
         setClan(null);
         setMembers([]);
+        setDailyRows([]);
         return;
       }
 
@@ -173,6 +198,7 @@ export default function Clan({ profile, player }) {
               playerProfile.display_name ||
               playerProfile.username ||
               "Гравець",
+            username: playerProfile.username,
             avatar: playerProfile.avatar_url,
             level: Number(playerProfile.level || 1),
             power: Number(playerStats.power || 0),
@@ -199,6 +225,39 @@ export default function Clan({ profile, player }) {
     }
   }, [userId]);
 
+  // Завантаження щоденної історії кланового досвіду.
+  const loadDailyExperience = useCallback(async () => {
+    if (!clan?.id) {
+      setDailyRows([]);
+      return;
+    }
+
+    setDailyLoading(true);
+
+    try {
+      const { data, error: dailyError } = await supabase
+        .from("clan_daily_experience")
+        .select("user_id, activity_date, clan_xp")
+        .eq("clan_id", clan.id)
+        .order("activity_date", { ascending: false })
+        .order("clan_xp", { ascending: false })
+        .limit(2000);
+
+      if (dailyError) throw dailyError;
+
+      setDailyRows(data || []);
+    } catch (err) {
+      console.error("Clan daily XP load error:", err);
+      setError(
+        "Не вдалося завантажити щоденну статистику: " +
+        getErrorMessage(err)
+      );
+    } finally {
+      setDailyLoading(false);
+    }
+  }, [clan?.id]);
+
+  // Додаткові дані: запрошення, заявки, список кланів.
   const loadExtra = useCallback(async () => {
     if (!userId) return;
 
@@ -285,10 +344,10 @@ export default function Clan({ profile, player }) {
     }
   }, [userId]);
 
+  // Заявки на вступ до нашого клану.
   const loadManagementData = useCallback(async () => {
     if (!clan?.id || !canManage) {
       setClanApplications([]);
-      setClanlessPlayers([]);
       return;
     }
 
@@ -315,10 +374,14 @@ export default function Clan({ profile, player }) {
   }, [loadClan, loadExtra]);
 
   useEffect(() => {
+    if (clan?.id) loadDailyExperience();
+  }, [clan?.id, loadDailyExperience]);
+
+  useEffect(() => {
     loadManagementData();
   }, [loadManagementData]);
 
-  // Завантажуємо вимогу XP для переходу на наступний рівень.
+  // Вимога XP для наступного рівня клану.
   useEffect(() => {
     let cancelled = false;
 
@@ -358,6 +421,46 @@ export default function Clan({ profile, player }) {
       cancelled = true;
     };
   }, [clan?.id, clan?.level]);
+
+  // Доступні дати історії.
+  const availableDates = useMemo(() => {
+    const dates = [...new Set(dailyRows.map((row) => row.activity_date))];
+    const today = getKyivDate();
+
+    if (!dates.includes(today)) dates.unshift(today);
+
+    return dates.sort((a, b) => b.localeCompare(a));
+  }, [dailyRows]);
+
+  // Рейтинг кланового XP за вибрану дату.
+  const dailyRanking = useMemo(() => {
+    const dailyMap = new Map();
+
+    dailyRows
+      .filter((row) => row.activity_date === selectedDailyDate)
+      .forEach((row) => {
+        dailyMap.set(
+          row.user_id,
+          (dailyMap.get(row.user_id) || 0) + Number(row.clan_xp || 0)
+        );
+      });
+
+    return members
+      .map((member) => ({
+        ...member,
+        dailyClanXp: dailyMap.get(member.user_id) || 0,
+      }))
+      .sort(
+        (a, b) =>
+          b.dailyClanXp - a.dailyClanXp ||
+          (ROLE_ORDER[a.role] ?? 99) - (ROLE_ORDER[b.role] ?? 99)
+      );
+  }, [dailyRows, selectedDailyDate, members]);
+
+  const dailyTotal = dailyRanking.reduce(
+    (sum, member) => sum + member.dailyClanXp,
+    0
+  );
 
   const totalPages = Math.max(1, Math.ceil(members.length / PAGE_SIZE));
 
@@ -536,11 +639,17 @@ export default function Clan({ profile, player }) {
 
     try {
       const loader = clanPageLoaders[`./${module.file}`];
-      if (!loader) return;
+
+      if (!loader) {
+        throw new Error(`Файл ${module.file} не знайдено.`);
+      }
 
       const loadedModule = await loader();
+
       if (typeof loadedModule.default === "function") {
         setModuleComponent(() => loadedModule.default);
+      } else {
+        throw new Error("Компонент розділу не знайдено.");
       }
     } catch (err) {
       console.error(`Clan module load error (${module.file}):`, err);
@@ -565,17 +674,7 @@ export default function Clan({ profile, player }) {
     return <div style={styles.center}>Завантаження клану...</div>;
   }
 
-  if (error && !clan && !userId) {
-    return (
-      <div style={styles.page}>
-        <div style={styles.noticeError}>{error}</div>
-        <button style={styles.button} onClick={loadClan}>
-          <RefreshCw size={16} /> Повторити
-        </button>
-      </div>
-    );
-  }
-
+  // Екран, якщо гравець ще не вступив до клану.
   if (!clan) {
     return (
       <main style={styles.page}>
@@ -614,935 +713,1309 @@ export default function Clan({ profile, player }) {
                     {invitation.clan?.name || "Клан"}
                   </strong>
                   <p style={styles.muted}>
-                    Рівень {invitation.clan?.level || 1}
-                  </p>
-                </div>
+                    Рівень                   {invitation.clan?.level || 1}
+                </p>
+              </div>
 
-                <button
-                  style={styles.acceptButton}
-                  disabled={busy}
-                  onClick={() => acceptInvitation(invitation.id)}
-                  title="Прийняти"
-                >
-                  <Check size={17} />
-                </button>
-                <button
-                  style={styles.rejectButton}
-                  disabled={busy}
-                  onClick={() => rejectInvitation(invitation.id)}
-                  title="Відхилити"
-                >
-                  <X size={17} />
-                </button>
-              </article>
-            ))}
-          </section>
-        )}
-
-        {myApplications.some((item) => item.status === "pending") && (
-          <section style={styles.panel}>
-            <h2 style={styles.subheading}>
-              <Clock size={18} /> Мої заявки
-            </h2>
-
-            {myApplications
-              .filter((item) => item.status === "pending")
-              .map((application) => (
-                <div key={application.id} style={styles.requestCard}>
-                  <div style={{ flex: 1 }}>
-                    <strong style={styles.itemTitle}>
-                      {application.clan?.name || "Клан"}
-                    </strong>
-                    <p style={styles.muted}>Очікує розгляду</p>
-                  </div>
-                  <span style={styles.pendingLabel}>Очікування</span>
-                </div>
-              ))}
-          </section>
-        )}
-
-        <section style={styles.panel}>
-          <h2 style={styles.subheading}>Знайти клан</h2>
-          <p style={styles.muted}>
-            Обери клан і надішли заявку на вступ.
-          </p>
-
-          <div style={styles.searchRow}>
-            <input
-              value={clanSearch}
-              onChange={(event) => setClanSearch(event.target.value)}
-              placeholder="Назва клану..."
-              style={styles.input}
-            />
-            <button
-              style={styles.iconButton}
-              onClick={loadExtra}
-              disabled={loadingExtra}
-              title="Оновити список"
-            >
-              <Search size={17} />
-            </button>
-          </div>
-
-          {loadingExtra ? (
-            <p style={styles.muted}>Завантаження кланів...</p>
-          ) : filteredClans.length === 0 ? (
-            <div style={styles.empty}>
-              <Users size={28} />
-              <span>Активних кланів не знайдено.</span>
-            </div>
-          ) : (
-            <div style={styles.list}>
-              {filteredClans.map((item) => (
-                <article key={item.id} style={styles.requestCard}>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                    <strong style={styles.itemTitle}>{item.name}</strong>
-                    <p style={styles.muted}>
-                      Рівень {item.level} · Максимум {item.max_members || 50}
-                    </p>
-                  </div>
-                  <button
-                    style={styles.buttonSmall}
-                    disabled={busy}
-                    onClick={() => applyToClan(item.id)}
-                  >
-                    Подати заявку
-                  </button>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section style={styles.panel}>
-          <h2 style={styles.subheading}>Створити власний клан</h2>
-          <p style={styles.muted}>
-            Вартість створення — 2 500 золота. Максимум — 50 учасників.
-          </p>
-
-          <form onSubmit={createClan} style={styles.form}>
-            <input
-              value={clanName}
-              onChange={(event) => setClanName(event.target.value)}
-              placeholder="Назва клану"
-              minLength={3}
-              maxLength={30}
-              required
-              style={styles.input}
-            />
-            <textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Короткий опис клану"
-              maxLength={500}
-              style={styles.textarea}
-            />
-            <button
-              type="submit"
-              disabled={busy}
-              style={styles.button}
-            >
-              <Plus size={17} />
-              {busy ? "Створення..." : "Створити клан"}
-            </button>
-          </form>
-        </section>
-
-        <div style={styles.empty}>
-          <Users size={30} />
-          <strong>Ти ще не вступив до клану</strong>
-          <span>Знайди клан або створи власний.</span>
-        </div>
-      </main>
-    );
-  }
-
-  if (activeModule) {
-    const ModulePage = moduleComponent;
-
-    return (
-      <main style={styles.page}>
-        {moduleLoading ? (
-          <div style={styles.center}>Завантаження розділу...</div>
-        ) : ModulePage ? (
-          <ModulePage
-            clan={clan}
-            membership={myMembership}
-            members={members}
-            profile={currentPlayer}
-            player={currentPlayer}
-            onBack={closeClanModule}
-            onRefresh={loadClan}
-          />
-        ) : (
-          <section style={styles.panel}>
-            <button
-              type="button"
-              style={styles.backButton}
-              onClick={closeClanModule}
-            >
-              <ChevronLeft size={17} /> Назад до клану
-            </button>
-            <div style={styles.modulePlaceholderIcon}>
-              {activeModule.icon}
-            </div>
-            <h2 style={styles.subheading}>{activeModule.title}</h2>
-            <p style={styles.muted}>
-              Сторінку ще не створено. Коли додаси файл{" "}
-              <strong>{activeModule.file}</strong> до цієї папки, цей розділ
-              автоматично відкриватиметься звідси.
-            </p>
-          </section>
-        )}
-      </main>
-    );
-  }
-
-    const clanLevel = Number(clan.level || 1);
-
-  return (
-    <main style={styles.page}>
-      <header style={styles.hero}>
-        <div style={styles.emblem}>
-          {clan.image_url ? (
-            <img
-              src={clan.image_url}
-              alt="Герб клану"
-              style={styles.emblemImage}
-            />
-          ) : (
-            <Shield size={42} />
-          )}
-        </div>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={styles.eyebrow}>ТВОЯ ГІЛЬДІЯ</div>
-          <h1 style={styles.heading}>{clan.name}</h1>
-          <p style={styles.muted}>
-            Рівень {clanLevel} · {memberCount}/{clan.max_members || 50} учасників
-          </p>
-        </div>
-
-        <button
-          style={styles.iconButton}
-          title="Оновити"
-          onClick={() => {
-            loadClan();
-            loadExtra();
-            loadManagementData();
-          }}
-          disabled={busy}
-        >
-          <RefreshCw size={18} />
-        </button>
-      </header>
-
-      {notice && <div style={styles.notice}>{notice}</div>}
-      {error && <div style={styles.noticeError}>{error}</div>}
-
-      <section style={styles.stats}>
-        <div style={styles.stat}>
-          <Swords size={20} />
-          <strong>{number(totalPower)}</strong>
-          <small>Сила учасників</small>
-        </div>
-        <div style={styles.stat}>
-          <Crown size={20} />
-          <strong>{number(experience)}</strong>
-          <small>Досвід до наступного рівня</small>
-        </div>
-        <div style={styles.stat}>
-          <Shield size={20} />
-          <strong>{statueLevel}</strong>
-          <small>Рівень статуї</small>
-        </div>
-        <div style={styles.stat}>
-          <Users size={20} />
-          <strong>{memberCount}</strong>
-          <small>Учасники</small>
-        </div>
-      </section>
-
-      <section style={styles.panel}>
-        <div style={styles.panelTitle}>
-          <h2 style={styles.subheading}>Розвиток клану</h2>
-          <span style={styles.level}>РІВЕНЬ {clanLevel}</span>
-        </div>
-
-        <div style={styles.xpNumbers}>
-          <strong>{number(experience)} XP</strong>
-          <span>до наступного рівня</span>
-        </div>
-
-        <div style={styles.progressTrack}>
-          <div style={styles.progressFill} />
-        </div>
-
-        <p style={styles.hint}>
-          Для відображення точного прогресу потрібно завантажити вимогу XP
-          для наступного рівня з таблиці clan_level_requirements.
-        </p>
-      </section>
-
-      <section style={styles.panel}>
-        <div style={styles.panelTitle}>
-          <h2 style={styles.subheading}>Учасники клану</h2>
-          <span style={styles.muted}>
-            {memberCount} / {clan.max_members || 50}
-          </span>
-        </div>
-
-        {visibleMembers.length === 0 ? (
-          <div style={styles.empty}>У клані поки немає учасників.</div>
-        ) : (
-          <div style={styles.memberList}>
-            {visibleMembers.map((member) => (
-              <article key={member.id} style={styles.member}>
-                <div style={styles.avatar}>
-                  {member.avatar ? (
-                    <img
-                      src={member.avatar}
-                      alt=""
-                      style={styles.avatarImage}
-                    />
-                  ) : (
-                    "⚔️"
-                  )}
-                  <span
-                    style={{
-                      ...styles.onlineDot,
-                      background: member.online ? "#65bd70" : "#75685b",
-                    }}
-                  />
-                </div>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <strong style={styles.memberName}>{member.name}</strong>
-                  <div style={styles.memberMeta}>
-                    Рівень {member.level} · Сила {number(member.power)}
-                  </div>
-                  <div style={styles.memberRole}>
-                    {member.title || ROLE_NAMES[member.role] || member.role}
-                  </div>
-                </div>
-
-                {member.role === "leader" && (
-                  <Crown size={19} color="#e8a23b" />
-                )}
-              </article>
-            ))}
-          </div>
-        )}
-
-        {totalPages > 1 && (
-          <div style={styles.pagination}>
-            <button
-              style={styles.pageButton}
-              disabled={page === 0}
-              onClick={() => setPage((value) => Math.max(0, value - 1))}
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <span>{page + 1} / {totalPages}</span>
-            <button
-              style={styles.pageButton}
-              disabled={page >= totalPages - 1}
-              onClick={() =>
-                setPage((value) => Math.min(totalPages - 1, value + 1))
-              }
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
-        )}
-      </section>
-
-      <section style={styles.panel}>
-        <h2 style={styles.subheading}>Інформація про клан</h2>
-        <p style={styles.description}>
-          {clan.description || "Опис клану ще не додано."}
-        </p>
-        <div style={styles.infoRow}>
-          <span>Дата заснування</span>
-          <strong>
-            {clan.created_at
-              ? new Date(clan.created_at).toLocaleDateString("uk-UA")
-              : "—"}
-          </strong>
-        </div>
-        <div style={styles.infoRow}>
-          <span>Твоя роль</span>
-          <strong>
-            {myMembership?.title || ROLE_NAMES[myRole] || myRole}
-          </strong>
-        </div>
-        <div style={styles.infoRow}>
-          <span>Твій внесок у досвід</span>
-          <strong>{number(myMembership?.clan_experience)} XP</strong>
-        </div>
-      </section>
-
-      {canManage && (
-        <>
-          <section style={styles.panel}>
-            <h2 style={styles.subheading}>
-              <Users size={18} /> Заявки до клану
-              <span style={styles.countBadge}>
-                {clanApplications.length}
-              </span>
-            </h2>
-
-            {clanApplications.length === 0 ? (
-              <p style={styles.muted}>Нових заявок поки немає.</p>
-            ) : (
-              clanApplications.map((application) => (
-                <article key={application.id} style={styles.requestCard}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <strong style={styles.itemTitle}>
-                      Гравець {application.user_id.slice(0, 8)}
-                    </strong>
-                    <p style={styles.muted}>
-                      Заявка від{" "}
-                      {new Date(application.created_at).toLocaleDateString(
-                        "uk-UA"
-                      )}
-                    </p>
-                  </div>
-                  <button
-                    style={styles.acceptButton}
-                    disabled={busy}
-                    onClick={() => acceptApplication(application.id)}
-                    title="Прийняти"
-                  >
-                    <Check size={17} />
-                  </button>
-                  <button
-                    style={styles.rejectButton}
-                    disabled={busy}
-                    onClick={() => rejectApplication(application.id)}
-                    title="Відхилити"
-                  >
-                    <X size={17} />
-                  </button>
-                </article>
-              ))
-            )}
-          </section>
-
-          <section style={styles.panel}>
-            <h2 style={styles.subheading}>
-              <UserPlus size={18} /> Запросити гравців
-            </h2>
-            <p style={styles.muted}>
-              Знайди гравців, які ще не перебувають у клані.
-            </p>
-
-            <div style={styles.searchRow}>
-              <input
-                value={playerSearch}
-                onChange={(event) => setPlayerSearch(event.target.value)}
-                placeholder="Ім'я або нік гравця..."
-                style={styles.input}
-              />
               <button
-                style={styles.iconButton}
-                onClick={searchPlayers}
+                style={styles.acceptButton}
                 disabled={busy}
-                title="Шукати"
+                onClick={() => acceptInvitation(invitation.id)}
+                title="Прийняти запрошення"
               >
-                <Search size={17} />
+                <Check size={17} />
               </button>
-            </div>
 
-            {clanlessPlayers.map((candidate) => (
-              <article key={candidate.user_id} style={styles.requestCard}>
+              <button
+                style={styles.rejectButton}
+                disabled={busy}
+                onClick={() => rejectInvitation(invitation.id)}
+                title="Відхилити запрошення"
+              >
+                <X size={17} />
+              </button>
+            </article>
+          ))}
+        </section>
+      )}
+
+      {myApplications.some((item) => item.status === "pending") && (
+        <section style={styles.panel}>
+          <h3 style={styles.panelTitle}>Мої заявки</h3>
+
+          {myApplications
+            .filter((item) => item.status === "pending")
+            .map((application) => (
+              <article key={application.id} style={styles.requestCard}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <strong style={styles.itemTitle}>
-                    {candidate.display_name || candidate.username || "Гравець"}
+                    {application.clan?.name || "Клан"}
                   </strong>
                   <p style={styles.muted}>
-                    Рівень {candidate.level} · Сила {number(candidate.power)}
+                    Заявку надіслано
                   </p>
                 </div>
+
+                <span style={styles.pendingLabel}>
+                  Очікує
+                </span>
+              </article>
+            ))}
+        </section>
+      )}
+
+      <section style={styles.panel}>
+        <div style={styles.sectionHeader}>
+          <h3 style={styles.panelTitle}>Знайти клан</h3>
+          <button
+            style={styles.iconButton}
+            onClick={loadExtra}
+            disabled={loadingExtra}
+            title="Оновити список"
+          >
+            <RefreshCw
+              size={17}
+              style={{
+                animation: loadingExtra ? "spin 1s linear infinite" : "none",
+              }}
+            />
+          </button>
+        </div>
+
+        <div style={styles.searchRow}>
+          <Search size={18} />
+          <input
+            style={styles.searchInput}
+            value={clanSearch}
+            onChange={(event) => setClanSearch(event.target.value)}
+            placeholder="Пошук клану..."
+          />
+        </div>
+
+        <div style={styles.list}>
+          {filteredClans.length === 0 ? (
+            <div style={styles.empty}>
+              <Users size={28} />
+              <span>Кланів не знайдено</span>
+            </div>
+          ) : (
+            filteredClans.map((candidate) => (
+              <article
+                key={candidate.id}
+                style={styles.requestCard}
+              >
+                <div style={styles.clanMiniEmblem}>
+                  <Shield size={21} />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <strong style={styles.itemTitle}>
+                    {candidate.name}
+                  </strong>
+                  <p style={styles.muted}>
+                    Рівень {candidate.level || 1}
+                    {" · "}
+                    {candidate.member_count || 0} учасників
+                  </p>
+                  {candidate.description && (
+                    <p style={styles.clanDescription}>
+                      {candidate.description}
+                    </p>
+                  )}
+                </div>
+
                 <button
                   style={styles.buttonSmall}
                   disabled={busy}
-                  onClick={() => invitePlayer(candidate.user_id)}
+                  onClick={() => applyToClan(candidate.id)}
                 >
-                  <UserPlus size={15} /> Запросити
+                  <UserPlus size={15} />
+                  Подати заявку
                 </button>
               </article>
-            ))}
-          </section>
-        </>
-      )}
-
-      <section style={styles.panel}>
-        <h2 style={styles.subheading}>Розділи клану</h2>
-        <div style={styles.modules}>
-          {CLAN_MODULES.map((module) => (
-            <button
-              key={module.id}
-              type="button"
-              style={styles.module}
-              onClick={() => openClanModule(module)}
-              disabled={busy}
-            >
-              <span style={styles.moduleIcon}>{module.icon}</span>
-              <strong>{module.title}</strong>
-              <small>Відкрити розділ</small>
-            </button>
-          ))}
+            ))
+          )}
         </div>
       </section>
 
-      {canManage && (
+      <section style={styles.panel}>
+        <h3 style={styles.panelTitle}>Створити власний клан</h3>
+
+        <form onSubmit={createClan} style={styles.form}>
+          <input
+            style={styles.input}
+            value={clanName}
+            onChange={(event) => setClanName(event.target.value)}
+            placeholder="Назва клану"
+            maxLength={30}
+            required
+          />
+
+          <textarea
+            style={styles.textarea}
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="Опис клану (необов'язково)"
+            maxLength={250}
+            rows={3}
+          />
+
+          <button
+            type="submit"
+            disabled={busy || !clanName.trim()}
+            style={styles.button}
+          >
+            <Plus size={17} />
+            {busy ? "Створення..." : "Створити клан"}
+          </button>
+        </form>
+      </section>
+    </div>
+  ) : (
+    <>
+      {activeModule ? (
         <section style={styles.panel}>
-          <h2 style={styles.subheading}>
-            <Settings size={17} /> Керування кланом
-          </h2>
-          <p style={styles.muted}>
-            Твоя роль дозволяє керувати учасниками та налаштуваннями клану.
-          </p>
-          {isLeader && (
-            <div style={styles.hint}>Ти є лідером клану.</div>
+          <button
+            style={styles.backButton}
+            onClick={closeClanModule}
+          >
+            <ChevronLeft size={18} />
+            Назад до клану
+          </button>
+
+          {moduleLoading ? (
+            <div style={styles.center}>
+              <RefreshCw size={24} />
+              <span>Завантаження...</span>
+            </div>
+          ) : moduleComponent ? (
+            (() => {
+              const Module = moduleComponent;
+              return (
+                <Module
+                  profile={profile}
+                  player={currentPlayer}
+                  clan={clan}
+                  members={members}
+                  myMembership={myMembership}
+                  onBack={closeClanModule}
+                  onRefresh={loadClan}
+                />
+              );
+            })()
+          ) : (
+            <div style={styles.empty}>
+              <Shield size={30} />
+              <strong>Розділ тимчасово недоступний</strong>
+              <span>Не вдалося завантажити модуль клану.</span>
+            </div>
           )}
         </section>
+      ) : (
+        <>
+          <section style={styles.hero}>
+            <div style={styles.emblem}>
+              <Shield size={34} />
+            </div>
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={styles.eyebrow}>ТВОЯ СПІЛЬНОТА</p>
+              <h2 style={styles.heading}>{clan.name}</h2>
+              <p style={styles.muted}>
+                {clan.description || "Клан воїнів"}
+              </p>
+            </div>
+
+            <button
+              style={styles.iconButton}
+              onClick={() => {
+                loadClan();
+                loadExtra();
+              }}
+              disabled={loading}
+              title="Оновити"
+            >
+              <RefreshCw size={18} />
+            </button>
+          </section>
+
+          <section style={styles.stats}>
+            <div style={styles.stat}>
+              <Users size={19} />
+              <strong>{memberCount}</strong>
+              <span>Учасників</span>
+            </div>
+
+            <div style={styles.stat}>
+              <Crown size={19} />
+              <strong>{currentLevel}</strong>
+              <span>Рівень клану</span>
+            </div>
+
+            <div style={styles.stat}>
+              <Swords size={19} />
+              <strong>{number(totalPower)}</strong>
+              <span>Сила клану</span>
+            </div>
+          </section>
+
+          <section style={styles.panel}>
+            <div style={styles.sectionHeader}>
+              <h3 style={styles.panelTitle}>Розвиток клану</h3>
+              <span style={styles.level}>
+                Рівень {currentLevel}
+              </span>
+            </div>
+
+            <div style={styles.progressTrack}>
+              <div
+                style={{
+                  ...styles.progressFill,
+                  width: `${progressPercent}%`,
+                }}
+              />
+            </div>
+
+            <div style={styles.xpNumbers}>
+              <span>{number(experience)} XP</span>
+              <span>
+                {nextLevelXp
+                  ? `${number(remainingXp)} XP до наступного рівня`
+                  : "Максимальний рівень"}
+              </span>
+            </div>
+
+            {levelXpLoading && (
+              <p style={styles.hint}>Завантаження вимог рівня...</p>
+            )}
+          </section>
+
+          {/* ЩОДЕННИЙ КЛАНОВИЙ ДОСВІД */}
+          <section style={styles.panel}>
+            <div style={styles.sectionHeader}>
+              <div>
+                <h3 style={styles.panelTitle}>
+                  Клановий внесок за день
+                </h3>
+                <p style={styles.muted}>
+                  Рейтинг учасників за отриманим клановим XP
+                </p>
+              </div>
+              <span style={styles.countBadge}>
+                {number(dailyTotal)} XP
+              </span>
+            </div>
+
+            <div style={styles.dateSelectWrap}>
+              <label style={styles.dateLabel}>
+                Історія за дату
+              </label>
+              <select
+                style={styles.dateSelect}
+                value={selectedDailyDate}
+                onChange={(event) =>
+                  setSelectedDailyDate(event.target.value)
+                }
+              >
+                {dailyDates.map((date) => (
+                  <option key={date} value={date}>
+                    {date === getKyivDate()
+                      ? `Сьогодні · ${date}`
+                      : date}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {dailyRanking.length === 0 ? (
+              <div style={styles.empty}>
+                <Clock size={26} />
+                <span>Поки що немає учасників</span>
+              </div>
+            ) : (
+              <div style={styles.dailyList}>
+                {dailyRanking.map((member, index) => (
+                  <article
+                    key={member.user_id}
+                    style={styles.dailyRow}
+                  >
+                    <div style={styles.dailyPlace}>
+                      {index === 0 ? (
+                        <Crown size={18} />
+                      ) : (
+                        index + 1
+                      )}
+                    </div>
+
+                    <div style={styles.avatar}>
+                      {member.avatar_url ? (
+                        <img
+                          src={member.avatar_url}
+                          alt=""
+                          style={styles.avatarImage}
+                        />
+                      ) : (
+                        <Users size={17} />
+                      )}
+                    </div>
+
+                    <div style={styles.dailyMemberInfo}>
+                      <strong style={styles.memberName}>
+                        {member.display_name || member.username}
+                      </strong>
+                      <span style={styles.memberMeta}>
+                        Рівень {member.level || 1}
+                      </span>
+                    </div>
+
+                    <strong style={styles.dailyXp}>
+                      +{number(member.dailyClanXp)} XP
+                    </strong>
+                  </article>
+                ))}
+              </div>
+            )}
+
+            <p style={styles.hint}>
+              Щоденний внесок оновлюється опівночі за київським часом.
+              Загальний досвід клану не обнуляється.
+            </p>
+          </section>
+
+          {/* МОДУЛІ КЛАНУ */}
+          <section style={styles.panel}>
+            <h3 style={styles.panelTitle}>Кланові споруди</h3>
+
+            <div style={styles.modules}>
+              {CLAN_MODULES.map((module) => (
+                <button
+                  key={module.id}
+                  style={styles.module}
+                  onClick={() => openClanModule(module.id)}
+                >
+                  <span style={styles.moduleIcon}>
+                    {module.id === "statue" && <Shield size={22} />}
+                    {module.id === "dungeon" && <Swords size={22} />}
+                    {module.id === "quests" && <Check size={22} />}
+                    {module.id === "hall" && <Crown size={22} />}
+                    {module.id === "treasury" && <Plus size={22} />}
+                    {module.id === "journal" && <Clock size={22} />}
+                    {module.id === "forum" && <Mail size={22} />}
+                  </span>
+
+                  <strong>{module.name}</strong>
+                  <span>{module.description}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* УЧАСНИКИ КЛАНУ */}
+          <section style={styles.panel}>
+            <div style={styles.sectionHeader}>
+              <h3 style={styles.panelTitle}>Учасники клану</h3>
+              <span style={styles.countBadge}>
+                {members.length}
+              </span>
+            </div>
+
+            <div style={styles.memberList}>
+              {visibleMembers.map((member) => (
+                <article
+                  key={member.user_id}
+                  style={styles.member}
+                >
+                  <div style={styles.avatar}>
+                    {member.avatar_url ? (
+                      <img
+                        src={member.avatar_url}
+                        alt=""
+                        style={styles.avatarImage}
+                      />
+                    ) : (
+                      <Users size={18} />
+                    )}
+                    {member.online && (
+                      <span style={styles.onlineDot} />
+                    )}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <strong style={styles.memberName}>
+                      {member.display_name || member.username}
+                      {member.user_id === userId ? " (Ти)" : ""}
+                    </strong>
+                    <span style={styles.memberMeta}>
+                      Рівень {member.level || 1}
+                      {" · "}
+                      Сила {number(member.power)}
+                    </span>
+                    <span style={styles.memberMeta}>
+                      Клановий внесок: {number(member.clan_experience)} XP
+                    </span>
+                  </div>
+
+                  <span style={styles.memberRole}>
+                    {ROLE_NAMES[member.role] || member.role}
+                  </span>
+                </article>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div style={styles.pagination}>
+                <button
+                  style={styles.pageButton}
+                  disabled={page <= 1}
+                  onClick={() => setPage((value) => value - 1)}
+                >
+                  <ChevronLeft size={17} />
+                </button>
+
+                <span>
+                  {page} / {totalPages}
+                </span>
+
+                <button
+                  style={styles.pageButton}
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((value) => value + 1)}
+                >
+                  <ChevronRight size={17} />
+                </button>
+              </div>
+            )}
+          </section>
+
+          {/* КЕРУВАННЯ КЛАНОМ */}
+          {canManage && (
+            <section style={styles.panel}>
+              <h3 style={styles.panelTitle}>
+                Керування кланом
+              </h3>
+
+              {clanApplications.length > 0 ? (
+                <div style={styles.list}>
+                  {clanApplications.map((application) => (
+                    <article
+                      key={application.id}
+                      style={styles.requestCard}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <strong style={styles.itemTitle}>
+                          {application.player?.display_name ||
+                            application.player?.username ||
+                            "Гравець"}
+                        </strong>
+                        <p style={styles.muted}>
+                          Рівень {application.player?.level || 1}
+                        </p>
+                      </div>
+
+                      <button
+                        style={styles.acceptButton}
+                        disabled={busy}
+                        onClick={() =>
+                          acceptApplication(application.id)
+                        }
+                        title="Прийняти заявку"
+                      >
+                        <Check size={17} />
+                      </button>
+
+                      <button
+                        style={styles.rejectButton}
+                        disabled={busy}
+                        onClick={() =>
+                          rejectApplication(application.id)
+                        }
+                        title="Відхилити заявку"
+                      >
+                        <X size={17} />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p style={styles.muted}>
+                  Нових заявок немає.
+                </p>
+              )}
+
+              <div style={styles.managementDivider} />
+
+              <h4 style={styles.subheading}>
+                Запросити гравця
+              </h4>
+
+              <div style={styles.searchRow}>
+                <Search size={18} />
+                <input
+                  style={styles.searchInput}
+                  value={playerSearch}
+                  onChange={(event) => {
+                    setPlayerSearch(event.target.value);
+                    searchPlayers(event.target.value);
+                  }}
+                  placeholder="Ім'я гравця..."
+                />
+              </div>
+
+              {clanlessPlayers.length > 0 && (
+                <div style={styles.list}>
+                  {clanlessPlayers.map((candidate) => (
+                    <article
+                      key={candidate.user_id}
+                      style={styles.requestCard}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <strong style={styles.itemTitle}>
+                          {candidate.display_name ||
+                            candidate.username}
+                        </strong>
+                        <p style={styles.muted}>
+                          Рівень {candidate.level || 1}
+                        </p>
+                      </div>
+
+                      <button
+                        style={styles.buttonSmall}
+                        disabled={busy}
+                        onClick={() =>
+                          invitePlayer(candidate.user_id)
+                        }
+                      >
+                        <UserPlus size={15} />
+                        Запросити
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          <section style={styles.actions}>
+            <button
+              style={styles.leaveButton}
+              disabled={busy || isLeader}
+              onClick={leaveClan}
+              title={
+                isLeader
+                  ? "Лідер не може залишити клан, поки не передасть лідерство"
+                  : "Залишити клан"
+              }
+            >
+              <LogOut size={17} />
+              {isLeader
+                ? "Передай лідерство, щоб залишити клан"
+                : "Залишити клан"}
+            </button>
+          </section>
+        </>
       )}
-
-      <section style={styles.actions}>
-        <button
-          style={styles.leaveButton}
-          onClick={leaveClan}
-          disabled={busy}
-        >
-          <LogOut size={17} />
-          {busy ? "Обробка..." : "Вийти з клану"}
-        </button>
-      </section>
-    </main>
-  );
+    </>
+  )}
+</main>
+);
 }
-
-const styles = {
+  const styles = {
   page: {
     minHeight: "100vh",
-    padding: "12px 12px 100px",
+    width: "100%",
+    maxWidth: "900px",
+    margin: "0 auto",
+    padding: "18px 14px 100px",
     boxSizing: "border-box",
-    color: "#d4b382",
-    background: "linear-gradient(180deg,#120e0b,#1d1714)",
-    fontFamily: "Arial,sans-serif",
+    color: "#f0d3a0",
+    background: "linear-gradient(180deg, #120e0b 0%, #1d1714 100%)",
+    fontFamily: "inherit",
   },
+
   center: {
-    padding: 35,
-    textAlign: "center",
+    minHeight: "240px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "12px",
     color: "#d4b382",
+    textAlign: "center",
   },
+
   hero: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
-    padding: 15,
-    border: "1px solid #60482b",
-    borderRadius: 12,
-    background: "linear-gradient(135deg,#302115,#17110d)",
+    gap: "14px",
+    padding: "20px 16px",
+    marginBottom: "14px",
+    borderRadius: "18px",
+    border: "1px solid #5b4229",
+    background: "linear-gradient(135deg, #2b1d13, #1b140f)",
+    boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
   },
+
   emblem: {
-    width: 66,
-    height: 66,
+    width: "62px",
+    height: "62px",
     flexShrink: 0,
-    display: "grid",
-    placeItems: "center",
-    overflow: "hidden",
-    border: "1px solid #a77b3c",
-    borderRadius: 9,
-    color: "#e8a23b",
-    background: "#21170f",
+    borderRadius: "16px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#f0bd62",
+    background: "linear-gradient(145deg, #53391e, #24180f)",
+    border: "1px solid #9a6b35",
   },
+
   emblemImage: {
     width: "100%",
     height: "100%",
     objectFit: "cover",
+    borderRadius: "inherit",
   },
+
   eyebrow: {
-    color: "#a58a67",
-    fontSize: 9,
-    letterSpacing: 2,
+    margin: "0 0 5px",
+    color: "#c08a45",
+    fontSize: "10px",
+    fontWeight: 800,
+    letterSpacing: "2px",
   },
+
   heading: {
-    margin: "5px 0",
-    fontSize: 19,
-    color: "#f0d3a0",
+    margin: "0 0 5px",
+    color: "#f3d8a8",
+    fontSize: "23px",
+    lineHeight: 1.2,
+    fontWeight: 800,
+    overflowWrap: "anywhere",
   },
+
   muted: {
-    margin: "5px 0",
-    color: "#a58f72",
-    fontSize: 11,
+    margin: "5px 0 0",
+    color: "#a99070",
+    fontSize: "12px",
     lineHeight: 1.5,
   },
+
   iconButton: {
-    width: 38,
-    height: 38,
+    width: "38px",
+    height: "38px",
     flexShrink: 0,
-    display: "grid",
-    placeItems: "center",
-    border: "1px solid #60482b",
-    borderRadius: 7,
-    background: "#21170f",
-    color: "#e8a23b",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "11px",
+    border: "1px solid #5b4229",
+    background: "#241910",
+    color: "#e8b65e",
+    cursor: "pointer",
   },
+
   stats: {
     display: "grid",
-    gridTemplateColumns: "repeat(2,minmax(0,1fr))",
-    gap: 8,
-    margin: "12px 0",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: "9px",
+    marginBottom: "14px",
   },
+
   stat: {
+    minWidth: 0,
+    minHeight: "92px",
+    padding: "13px 7px",
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 5,
-    padding: 12,
-    border: "1px solid #443222",
-    borderRadius: 9,
-    background: "#1b140f",
-    color: "#d4b382",
+    justifyContent: "center",
+    gap: "5px",
+    borderRadius: "14px",
+    border: "1px solid #493522",
+    background: "#211810",
+    color: "#d9a950",
+    textAlign: "center",
   },
+
   panel: {
-    marginTop: 12,
-    padding: 14,
-    border: "1px solid #443222",
-    borderRadius: 10,
-    background: "#1b140f",
+    padding: "16px",
+    marginBottom: "14px",
+    borderRadius: "16px",
+    border: "1px solid #493522",
+    background: "linear-gradient(145deg, #211810, #19120e)",
+    boxShadow: "0 5px 18px rgba(0,0,0,0.16)",
   },
+
   panelTitle: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
+    margin: 0,
+    color: "#f0d3a0",
+    fontSize: "16px",
+    lineHeight: 1.35,
+    fontWeight: 800,
   },
+
   subheading: {
-    display: "flex",
-    alignItems: "center",
-    gap: 7,
-    margin: "0 0 10px",
-    color: "#edc98f",
-    fontSize: 15,
-  },
-  level: {
-    color: "#e8a23b",
-    fontSize: 10,
+    margin: "14px 0 10px",
+    color: "#e8c58b",
+    fontSize: "14px",
     fontWeight: 700,
   },
+
+  sectionHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    marginBottom: "13px",
+  },
+
+  level: {
+    flexShrink: 0,
+    padding: "6px 10px",
+    borderRadius: "9px",
+    border: "1px solid #76532d",
+    background: "#382515",
+    color: "#efbd61",
+    fontSize: "12px",
+    fontWeight: 800,
+  },
+
   countBadge: {
-    marginLeft: "auto",
-    padding: "3px 8px",
-    borderRadius: 12,
-    background: "#49331d",
-    color: "#f0d3a0",
-    fontSize: 11,
+    flexShrink: 0,
+    padding: "5px 9px",
+    borderRadius: "20px",
+    background: "#3a2817",
+    border: "1px solid #74502a",
+    color: "#efbd61",
+    fontSize: "11px",
+    fontWeight: 800,
   },
+
   progressTrack: {
-    height: 8,
+    width: "100%",
+    height: "11px",
     overflow: "hidden",
-    borderRadius: 8,
-    background: "#33261b",
+    borderRadius: "20px",
+    background: "#100c09",
+    border: "1px solid #493522",
   },
+
   progressFill: {
-    width: "0%",
     height: "100%",
-    background: "#b68137",
+    minWidth: "0",
+    borderRadius: "20px",
+    background: "linear-gradient(90deg, #9d6428, #f0bd62)",
+    boxShadow: "0 0 10px rgba(232,162,59,0.3)",
+    transition: "width 0.35s ease",
   },
+
   xpNumbers: {
     display: "flex",
-    justifyContent: "space-between",
     alignItems: "center",
-    gap: 8,
-    margin: "8px 0",
-    color: "#edc98f",
-    fontSize: 12,
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: "6px",
+    marginTop: "9px",
+    color: "#c5a77d",
+    fontSize: "11px",
   },
+
   hint: {
-    marginTop: 9,
-    color: "#89765e",
-    fontSize: 10,
-    lineHeight: 1.5,
+    margin: "12px 0 0",
+    color: "#907957",
+    fontSize: "11px",
+    lineHeight: 1.6,
   },
+
   memberList: {
     display: "flex",
     flexDirection: "column",
-    gap: 7,
+    gap: "8px",
   },
+
   member: {
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    padding: 9,
-    border: "1px solid #392b1e",
-    borderRadius: 8,
-    background: "#17110d",
+    gap: "11px",
+    minWidth: 0,
+    padding: "11px",
+    borderRadius: "12px",
+    border: "1px solid #3e2d1d",
+    background: "#19120e",
   },
+
   avatar: {
     position: "relative",
-    width: 42,
-    height: 42,
+    width: "42px",
+    height: "42px",
     flexShrink: 0,
-    display: "grid",
-    placeItems: "center",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     overflow: "hidden",
-    border: "1px solid #59432b",
-    borderRadius: 7,
-    background: "#2b2016",
-    fontSize: 20,
+    borderRadius: "50%",
+    border: "1px solid #806039",
+    background: "#352416",
+    color: "#d5a75c",
   },
+
   avatarImage: {
     width: "100%",
     height: "100%",
     objectFit: "cover",
   },
+
   onlineDot: {
     position: "absolute",
-    right: 2,
-    bottom: 2,
-    width: 8,
-    height: 8,
-    border: "1px solid #17110d",
+    right: "1px",
+    bottom: "1px",
+    width: "10px",
+    height: "10px",
     borderRadius: "50%",
+    background: "#62c879",
+    border: "2px solid #19120e",
   },
+
   memberName: {
-    color: "#f0d3a0",
-    fontSize: 12,
+    display: "block",
+    overflow: "hidden",
+    color: "#f0d9b3",
+    fontSize: "13px",
+    fontWeight: 700,
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
+
   memberMeta: {
-    marginTop: 3,
-    color: "#a58f72",
-    fontSize: 10,
+    display: "block",
+    marginTop: "3px",
+    color: "#9f896b",
+    fontSize: "10px",
+    lineHeight: 1.4,
   },
+
   memberRole: {
-    marginTop: 3,
-    color: "#d5a04e",
-    fontSize: 10,
+    flexShrink: 0,
+    maxWidth: "95px",
+    padding: "5px 7px",
+    borderRadius: "8px",
+    border: "1px solid #604525",
+    background: "#302014",
+    color: "#d8ad68",
+    fontSize: "10px",
+    fontWeight: 700,
+    textAlign: "center",
   },
+
   pagination: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 18,
-    marginTop: 13,
-    color: "#d4b382",
-    fontSize: 12,
+    gap: "16px",
+    marginTop: "15px",
+    color: "#c9a979",
+    fontSize: "12px",
   },
+
   pageButton: {
-    width: 32,
-    height: 30,
-    display: "grid",
-    placeItems: "center",
-    border: "1px solid #60482b",
-    borderRadius: 6,
-    background: "#21170f",
-    color: "#e8a23b",
+    width: "34px",
+    height: "34px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "9px",
+    border: "1px solid #604525",
+    background: "#302014",
+    color: "#efbd61",
+    cursor: "pointer",
   },
+
   description: {
-    color: "#b9a184",
-    fontSize: 12,
+    color: "#a99070",
+    fontSize: "12px",
     lineHeight: 1.6,
   },
+
   infoRow: {
     display: "flex",
+    alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
-    padding: "9px 0",
-    borderBottom: "1px solid #38291d",
-    color: "#a58f72",
-    fontSize: 11,
+    gap: "10px",
   },
+
   modules: {
     display: "grid",
-    gridTemplateColumns: "repeat(2,minmax(0,1fr))",
-    gap: 8,
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "10px",
+    marginTop: "13px",
   },
+
   module: {
+    minWidth: 0,
+    minHeight: "112px",
+    padding: "13px 10px",
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-start",
+    gap: "7px",
+    borderRadius: "13px",
+    border: "1px solid #574027",
+    background: "linear-gradient(145deg, #302014, #21170f)",
+    color: "#e8c58b",
     textAlign: "left",
-    gap: 5,
-    minHeight: 75,
-    padding: 10,
-    border: "1px solid #493622",
-    borderRadius: 8,
-    background: "#17110d",
-    color: "#d4b382",
     cursor: "pointer",
   },
+
   moduleIcon: {
-    fontSize: 21,
+    width: "36px",
+    height: "36px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "10px",
+    border: "1px solid #74502b",
+    background: "#46301b",
+    color: "#efbd61",
   },
+
   backButton: {
     display: "flex",
     alignItems: "center",
-    gap: 5,
-    marginBottom: 14,
-    padding: "8px 10px",
-    border: "1px solid #60482b",
-    borderRadius: 7,
-    background: "#21170f",
-    color: "#e8a23b",
+    gap: "7px",
+    padding: "9px 12px",
+    marginBottom: "15px",
+    borderRadius: "9px",
+    border: "1px solid #5b4229",
+    background: "#302014",
+    color: "#e8bd75",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: "pointer",
   },
+
   modulePlaceholderIcon: {
-    margin: "12px 0",
-    fontSize: 42,
-    textAlign: "center",
+    width: "64px",
+    height: "64px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "20px auto",
+    borderRadius: "18px",
+    background: "#352416",
+    color: "#e8b65e",
   },
+
   actions: {
-    marginTop: 14,
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    marginTop: "18px",
   },
+
   leaveButton: {
     width: "100%",
+    minHeight: "43px",
     display: "flex",
-    justifyContent: "center",
     alignItems: "center",
-    gap: 8,
-    padding: 12,
-    border: "1px solid #754033",
-    borderRadius: 8,
-    background: "#321b16",
-    color: "#e2a18b",
+    justifyContent: "center",
+    gap: "9px",
+    padding: "10px 14px",
+    borderRadius: "11px",
+    border: "1px solid #713c32",
+    background: "#301b17",
+    color: "#d98b73",
+    fontSize: "12px",
     fontWeight: 700,
+    cursor: "pointer",
   },
+
   notice: {
-    marginTop: 10,
-    padding: 11,
-    border: "1px solid #557342",
-    borderRadius: 7,
-    background: "#1d2a19",
-    color: "#b9d69d",
-    fontSize: 12,
+    padding: "11px 13px",
+    marginBottom: "13px",
+    borderRadius: "10px",
+    border: "1px solid #49613c",
+    background: "#1c2919",
+    color: "#acd18b",
+    fontSize: "12px",
+    lineHeight: 1.5,
   },
+
   noticeError: {
-    marginTop: 10,
-    padding: 11,
-    border: "1px solid #754033",
-    borderRadius: 7,
-    background: "#321b16",
-    color: "#f0b1a0",
-    fontSize: 12,
+    padding: "11px 13px",
+    marginBottom: "13px",
+    borderRadius: "10px",
+    border: "1px solid #754137",
+    background: "#321b17",
+    color: "#e6a092",
+    fontSize: "12px",
+    lineHeight: 1.5,
   },
+
   empty: {
+    minHeight: "110px",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 9,
-    padding: 25,
-    color: "#a58f72",
+    justifyContent: "center",
+    gap: "9px",
+    padding: "15px",
+    color: "#a88d68",
     textAlign: "center",
-    fontSize: 12,
+    fontSize: "12px",
   },
+
   form: {
     display: "flex",
     flexDirection: "column",
-    gap: 9,
-    marginTop: 12,
+    gap: "10px",
+    marginTop: "13px",
   },
+
   input: {
     width: "100%",
-    minWidth: 0,
+    minHeight: "43px",
     boxSizing: "border-box",
-    padding: 12,
-    border: "1px solid #60482b",
-    borderRadius: 7,
+    padding: "11px 12px",
+    borderRadius: "10px",
+    border: "1px solid #60472e",
+    outline: "none",
     background: "#120e0b",
     color: "#f0d3a0",
+    fontSize: "13px",
   },
+
   textarea: {
     width: "100%",
-    minHeight: 75,
     boxSizing: "border-box",
-    padding: 12,
-    border: "1px solid #60482b",
-    borderRadius: 7,
+    padding: "11px 12px",
+    borderRadius: "10px",
+    border: "1px solid #60472e",
+    outline: "none",
+    resize: "vertical",
     background: "#120e0b",
     color: "#f0d3a0",
-    resize: "vertical",
+    fontFamily: "inherit",
+    fontSize: "13px",
+    lineHeight: 1.5,
   },
+
   button: {
+    width: "100%",
+    minHeight: "44px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    padding: 12,
-    border: "1px solid #a77b3c",
-    borderRadius: 7,
-    background: "#5a3c1e",
-    color: "#ffe0ad",
-    fontWeight: 700,
+    gap: "8px",
+    padding: "11px 14px",
+    borderRadius: "10px",
+    border: "1px solid #bd843b",
+    background: "linear-gradient(135deg, #a86a27, #70451f)",
+    color: "#fff0d2",
+    fontSize: "13px",
+    fontWeight: 800,
+    cursor: "pointer",
   },
+
   searchRow: {
+    minHeight: "42px",
     display: "flex",
     alignItems: "center",
-    gap: 8,
-    marginTop: 10,
+    gap: "9px",
+    padding: "0 11px",
+    margin: "10px 0 13px",
+    borderRadius: "10px",
+    border: "1px solid #574027",
+    background: "#120e0b",
+    color: "#a98a5e",
   },
+
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    height: "40px",
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    color: "#f0d3a0",
+    fontSize: "13px",
+  },
+
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: 7,
-    marginTop: 10,
+    gap: "9px",
+    marginTop: "10px",
   },
+
   requestCard: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
-    marginTop: 8,
-    padding: 10,
-    border: "1px solid #493622",
-    borderRadius: 8,
-    background: "#17110d",
+    gap: "9px",
+    minWidth: 0,
+    padding: "11px",
+    borderRadius: "11px",
+    border: "1px solid #493522",
+    background: "#19120e",
   },
+
   itemTitle: {
+    display: "block",
     color: "#f0d3a0",
-    fontSize: 12,
+    fontSize: "13px",
+    fontWeight: 800,
     overflowWrap: "anywhere",
   },
+
   acceptButton: {
-    width: 34,
-    height: 34,
+    width: "34px",
+    height: "34px",
     flexShrink: 0,
-    display: "grid",
-    placeItems: "center",
-    border: "1px solid #557342",
-    borderRadius: 7,
-    background: "#1d2a19",
-    color: "#a9d18b",
-  },
-  rejectButton: {
-    width: 34,
-    height: 34,
-    flexShrink: 0,
-    display: "grid",
-    placeItems: "center",
-    border: "1px solid #754033",
-    borderRadius: 7,
-    background: "#321b16",
-    color: "#e2a18b",
-  },
-  buttonSmall: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
-    flexShrink: 0,
-    padding: "8px 10px",
-    border: "1px solid #a77b3c",
-    borderRadius: 7,
-    background: "#5a3c1e",
-    color: "#ffe0ad",
-    fontSize: 10,
-    fontWeight: 700,
+    borderRadius: "9px",
+    border: "1px solid #557342",
+    background: "#26351e",
+    color: "#a9d17c",
+    cursor: "pointer",
   },
+
+  rejectButton: {
+    width: "34px",
+    height: "34px",
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "9px",
+    border: "1px solid #754137",
+    background: "#321b17",
+    color: "#e69a88",
+    cursor: "pointer",
+  },
+
+  buttonSmall: {
+    minHeight: "34px",
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    padding: "7px 10px",
+    borderRadius: "8px",
+    border: "1px solid #87602f",
+    background: "#49301a",
+    color: "#f0c77f",
+    fontSize: "10px",
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+
   pendingLabel: {
     flexShrink: 0,
-    color: "#d6b16f",
-    fontSize: 10,
+    padding: "6px 9px",
+    borderRadius: "8px",
+    border: "1px solid #74552e",
+    background: "#382817",
+    color: "#d9ad67",
+    fontSize: "10px",
+    fontWeight: 700,
+  },
+
+  clanMiniEmblem: {
+    width: "40px",
+    height: "40px",
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "10px",
+    border: "1px solid #74502b",
+    background: "#352416",
+    color: "#e8b65e",
+  },
+
+  clanDescription: {
+    margin: "5px 0 0",
+    color: "#8f795c",
+    fontSize: "11px",
+    lineHeight: 1.4,
+    overflowWrap: "anywhere",
+  },
+
+  dateSelectWrap: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "7px",
+    margin: "13px 0",
+  },
+
+  dateLabel: {
+    color: "#b99a70",
+    fontSize: "11px",
+    fontWeight: 700,
+  },
+
+  dateSelect: {
+    width: "100%",
+    minHeight: "42px",
+    padding: "9px 11px",
+    borderRadius: "9px",
+    border: "1px solid #60472e",
+    outline: "none",
+    background: "#120e0b",
+    color: "#f0d3a0",
+    fontSize: "12px",
+    colorScheme: "dark",
+  },
+
+  dailyList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+
+  dailyRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    minWidth: 0,
+    padding: "10px",
+    borderRadius: "11px",
+    border: "1px solid #493522",
+    background: "#19120e",
+  },
+
+  dailyPlace: {
+    width: "25px",
+    height: "25px",
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "8px",
+    background: "#382817",
+    color: "#e8b65e",
+    fontSize: "12px",
+    fontWeight: 900,
+  },
+
+  dailyMemberInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  dailyXp: {
+    flexShrink: 0,
+    color: "#e8bd68",
+    fontSize: "12px",
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+  },
+
+  managementDivider: {
+    height: "1px",
+    margin: "17px 0",
+    background: "#493522",
   },
 };
