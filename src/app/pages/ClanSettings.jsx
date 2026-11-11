@@ -760,8 +760,17 @@ const s = {
     borderRadius: 11,
     background: "#1a140f",
   },
-  announcement p: { margin: "7px 0", color: "#e9d9c0", fontSize: 12, whiteSpace: "pre-wrap" },
-  announcement small: { color: "#89765e", fontSize: 10 },
+  "announcement p": {
+  margin: "7px 0",
+  color: "#e9d9c0",
+  fontSize: 12,
+  whiteSpace: "pre-wrap",
+},
+
+"announcement small": {
+  color: "#89765e",
+  fontSize: 10,
+},
   memberList: { display: "flex", flexDirection: "column", gap: 8 },
   memberRow: {
     display: "flex",
