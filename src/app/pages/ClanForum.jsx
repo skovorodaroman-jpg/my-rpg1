@@ -1221,6 +1221,7 @@ export default function ClanForum({
         .cf-checkbox input {
           accent-color: #b78343;
         }
+        
 
         @media (max-width: 480px) {
           .cf-heading h2 { font-size: 18px; }
@@ -1230,3 +1231,687 @@ export default function ClanForum({
           .cf-topic { padding: 12px; }
         }
         <style>{`
+        <div className="cf-header">
+        <div className="cf-heading">
+          <div className="cf-heading-icon">
+            <MessageSquare size={22} />
+          </div>
+          <div>
+            <h2>Форум клану</h2>
+            <p>Спілкування, новини та голосування</p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="cf-primary-btn"
+          onClick={() => {
+            setShowTopicForm((value) => !value);
+            setSelectedTopic(null);
+          }}
+        >
+          <Plus size={17} />
+          Нова тема
+        </button>
+      </div>
+
+      {error && (
+        <div className="cf-alert cf-error">
+          {error}
+          <button
+            type="button"
+            className="cf-icon-btn"
+            style={{ float: "right" }}
+            onClick={() => setError("")}
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
+      {success && (
+         <div className="cf-alert cf-success">
+          <Check size={15} style={{ verticalAlign: "middle" }} /> {success}
+        </div>
+      )}
+
+      <div className="cf-tabs">
+        <button
+          type="button"
+          className={`cf-tab ${activeTab === "topics" ? "active" : ""}`}
+          onClick={() => setActiveTab("topics")}
+        >
+          <MessageSquare size={14} style={{ verticalAlign: "middle" }} /> Теми
+        </button>
+        <button
+          type="button"
+          className={`cf-tab ${activeTab === "polls" ? "active" : ""}`}
+          onClick={() => setActiveTab("polls")}
+        >
+          <BarChart3 size={14} style={{ verticalAlign: "middle" }} /> Опитування
+        </button>
+      </div>
+
+      {showTopicForm && (
+        <form className="cf-panel cf-form" onSubmit={createTopic}>
+          <strong style={{ color: "#edcf9b" }}>Створення нової теми</strong>
+
+          <input
+            className="cf-input"
+            value={topicTitle}
+            onChange={(e) => setTopicTitle(e.target.value)}
+            placeholder="Назва теми..."
+            maxLength={200}
+            required
+          />
+             <textarea
+            className="cf-textarea"
+            value={topicMessage}
+            onChange={(e) => setTopicMessage(e.target.value)}
+            placeholder="Напиши перше повідомлення..."
+            maxLength={5000}
+            required
+          />
+
+          <select
+            className="cf-select"
+            value={topicVisibility}
+            onChange={(e) => setTopicVisibility(e.target.value)}
+          >
+            <option value="private">🔒 Приватна — лише учасники клану</option>
+            <option value="public">🌍 Загальнодоступна — усі гравці</option>
+          </select>
+
+          <div className="cf-form-actions">
+            <button
+              type="button"
+              className="cf-secondary-btn"
+              onClick={() => setShowTopicForm(false)}
+            >
+              Скасувати
+            </button>
+            <button
+              className="cf-primary-btn"
+              disabled={sending}
+              type="submit"
+            >
+              <Send size={15} />
+              {sending ? "Публікуємо..." : "Опублікувати"}
+            </button>
+          </div>
+        </form>
+      )}
+       {activeTab === "topics" && !selectedTopic && (
+        <>
+          <div className="cf-filters">
+            {[
+              ["all", "Усі теми"],
+              ["private", "🔒 Приватні"],
+              ["public", "🌍 Публічні"],
+            ].map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={`cf-filter ${visibilityFilter === value ? "active" : ""}`}
+                onClick={() => setVisibilityFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {visibleTopics.length === 0 ? (
+            <div className="cf-empty">
+              <MessageSquare size={30} />
+              <div>Тут поки немає тем.</div>
+              <p className="cf-muted">
+                Створи першу тему та розпочни обговорення.
+              </p>
+            </div>
+          ) : (
+            visibleTopics.map((topic) => {
+              const count = posts.filter(
+                (post) => post.topic_id === topic.id
+              ).length;
+
+              const lastPost = [...posts]
+                .filter((post) => post.topic_id === topic.id)
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at) - new Date(a.created_at)
+                )[0];
+              return (
+                <div className="cf-topic" key={topic.id}>
+                  <div className="cf-topic-top">
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        className="cf-topic-title"
+                        onClick={() => {
+                          setSelectedTopic(topic.id);
+                          setShowTopicForm(false);
+                        }}
+                      >
+                        {topic.title}
+                      </div>
+
+                      <div className="cf-topic-meta">
+                        <span>
+                          {getAuthorName(topic.user_id)}
+                        </span>
+                        <span>
+                          <MessageCircle
+                            size={11}
+                            style={{ verticalAlign: "middle" }}
+                          />{" "}
+                          {count}
+                        </span>
+                        <span>
+                          <Clock
+                            size={11}
+                            style={{ verticalAlign: "middle" }}
+                          />{" "}
+                          {formatDate(topic.updated_at)}
+                        </span>
+                      </div>
+
+                      <div className="cf-topic-meta">
+                        <span className="cf-visibility">
+                          {topic.visibility === "public" ? (
+                            <><Globe size={12} /> Загальнодоступна</>
+                          ) : (
+                    <><Lock size={12} /> Приватна</>
+                          )}
+                        </span>
+                        {lastPost && (
+                          <span>
+                            Останнє повідомлення:{" "}
+                            {getAuthorName(lastPost.user_id)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {canEditTopic(topic) && (
+                      <div className="cf-actions">
+                        <button
+                          type="button"
+                          className="cf-icon-btn"
+                          title="Редагувати назву"
+                          onClick={() => {
+                            setEditing({
+                              type: "topic",
+                              id: topic.id,
+                            });
+                            setEditText(topic.title);
+                          }}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="cf-icon-btn"
+                          title="Видалити тему"
+                          onClick={() => deleteItem("topic", topic.id)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                         {editing?.type === "topic" &&
+                    editing.id === topic.id && (
+                      <div className="cf-inline-form">
+                        <input
+                          className="cf-input"
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="cf-icon-btn"
+                          onClick={saveEdit}
+                        >
+                          <Check size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          className="cf-icon-btn"
+                          onClick={() => setEditing(null)}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    )}
+
+                  <button
+                    type="button"
+                    className="cf-text-btn"
+                    style={{ marginTop: 10 }}
+                    onClick={() => setSelectedTopic(topic.id)}
+                  >
+                    Відкрити обговорення <ChevronDown size={14} />
+                  </button>
+                </div>
+              );
+            })
+          )}
+                </>
+      )}
+
+      {activeTab === "topics" && selectedTopic && currentTopic && (
+        <div className="cf-panel">
+          <button
+            type="button"
+            className="cf-back"
+            onClick={() => setSelectedTopic(null)}
+          >
+            <ChevronUp size={15} /> Назад до тем
+          </button>
+
+          <h3 style={{ color: "#f0d5a2", margin: "0 0 6px" }}>
+            {currentTopic.title}
+          </h3>
+
+          <div className="cf-topic-meta">
+            <span>{getAuthorName(currentTopic.user_id)}</span>
+            <span>{formatDate(currentTopic.created_at)}</span>
+            <span className="cf-visibility">
+              {currentTopic.visibility === "public" ? (
+                <><Globe size={12} /> Загальнодоступна</>
+              ) : (
+                <><Lock size={12} /> Приватна</>
+              )}
+            </span>
+          </div>
+
+          {topicPosts.length === 0 && (
+            <p className="cf-muted">Повідомлень поки немає.</p>
+          )}
+                {topicPosts.map((post) => {
+            const postComments = comments.filter(
+              (comment) => comment.post_id === post.id
+            );
+
+            const poll = getPollForPost(post.id);
+            const canCreatePoll =
+              post.user_id === userId || canModerateTopic(currentTopic);
+
+            return (
+              <div className="cf-post" key={post.id}>
+                <div className="cf-post-head">
+                  <div>
+                    <span className="cf-author">
+                      {getAuthorName(post.user_id)}
+                    </span>
+                    <span className="cf-date">
+                      {" "}· {formatDate(post.created_at)}
+                    </span>
+                  </div>
+
+                  {canEditPost(post) && (
+                    <div className="cf-actions">
+                      <button
+                        type="button"
+                        className="cf-icon-btn"
+                        title="Редагувати"
+                        onClick={() => {
+                          setEditing({ type: "post", id: post.id });
+                          setEditText(post.message);
+                        }}
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        className="cf-icon-btn"
+                        title="Видалити"
+                        onClick={() => deleteItem("post", post.id)}
+                      >
+                          <Trash2 size={13} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {editing?.type === "post" &&
+                editing.id === post.id ? (
+                  <div className="cf-form" style={{ marginTop: 8 }}>
+                    <textarea
+                      className="cf-textarea"
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                    />
+                    <div className="cf-form-actions">
+                      <button
+                        type="button"
+                        className="cf-secondary-btn"
+                        onClick={() => setEditing(null)}
+                      >
+                        Скасувати
+                      </button>
+                      <button
+                        type="button"
+                        className="cf-primary-btn"
+                        onClick={saveEdit}
+                      >
+                        <Check size={14} /> Зберегти
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="cf-post-message">{post.message}</div>
+                )}
+
+                     {poll && renderPoll(poll)}
+
+                {!poll && canCreatePoll && (
+                  <div style={{ marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="cf-text-btn"
+                      onClick={() =>
+                        setShowPollForm((prev) => ({
+                          ...prev,
+                          [post.id]: !prev[post.id],
+                        }))
+                      }
+                    >
+                      <BarChart3 size={14} /> Створити опитування
+                    </button>
+
+                    {showPollForm[post.id] && (
+                      <div className="cf-panel" style={{ marginTop: 8 }}>
+                        <div className="cf-form">
+                          <input
+                            className="cf-input"
+                            placeholder="Запитання опитування..."
+                            value={pollQuestion[post.id] || ""}
+                            onChange={(e) =>
+                              setPollQuestion((prev) => ({
+                                ...prev,
+                                [post.id]: e.target.value,
+                              }))
+                            }
+                          />
+
+                          <textarea
+                            className="cf-textarea"
+                            placeholder={"Варіант 1\nВаріант 2\nВаріант 3"}
+                            value={pollOptionsText[post.id] || ""}
+                            onChange={(e) =>
+                              setShowPollForm((prev) => ({
+                          ...prev,
+                          [post.id]: !prev[post.id],
+                        }))
+                      }
+                    >
+                      <BarChart3 size={14} /> Створити опитування
+                    </button>
+
+                    {showPollForm[post.id] && (
+                      <div className="cf-panel" style={{ marginTop: 8 }}>
+                        <div className="cf-form">
+                          <input
+                            className="cf-input"
+                            placeholder="Запитання опитування..."
+                            value={pollQuestion[post.id] || ""}
+                            onChange={(e) =>
+                              setPollQuestion((prev) => ({
+                                ...prev,
+                                [post.id]: e.target.value,
+                              }))
+                            }
+                          />
+
+                          <textarea
+                            className="cf-textarea"
+                            placeholder={"Варіант 1\nВаріант 2\nВаріант 3"}
+                            value={pollOptionsText[post.id] || ""}
+                            onChange={(e) =>
+                              setPollOptionsText((prev) => ({
+                                ...prev,
+                                [post.id]: e.target.value,
+                              }))
+                            }
+                          />
+                            <label className="cf-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(pollMultiple[post.id])}
+                              onChange={(e) =>
+                                setPollMultiple((prev) => ({
+                                  ...prev,
+                                  [post.id]: e.target.checked,
+                                }))
+                              }
+                            />
+                            Дозволити обирати кілька варіантів
+                          </label>
+
+                          <div className="cf-form-actions">
+                            <button
+                              type="button"
+                              className="cf-secondary-btn"
+                              onClick={() =>
+                                setShowPollForm((prev) => ({
+                                  ...prev,
+                                  [post.id]: false,
+                                }))
+                              }
+                            >
+                              Скасувати
+                            </button>
+                            <button
+                              type="button"
+                              className="cf-primary-btn"
+                              disabled={sending}
+                              onClick={() => createPoll(post)}
+                            >
+                                  <Plus size={14} /> Створити
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="cf-comments">
+                  <div className="cf-muted" style={{ marginBottom: 5 }}>
+                    Коментарі · {postComments.length}
+                  </div>
+
+                  {postComments.map((comment) => (
+                    <div className="cf-comment" key={comment.id}>
+                      <div className="cf-post-head">
+                        <div>
+                          <span className="cf-author">
+                            {getAuthorName(comment.user_id)}
+                          </span>
+                          <span className="cf-date">
+                            {" "}· {formatDate(comment.created_at)}
+                          </span>
+                        </div>
+
+                        {canEditComment(comment) && (
+                          <div className="cf-actions">
+                            <button
+                              type="button"
+                              className="cf-icon-btn"
+                              onClick={() => {
+                                setEditing({
+                                  type: "comment",
+                                  id: comment.id,
+                                });
+                                setEditText(comment.message);
+                              }}
+                            >
+                               <Pencil size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              className="cf-icon-btn"
+                              onClick={() =>
+                                deleteItem("comment", comment.id)
+                              }
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {editing?.type === "comment" &&
+                      editing.id === comment.id ? (
+                        <div className="cf-inline-form">
+                          <input
+                            className="cf-input"
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className="cf-icon-btn"
+                            onClick={saveEdit}
+                          >
+                            <Check size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="cf-icon-btn"
+                            onClick={() => setEditing(null)}
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="cf-comment-message">
+                          {comment.message}
+                        </div>
+                      )}
+                         </div>
+                  ))}
+
+                  <div className="cf-inline-form">
+                    <input
+                      className="cf-input"
+                      placeholder="Написати коментар..."
+                      value={commentText[post.id] || ""}
+                      onChange={(e) =>
+                        setCommentText((prev) => ({
+                          ...prev,
+                          [post.id]: e.target.value,
+                        }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          createComment(post.id);
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="cf-icon-btn"
+                      disabled={sending}
+                      onClick={() => createComment(post.id)}
+                    >
+                      <Send size={15} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+                 <div className="cf-panel" style={{ marginTop: 18 }}>
+            <strong style={{ color: "#e9c990" }}>
+              Додати повідомлення
+            </strong>
+            <textarea
+              className="cf-textarea"
+              style={{ marginTop: 10 }}
+              placeholder="Твоя відповідь у темі..."
+              value={replyText[selectedTopic] || ""}
+              onChange={(e) =>
+                setReplyText((prev) => ({
+                  ...prev,
+                  [selectedTopic]: e.target.value,
+                }))
+              }
+            />
+            <div className="cf-form-actions" style={{ marginTop: 8 }}>
+              <button
+                type="button"
+                className="cf-primary-btn"
+                disabled={sending}
+                onClick={() => createPost(selectedTopic)}
+              >
+                <Send size={15} />
+                Надіслати
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+             {activeTab === "polls" && (
+        <>
+          {polls.length === 0 ? (
+            <div className="cf-empty">
+              <BarChart3 size={30} />
+              <div>Опитувань поки немає.</div>
+              <p className="cf-muted">
+                Опитування можна створити в повідомленні теми.
+              </p>
+            </div>
+          ) : (
+            polls.map((poll) => {
+              const parentPost = posts.find(
+                (post) => post.id === poll.post_id
+              );
+              const parentTopic = topics.find(
+                (topic) => topic.id === parentPost?.topic_id
+              );
+
+              return (
+                <div className="cf-panel" key={poll.id}>
+                  {parentTopic && (
+                    <button
+                      type="button"
+                      className="cf-text-btn"
+                      onClick={() => {
+                        setSelectedTopic(parentTopic.id);
+                        setActiveTab("topics");
+                      }}
+                    >
+                      <MessageSquare size={13} />
+                      {parentTopic.title}
+                    </button>
+                  )}
+                  {renderPoll(poll)}
+                </div>
+              );
+            })
+          )}
+        </>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          marginTop: 16,
+        }}
+      >
+        <button
+          type="button"
+          className="cf-secondary-btn"
+          onClick={loadForum}
+        >
+          <RefreshCw size={14} style={{ verticalAlign: "middle" }} />{" "}
+          Оновити форум
+        </button>
+      </div>
+    </div>
+  );
+        }
+          
