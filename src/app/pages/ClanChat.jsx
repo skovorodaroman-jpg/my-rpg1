@@ -9,8 +9,8 @@ import {
   Users,
   Shield,
   Crown,
-  User,
   AlertCircle,
+  Trash2,
 } from "lucide-react";
 
 const ROLE_NAMES = {
@@ -18,8 +18,10 @@ const ROLE_NAMES = {
   deputy: "Заступник",
   general: "Генерал",
   officer: "Офіцер",
+  senior: "Старшина",
   fighter: "Воїн",
   newbie: "Новачок",
+  member: "Новачок",
 };
 
 const ROLE_COLORS = {
@@ -27,8 +29,10 @@ const ROLE_COLORS = {
   deputy: "#d7a8ff",
   general: "#e99b67",
   officer: "#79b9e8",
+  senior: "#d4b46e",
   fighter: "#9acb8a",
   newbie: "#b5a58e",
+  member: "#b5a58e",
 };
 
 function formatDate(value) {
@@ -59,15 +63,23 @@ export default function ClanChat({
 }) {
   const clanId = clan?.id || membership?.clan_id;
 
+  const currentUserId =
+    profile?.id || membership?.user_id || null;
+
+  const canDeleteMessages = [
+    "leader",
+    "deputy",
+  ].includes(membership?.role);
+
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [deletingMessage, setDeletingMessage] = useState("");
   const [error, setError] = useState("");
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
-  const scrollContainerRef = useRef(null);
 
   const scrollToBottom = useCallback((smooth = true) => {
     bottomRef.current?.scrollIntoView({
@@ -76,6 +88,7 @@ export default function ClanChat({
     });
   }, []);
 
+  // ЗАВАНТАЖЕННЯ ПОВІДОМЛЕНЬ
   const loadMessages = useCallback(async (showLoading = false) => {
     if (!clanId) {
       setLoading(false);
@@ -99,18 +112,19 @@ export default function ClanChat({
       if (messageError) throw messageError;
 
       const rows = messageRows || [];
-      const userIds = [
-        ...new Set(rows.map((item) => item.user_id)),
-      ];
 
-      if (!userIds.length) {
+      if (!rows.length) {
         setMessages([]);
         return;
       }
 
+      const userIds = [
+        ...new Set(rows.map((item) => item.user_id)),
+      ];
+
       const [
         { data: memberRows, error: memberError },
-        { data: profiles, error: profileError },
+        { data: profileRows, error: profileError },
       ] = await Promise.all([
         supabase
           .from("clan_members")
@@ -120,7 +134,7 @@ export default function ClanChat({
 
         supabase
           .from("profiles")
-          .select("id, username, display_name, avatar_url")
+          .select("id, username, display_name, avatar_url, level")
           .in("id", userIds),
       ]);
 
@@ -128,11 +142,17 @@ export default function ClanChat({
       if (profileError) throw profileError;
 
       const memberMap = new Map(
-        (memberRows || []).map((item) => [item.user_id, item])
+        (memberRows || []).map((item) => [
+          item.user_id,
+          item,
+        ])
       );
 
       const profileMap = new Map(
-        (profiles || []).map((item) => [item.id, item])
+        (profileRows || []).map((item) => [
+          item.id,
+          item,
+        ])
       );
 
       const normalized = rows.map((item) => {
@@ -146,14 +166,18 @@ export default function ClanChat({
             player.username ||
             "Гравець",
           avatarUrl: player.avatar_url || null,
+          level: player.level || null,
           role: member.role || "newbie",
+          memberTitle: member.title || null,
         };
       });
 
       setMessages(normalized);
     } catch (err) {
       console.error("Clan chat loading error:", err);
-      setError(err?.message || "Не вдалося завантажити повідомлення.");
+      setError(
+        err?.message || "Не вдалося завантажити повідомлення."
+      );
     } finally {
       setLoading(false);
     }
@@ -163,7 +187,7 @@ export default function ClanChat({
     loadMessages(true);
   }, [loadMessages]);
 
-  // Автоматичне оновлення чату через Supabase Realtime
+  // REALTIME: НОВІ ПОВІДОМЛЕННЯ ТА ВИДАЛЕННЯ
   useEffect(() => {
     if (!clanId) return;
 
@@ -181,6 +205,18 @@ export default function ClanChat({
           loadMessages(false);
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "clan_chat_messages",
+          filter: `clan_id=eq.${clanId}`,
+        },
+        () => {
+          loadMessages(false);
+        }
+      )
       .subscribe();
 
     return () => {
@@ -188,13 +224,14 @@ export default function ClanChat({
     };
   }, [clanId, loadMessages]);
 
-  // Прокручування до останнього повідомлення
+  // ПРОКРУЧУВАННЯ ДО ОСТАННЬОГО ПОВІДОМЛЕННЯ
   useEffect(() => {
     if (!loading) {
       requestAnimationFrame(() => scrollToBottom(false));
     }
   }, [messages, loading, scrollToBottom]);
 
+  // НАДСИЛАННЯ ПОВІДОМЛЕННЯ
   const sendMessage = async (event) => {
     event?.preventDefault();
 
@@ -203,7 +240,9 @@ export default function ClanChat({
     if (!text || sending || !clanId) return;
 
     if (text.length > 2000) {
-      setError("Повідомлення не може бути довшим за 2000 символів.");
+      setError(
+        "Повідомлення не може бути довшим за 2000 символів."
+      );
       return;
     }
 
@@ -237,12 +276,64 @@ export default function ClanChat({
       inputRef.current?.focus();
     } catch (err) {
       console.error("Clan chat send error:", err);
-      setError(err?.message || "Не вдалося надіслати повідомлення.");
+      setError(
+        err?.message || "Не вдалося надіслати повідомлення."
+      );
     } finally {
       setSending(false);
     }
   };
 
+  // ВИДАЛЕННЯ ПОВІДОМЛЕННЯ
+  const deleteMessage = async (messageId) => {
+    if (
+      !canDeleteMessages ||
+      !messageId ||
+      deletingMessage
+    ) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Ти справді хочеш видалити це повідомлення з кланового чату?"
+    );
+
+    if (!confirmed) return;
+
+    setDeletingMessage(messageId);
+    setError("");
+
+    try {
+      const { data, error: deleteError } =
+        await supabase.rpc(
+          "delete_clan_chat_message",
+          {
+            p_message_id: messageId,
+          }
+        );
+
+      if (deleteError) throw deleteError;
+
+      if (data?.success === false) {
+        throw new Error(
+          data?.message || "Не вдалося видалити повідомлення."
+        );
+      }
+
+      setMessages((current) =>
+        current.filter((item) => item.id !== messageId)
+      );
+    } catch (err) {
+      console.error("Clan chat delete error:", err);
+      setError(
+        err?.message || "Не вдалося видалити повідомлення."
+      );
+    } finally {
+      setDeletingMessage("");
+    }
+  };
+
+  // ENTER — НАДСИЛАННЯ
   const handleKeyDown = (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -256,8 +347,13 @@ export default function ClanChat({
         <div style={styles.errorBox}>
           Не вдалося визначити клан.
         </div>
+
         {onBack && (
-          <button style={styles.backButton} onClick={onBack}>
+          <button
+            type="button"
+            style={styles.backButton}
+            onClick={onBack}
+          >
             <ArrowLeft size={17} />
             Назад
           </button>
@@ -284,6 +380,7 @@ export default function ClanChat({
 
         <div style={styles.headerInfo}>
           <h2 style={styles.title}>Чат клану</h2>
+
           <p style={styles.subtitle}>
             <Users size={12} />
             Спілкування учасників
@@ -307,25 +404,34 @@ export default function ClanChat({
       {/* ІНФОРМАЦІЯ */}
       <div style={styles.infoBanner}>
         <Shield size={16} />
+
         <span>
           Чат доступний лише учасникам цього клану
         </span>
       </div>
 
+      {canDeleteMessages && (
+        <div style={styles.adminBanner}>
+          <Crown size={14} />
+          Тобі доступне видалення повідомлень клану
+        </div>
+      )}
+
       {/* ПОВІДОМЛЕННЯ */}
-      <section
-        ref={scrollContainerRef}
-        style={styles.chatPanel}
-      >
+      <section style={styles.chatPanel}>
         {loading ? (
           <div style={styles.centerState}>
-            <RefreshCw size={25} className="clan-chat-spinning" />
+            <RefreshCw
+              size={25}
+              className="clan-chat-spinning"
+            />
             <span>Завантаження повідомлень...</span>
           </div>
         ) : error && messages.length === 0 ? (
           <div style={styles.centerState}>
             <AlertCircle size={26} color="#df8b70" />
             <span>{error}</span>
+
             <button
               type="button"
               style={styles.retryButton}
@@ -339,7 +445,9 @@ export default function ClanChat({
             <div style={styles.emptyIcon}>
               <MessageCircle size={34} />
             </div>
+
             <h3>Поки що тут тихо</h3>
+
             <p>
               Напишіть перше повідомлення та розпочніть
               спілкування свого клану!
@@ -349,8 +457,7 @@ export default function ClanChat({
           <div style={styles.messageList}>
             {messages.map((message) => {
               const isMine =
-                message.user_id === profile?.id ||
-                message.user_id === membership?.user_id;
+                message.user_id === currentUserId;
 
               const roleColor =
                 ROLE_COLORS[message.role] || "#b5a58e";
@@ -384,6 +491,12 @@ export default function ClanChat({
                         {isMine ? " (Ти)" : ""}
                       </strong>
 
+                      {message.level && (
+                        <span style={styles.levelBadge}>
+                          {message.level} рів.
+                        </span>
+                      )}
+
                       <span
                         style={{
                           ...styles.role,
@@ -394,9 +507,16 @@ export default function ClanChat({
                         {message.role === "leader" && (
                           <Crown size={11} />
                         )}
+
                         {ROLE_NAMES[message.role] ||
                           message.role}
                       </span>
+
+                      {message.memberTitle && (
+                        <span style={styles.memberTitle}>
+                          {message.memberTitle}
+                        </span>
+                      )}
                     </div>
 
                     <div style={styles.messageBubble}>
@@ -405,19 +525,48 @@ export default function ClanChat({
                       </p>
                     </div>
 
-                    <time style={styles.messageTime}>
-                      {formatDate(message.created_at)}
-                    </time>
+                    <div style={styles.messageFooter}>
+                      <time style={styles.messageTime}>
+                        {formatDate(message.created_at)}
+                      </time>
+
+                      {canDeleteMessages && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            deleteMessage(message.id)
+                          }
+                          disabled={
+                            deletingMessage === message.id ||
+                            !!deletingMessage
+                          }
+                          style={styles.deleteMessageButton}
+                          title="Видалити повідомлення"
+                        >
+                          {deletingMessage === message.id ? (
+                            <RefreshCw
+                              size={12}
+                              className="clan-chat-spinning"
+                            />
+                          ) : (
+                            <Trash2 size={12} />
+                          )}
+
+                          Видалити
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </article>
               );
             })}
+
             <div ref={bottomRef} />
           </div>
         )}
       </section>
 
-      {/* ПОМИЛКА НАДСИЛАННЯ */}
+      {/* ПОМИЛКА */}
       {error && messages.length > 0 && (
         <div style={styles.inlineError}>
           <AlertCircle size={14} />
@@ -426,11 +575,16 @@ export default function ClanChat({
       )}
 
       {/* ПОЛЕ ВВЕДЕННЯ */}
-      <form style={styles.inputArea} onSubmit={sendMessage}>
+      <form
+        style={styles.inputArea}
+        onSubmit={sendMessage}
+      >
         <textarea
           ref={inputRef}
           value={messageText}
-          onChange={(event) => setMessageText(event.target.value)}
+          onChange={(event) =>
+            setMessageText(event.target.value)
+          }
           onKeyDown={handleKeyDown}
           placeholder="Напиши повідомлення клану..."
           maxLength={2000}
@@ -444,12 +598,16 @@ export default function ClanChat({
           disabled={!messageText.trim() || sending}
           style={{
             ...styles.sendButton,
-            opacity: !messageText.trim() || sending ? 0.45 : 1,
+            opacity:
+              !messageText.trim() || sending ? 0.45 : 1,
           }}
           title="Надіслати повідомлення"
         >
           {sending ? (
-            <RefreshCw size={19} className="clan-chat-spinning" />
+            <RefreshCw
+              size={19}
+              className="clan-chat-spinning"
+            />
           ) : (
             <Send size={19} />
           )}
@@ -468,15 +626,6 @@ export default function ClanChat({
 
         .clan-chat-spinning {
           animation: clanChatSpin 1s linear infinite;
-        }
-
-        .clan-chat-message-scroll::-webkit-scrollbar {
-          width: 5px;
-        }
-
-        .clan-chat-message-scroll::-webkit-scrollbar-thumb {
-          background: #60472d;
-          border-radius: 10px;
         }
 
         @media (max-width: 480px) {
@@ -575,6 +724,19 @@ const styles = {
     background: "#251c13",
     color: "#c5a875",
     fontSize: 11,
+  },
+
+  adminBanner: {
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    padding: "9px 12px",
+    borderRadius: 10,
+    border: "1px solid #79572f",
+    background: "#332417",
+    color: "#f3c76e",
+    fontSize: 11,
+    fontWeight: 800,
   },
 
   chatPanel: {
@@ -691,6 +853,16 @@ const styles = {
     fontWeight: 900,
   },
 
+  levelBadge: {
+    padding: "3px 6px",
+    border: "1px solid #70532f",
+    borderRadius: 20,
+    background: "#302316",
+    color: "#e8bd78",
+    fontSize: 9,
+    fontWeight: 800,
+  },
+
   role: {
     display: "inline-flex",
     alignItems: "center",
@@ -701,6 +873,14 @@ const styles = {
     background: "#302316",
     fontSize: 10,
     fontWeight: 800,
+  },
+
+  memberTitle: {
+    padding: "3px 7px",
+    border: "1px solid #59432c",
+    borderRadius: 20,
+    color: "#c5a875",
+    fontSize: 9,
   },
 
   messageBubble: {
@@ -720,11 +900,30 @@ const styles = {
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
   },
+  messageFooter: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 10,
+  },
 
   messageTime: {
     color: "#89765e",
     fontSize: 10,
     paddingLeft: 2,
+  },
+
+  deleteMessageButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    padding: "4px 7px",
+    border: "1px solid #784638",
+    borderRadius: 7,
+    background: "#3b211a",
+    color: "#e6a18c",
+    fontSize: 10,
+    cursor: "pointer",
   },
 
   inlineError: {
@@ -778,7 +977,6 @@ const styles = {
     color: "#fff0d2",
     cursor: "pointer",
   },
-
   inputHint: {
     color: "#88745a",
     fontSize: 10,
