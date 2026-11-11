@@ -24,10 +24,13 @@ const getError = (error) =>
   error?.message || "Сталася невідома помилка";
 
 export default function ClanForum({
-  clanId,
+  clan,
+  membership,
+  clanId: passedClanId,
   profile,
   currentUserRole,
 }) {
+  const clanId = passedClanId || clan?.id || membership?.clan_id;
   const userId = profile?.id || profile?.user_id || null;
   const isManager = MANAGER_ROLES.includes(currentUserRole);
 
