@@ -1229,4 +1229,4 @@ export default function ClanForum({
           .cf-panel { padding: 11px; }
           .cf-topic { padding: 12px; }
         }
-        
+        <style>{`
