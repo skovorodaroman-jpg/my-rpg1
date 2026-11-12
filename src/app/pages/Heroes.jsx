@@ -113,6 +113,15 @@ function emptyStats() {
   };
 }
 
+function emptyPetBonuses() {
+  return {
+    attack: 0,
+    hp: 0,
+    defense: 0,
+    crit: 0,
+  };
+}
+
 export default function Heroes({ profile, player, onNavigate }) {
   const hero = player || profile || {};
   const userId = hero.id;
@@ -123,93 +132,93 @@ export default function Heroes({ profile, player, onNavigate }) {
   const [runes, setRunes] = useState([]);
   const [sharpening, setSharpening] = useState([]);
   const [activeElixirs, setActiveElixirs] = useState([]);
-  const [petBonuses, setPetBonuses] = useState({
-  attack: 0,
-  hp: 0,
-  defense: 0,
-  crit: 0,
-});
 
-const [petBonusesLoading, setPetBonusesLoading] = useState(false);
+  // Пасивні бонуси всіх придбаних вихованців
+  const [petBonuses, setPetBonuses] = useState(emptyPetBonuses());
+  const [petBonusesLoading, setPetBonusesLoading] = useState(true);
+
   const [loadingEquipment, setLoadingEquipment] = useState(true);
   const [equipmentError, setEquipmentError] = useState("");
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [clanInfo, setClanInfo] = useState(null);
-const [loadingClan, setLoadingClan] = useState(true);
+  const [loadingClan, setLoadingClan] = useState(true);
 
   const heroName = hero.display_name || hero.username || "Аріан";
+
   // Завантаження інформації про клан героя
-useEffect(() => {
-  let cancelled = false;
+  useEffect(() => {
+    let cancelled = false;
 
-  async function loadClanInfo() {
-    if (!userId) {
-      setClanInfo(null);
-      setLoadingClan(false);
-      return;
-    }
-
-    setLoadingClan(true);
-
-    try {
-      const { data: membership, error: membershipError } =
-        await supabase
-          .from("clan_members")
-          .select("clan_id, role, joined_at")
-          .eq("user_id", userId)
-          .order("joined_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-      if (membershipError) throw membershipError;
-
-      if (!membership) {
-        if (!cancelled) setClanInfo(null);
+    async function loadClanInfo() {
+      if (!userId) {
+        setClanInfo(null);
+        setLoadingClan(false);
         return;
       }
 
-      const { data: clan, error: clanError } = await supabase
-        .from("clans")
-        .select("id, name, level, experience")
-        .eq("id", membership.clan_id)
-        .maybeSingle();
+      setLoadingClan(true);
 
-      if (clanError) throw clanError;
+      try {
+        const { data: membership, error: membershipError } =
+          await supabase
+            .from("clan_members")
+            .select("clan_id, role, joined_at")
+            .eq("user_id", userId)
+            .order("joined_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-      if (!cancelled) {
-        setClanInfo(
-          clan
-            ? {
-                ...clan,
-                role: membership.role,
-              }
-            : null
-        );
-      }
-    } catch (error) {
-      console.error("Помилка завантаження клану героя:", error);
+        if (membershipError) throw membershipError;
 
-      if (!cancelled) {
-        setClanInfo(null);
-      }
-    } finally {
-      if (!cancelled) {
-        setLoadingClan(false);
+        if (!membership) {
+          if (!cancelled) setClanInfo(null);
+          return;
+        }
+
+        const { data: clan, error: clanError } = await supabase
+          .from("clans")
+          .select("id, name, level, experience")
+          .eq("id", membership.clan_id)
+          .maybeSingle();
+
+        if (clanError) throw clanError;
+
+        if (!cancelled) {
+          setClanInfo(
+            clan
+              ? {
+                  ...clan,
+                  role: membership.role,
+                }
+              : null
+          );
+        }
+      } catch (error) {
+        console.error("Помилка завантаження клану героя:", error);
+
+        if (!cancelled) {
+          setClanInfo(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingClan(false);
+        }
       }
     }
-  }
 
-  loadClanInfo();
+    loadClanInfo();
 
-  return () => {
-    cancelled = true;
-  };
-}, [userId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
   const level = Number(hero.level || 1);
   const experience = Number(hero.experience || 0);
   const gold = Number(hero.gold || 0);
   const crystals = Number(hero.crystals || 0);
 
+  // Завантаження екіпірування, рун, заточки, еліксирів і вихованців
   const loadEquipment = useCallback(async () => {
     if (!userId) {
       setEquippedItems([]);
@@ -217,11 +226,14 @@ useEffect(() => {
       setRunes([]);
       setSharpening([]);
       setActiveElixirs([]);
+      setPetBonuses(emptyPetBonuses());
+      setPetBonusesLoading(false);
       setLoadingEquipment(false);
       return;
     }
 
     setLoadingEquipment(true);
+    setPetBonusesLoading(true);
     setEquipmentError("");
 
     try {
@@ -231,6 +243,7 @@ useEffect(() => {
         runesResult,
         sharpeningResult,
         elixirsResult,
+        petsResult,
       ] = await Promise.all([
         supabase
           .from("player_items")
@@ -260,6 +273,9 @@ useEffect(() => {
           .select("elixir_key, bonus, expires_at")
           .eq("user_id", userId)
           .gt("expires_at", new Date().toISOString()),
+
+        // Отримуємо пасивні бонуси всіх вихованців через захищену RPC
+        supabase.rpc("get_player_pet_bonuses_v1"),
       ]);
 
       if (equipmentResult.error) throw equipmentResult.error;
@@ -276,6 +292,25 @@ useEffect(() => {
       setRunes(runesResult.data || []);
       setSharpening(sharpeningResult.data || []);
       setActiveElixirs(elixirsResult.data || []);
+
+      // Помилка RPC вихованців не повинна блокувати екіпірування
+      if (petsResult.error) {
+        console.error(
+          "Помилка завантаження бонусів вихованців:",
+          petsResult.error
+        );
+
+        setPetBonuses(emptyPetBonuses());
+      } else {
+        const values = petsResult.data?.bonuses || {};
+
+        setPetBonuses({
+          attack: Number(values.attack || 0),
+          hp: Number(values.hp || 0),
+          defense: Number(values.defense || 0),
+          crit: Number(values.crit || 0),
+        });
+      }
     } catch (err) {
       console.error("Помилка завантаження характеристик героя:", err);
 
@@ -284,6 +319,7 @@ useEffect(() => {
       );
     } finally {
       setLoadingEquipment(false);
+      setPetBonusesLoading(false);
     }
   }, [userId]);
 
@@ -327,6 +363,7 @@ useEffect(() => {
     return result;
   }, [equippedItems]);
 
+  // Загальні характеристики героя з урахуванням усіх джерел бонусів
   const bonuses = useMemo(() => {
     const total = emptyStats();
 
@@ -400,6 +437,12 @@ useEffect(() => {
       }
     }
 
+    // 6. Пасивні бонуси всіх придбаних вихованців
+    total.strength += petBonuses.attack;
+    total.health += petBonuses.hp;
+    total.armor += petBonuses.defense;
+    total.crit += petBonuses.crit;
+
     return total;
   }, [
     equippedItems,
@@ -408,8 +451,10 @@ useEffect(() => {
     sharpening,
     activeElixirs,
     currentTime,
+    petBonuses,
   ]);
 
+  // Міць автоматично враховує бонуси вихованців
   const equipmentPower =
     bonuses.strength +
     bonuses.health +
@@ -459,13 +504,14 @@ useEffect(() => {
       <header style={styles.heroHeader}>
         <div style={styles.heroName}>⚔️ {heroName}</div>
         <div style={styles.heroLevel}>⬆️ {level} ур.</div>
+
         <div style={styles.heroClan}>
-  {loadingClan
-    ? "🛡️ Завантаження клану..."
-    : clanInfo
-      ? `🛡️ ${clanInfo.name} • Рівень ${clanInfo.level}`
-      : "🛡️ Без клану"}
-</div>
+          {loadingClan
+            ? "🛡️ Завантаження клану..."
+            : clanInfo
+              ? `🛡️ ${clanInfo.name} • Рівень ${clanInfo.level}`
+              : "🛡️ Без клану"}
+        </div>
 
         <div style={styles.power}>
           Міць: <span>⚔️ {formatNumber(power)}</span>
@@ -574,26 +620,31 @@ useEffect(() => {
           label="Здоров'я"
           value={`+${formatNumber(bonuses.health)}`}
         />
+
         <StatRow
           icon="⚔️"
           label="Сила"
           value={`+${formatNumber(bonuses.strength)}`}
         />
+
         <StatRow
           icon="🛡️"
           label="Броня"
           value={`+${formatNumber(bonuses.armor)}`}
         />
+
         <StatRow
           icon="🍀"
           label="Удача"
           value={`+${formatNumber(bonuses.luck)}`}
         />
+
         <StatRow
           icon="⚡"
           label="Швидкість"
           value={`+${formatNumber(bonuses.speed)}`}
         />
+
         <StatRow
           icon="🎯"
           label="Критичний шанс"
@@ -603,6 +654,47 @@ useEffect(() => {
         <div style={styles.equippedCount}>
           Надіто предметів: {equippedItems.length}
         </div>
+      </section>
+
+      {/* Окремий блок бонусів вихованців */}
+      <section style={styles.statsBlock}>
+        <div style={styles.statsTitle}>🐾 Пасивні бонуси вихованців</div>
+
+        {petBonusesLoading ? (
+          <div style={styles.noElixirs}>
+            Завантаження бонусів вихованців...
+          </div>
+        ) : (
+          <>
+            <StatRow
+              icon="⚔️"
+              label="Додаткова атака"
+              value={`+${formatNumber(petBonuses.attack)}`}
+            />
+
+            <StatRow
+              icon="❤️"
+              label="Додаткове здоров'я"
+              value={`+${formatNumber(petBonuses.hp)}`}
+            />
+
+            <StatRow
+              icon="🛡️"
+              label="Додатковий захист"
+              value={`+${formatNumber(petBonuses.defense)}`}
+            />
+
+            <StatRow
+              icon="🎯"
+              label="Додатковий крит"
+              value={`+${formatNumber(petBonuses.crit)}%`}
+            />
+
+            <div style={styles.petBonusNote}>
+              Бонуси всіх придбаних вихованців діють одночасно.
+            </div>
+          </>
+        )}
       </section>
 
       <section style={styles.statsBlock}>
@@ -657,7 +749,7 @@ useEffect(() => {
               if (item.title === "Тренування") {
                 onNavigate?.("training");
               } else if (item.title === "Уміння") {
-                onNavigate?.("skills");
+               onNavigate?.("skills");
               } else if (item.title === "Сумка") {
                 onNavigate?.("inventory", "bag");
               } else if (item.title === "Сундук") {
@@ -1027,6 +1119,42 @@ const styles = {
     color: "#887055",
   },
 
+  petBonusNote: {
+    marginTop: 10,
+    fontSize: 11,
+    lineHeight: 1.5,
+    color: "#887055",
+  },
+
+  noElixirs: {
+    color: "#887055",
+    fontSize: 12,
+    padding: "5px 0",
+  },
+
+  elixirRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 0",
+    borderBottom: "1px solid #28190e",
+    color: "#b99a70",
+  },
+
+  elixirBonus: {
+    marginTop: 4,
+    color: "#72b043",
+    fontSize: 12,
+  },
+
+  elixirTimer: {
+    color: "#e1bd7c",
+    fontSize: 11,
+    textAlign: "right",
+    whiteSpace: "nowrap",
+  },
+
   errorNotice: {
     margin: 10,
     padding: 10,
@@ -1221,3 +1349,4 @@ const styles = {
     fontWeight: 700,
   },
 };
+        
