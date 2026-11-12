@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import {
   ArrowLeft, Settings, Crown, Shield, Megaphone, Users,
   Coins, Save, RefreshCw, Send, Trash2, Pencil, Lock,
-  ChevronDown, AlertCircle, CheckCircle2
+  AlertCircle, CheckCircle2
 } from "lucide-react";
 
 const ROLE_NAMES = {
@@ -30,7 +30,11 @@ const ROLE_RANK = {
 };
 
 const ROLE_OPTIONS = [
-  "general", "officer", "senior", "fighter", "newbie"
+  "general",
+  "officer",
+  "senior",
+  "fighter",
+  "newbie",
 ];
 
 const ACCESS_OPTIONS = [
@@ -65,7 +69,7 @@ function Section({ icon: Icon, title, children }) {
     <section style={s.section}>
       <div style={s.sectionTitle}>
         <Icon size={18} />
-        <h3>{title}</h3>
+        <h3 style={{ margin: 0, fontSize: 14 }}>{title}</h3>
       </div>
       {children}
     </section>
@@ -98,14 +102,36 @@ export default function ClanSettings({
   onRefresh,
 }) {
   const clanId = clan?.id || membership?.clan_id;
-  const myRole = membership?.role || "newbie";
-  const myId = profile?.id || membership?.user_id;
+
+  const [myRole, setMyRole] = useState(
+    membership?.role ||
+    (clan?.leader_id === profile?.id ? "leader" : "newbie")
+  );
+
+  const [myId, setMyId] = useState(
+    profile?.id || membership?.user_id || null
+  );
 
   const isLeaderOrDeputy = ["leader", "deputy"].includes(myRole);
-  const canPublish = ["leader", "deputy", "general", "officer"].includes(myRole);
-  const canOpenSettings = ["leader", "deputy", "general", "officer"].includes(myRole);
 
-  const [description, setDescription] = useState(clan?.description || "");
+  const canPublish = [
+    "leader",
+    "deputy",
+    "general",
+    "officer",
+  ].includes(myRole);
+
+  const canOpenSettings = [
+    "leader",
+    "deputy",
+    "general",
+    "officer",
+  ].includes(myRole);
+
+  const [description, setDescription] = useState(
+    clan?.description || ""
+  );
+
   const [savingDescription, setSavingDescription] = useState(false);
 
   const [inviteRole, setInviteRole] = useState("deputy");
@@ -120,6 +146,7 @@ export default function ClanSettings({
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementMessage, setAnnouncementMessage] = useState("");
   const [sendingAnnouncement, setSendingAnnouncement] = useState(false);
+  const [deletingAnnouncement, setDeletingAnnouncement] = useState("");
 
   const [newClanName, setNewClanName] = useState(clan?.name || "");
   const [renaming, setRenaming] = useState(false);
@@ -133,6 +160,7 @@ export default function ClanSettings({
     setSuccess(isError ? "" : message);
   };
 
+  // Завантаження налаштувань і перевірка справжньої ролі
   const loadData = useCallback(async () => {
     if (!clanId) {
       setLoading(false);
@@ -144,6 +172,22 @@ export default function ClanSettings({
     setError("");
 
     try {
+      const { data: authData, error: authError } =
+        await supabase.auth.getUser();
+
+      if (authError) throw authError;
+
+      const currentUserId =
+        profile?.id ||
+        membership?.user_id ||
+        authData?.user?.id;
+
+      if (!currentUserId) {
+        throw new Error("Не вдалося визначити користувача.");
+      }
+
+      setMyId(currentUserId);
+
       const [
         settingsResult,
         announcementsResult,
@@ -172,38 +216,68 @@ export default function ClanSettings({
       if (announcementsResult.error) throw announcementsResult.error;
       if (membersResult.error) throw membersResult.error;
 
-      setInviteRole(settingsResult.data?.invite_min_role || "deputy");
-      setKickRole(settingsResult.data?.kick_min_role || "deputy");
+      const loadedMembers = membersResult.data || [];
+
+      // Визначаємо роль безпосередньо з таблиці clan_members
+      const myMembership = loadedMembers.find(
+        (member) => member.user_id === currentUserId
+      );
+
+      // Додаткова перевірка через clans.leader_id
+      const actualRole =
+        myMembership?.role ||
+        (clan?.leader_id === currentUserId ? "leader" : "newbie");
+
+      setMyRole(actualRole);
+
+      setInviteRole(
+        settingsResult.data?.invite_min_role || "deputy"
+      );
+
+      setKickRole(
+        settingsResult.data?.kick_min_role || "deputy"
+      );
+
       setAnnouncements(announcementsResult.data || []);
-      setMembers(membersResult.data || []);
+      setMembers(loadedMembers);
 
       const ids = [
-        ...new Set((membersResult.data || []).map((m) => m.user_id)),
+        ...new Set(loadedMembers.map((member) => member.user_id)),
       ];
 
       if (ids.length) {
-        const { data: profiles, error: profilesError } = await supabase
-          .from("profiles")
-          .select("id, username, display_name, avatar_url, level")
-          .in("id", ids);
+        const { data: profiles, error: profilesError } =
+          await supabase
+            .from("profiles")
+            .select("id, username, display_name, avatar_url, level")
+            .in("id", ids);
 
         if (profilesError) throw profilesError;
 
         const map = {};
-        (profiles || []).forEach((p) => {
-          map[p.id] = p;
+
+        (profiles || []).forEach((player) => {
+          map[player.id] = player;
         });
+
         setMemberProfiles(map);
       } else {
         setMemberProfiles({});
       }
     } catch (err) {
       console.error("Clan settings loading error:", err);
-      setError(err?.message || "Не вдалося завантажити налаштування.");
+      setError(
+        err?.message || "Не вдалося завантажити налаштування."
+      );
     } finally {
       setLoading(false);
     }
-  }, [clanId]);
+  }, [
+    clanId,
+    profile?.id,
+    membership?.user_id,
+    clan?.leader_id,
+  ]);
 
   useEffect(() => {
     loadData();
@@ -214,6 +288,7 @@ export default function ClanSettings({
     setNewClanName(clan?.name || "");
   }, [clan?.description, clan?.name]);
 
+  // Збереження опису
   const saveDescription = async () => {
     if (!isLeaderOrDeputy || savingDescription) return;
 
@@ -222,10 +297,13 @@ export default function ClanSettings({
     setSuccess("");
 
     try {
-      const { error } = await supabase.rpc("update_clan_description", {
-        p_clan_id: clanId,
-        p_description: description.trim(),
-      });
+      const { error } = await supabase.rpc(
+        "update_clan_description",
+        {
+          p_clan_id: clanId,
+          p_description: description.trim(),
+        }
+      );
 
       if (error) throw error;
 
@@ -238,6 +316,7 @@ export default function ClanSettings({
     }
   };
 
+  // Налаштування прав запрошення та виключення
   const saveAccess = async () => {
     if (!isLeaderOrDeputy || savingAccess) return;
 
@@ -246,11 +325,14 @@ export default function ClanSettings({
     setSuccess("");
 
     try {
-      const { error } = await supabase.rpc("update_clan_access_settings", {
-        p_clan_id: clanId,
-        p_invite_min_role: inviteRole,
-        p_kick_min_role: kickRole,
-      });
+      const { error } = await supabase.rpc(
+        "update_clan_access_settings",
+        {
+          p_clan_id: clanId,
+          p_invite_min_role: inviteRole,
+          p_kick_min_role: kickRole,
+        }
+      );
 
       if (error) throw error;
 
@@ -262,6 +344,7 @@ export default function ClanSettings({
     }
   };
 
+  // Публікація оголошення
   const publishAnnouncement = async (event) => {
     event.preventDefault();
 
@@ -284,7 +367,10 @@ export default function ClanSettings({
         await supabase.auth.getUser();
 
       if (authError) throw authError;
-      if (!authData?.user?.id) throw new Error("Потрібно авторизуватися.");
+
+      if (!authData?.user?.id) {
+        throw new Error("Потрібно авторизуватися.");
+      }
 
       const { error } = await supabase
         .from("clan_announcements")
@@ -299,6 +385,7 @@ export default function ClanSettings({
 
       setAnnouncementTitle("");
       setAnnouncementMessage("");
+
       notify("Оголошення опубліковано.");
       await loadData();
     } catch (err) {
@@ -308,10 +395,51 @@ export default function ClanSettings({
     }
   };
 
+  // Видалення оголошення
+  const deleteAnnouncement = async (announcement) => {
+    if (!isLeaderOrDeputy || deletingAnnouncement) return;
+
+    if (
+      !window.confirm(
+        `Видалити оголошення «${announcement.title}»?`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingAnnouncement(announcement.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      const { error } = await supabase
+        .from("clan_announcements")
+        .delete()
+        .eq("id", announcement.id)
+        .eq("clan_id", clanId);
+
+      if (error) throw error;
+
+      setAnnouncements((previous) =>
+        previous.filter((item) => item.id !== announcement.id)
+      );
+
+      notify("Оголошення видалено.");
+    } catch (err) {
+      notify(err?.message || "Не вдалося видалити оголошення.", true);
+    } finally {
+      setDeletingAnnouncement("");
+    }
+  };
+
+  // Зміна посади учасника
   const changeMemberRole = async (targetId, newRole) => {
     if (!targetId || !newRole || changingRole) return;
 
-    const target = members.find((m) => m.user_id === targetId);
+    const target = members.find(
+      (member) => member.user_id === targetId
+    );
+
     if (!target) return;
 
     if (target.role === "leader") {
@@ -323,21 +451,33 @@ export default function ClanSettings({
     const targetRank = ROLE_RANK[target.role] ?? 99;
     const newRank = ROLE_RANK[newRole] ?? 99;
 
-    if (!["leader", "deputy", "general", "officer"].includes(myRole)) {
+    if (
+      !["leader", "deputy", "general", "officer"].includes(myRole)
+    ) {
       notify("У тебе немає прав керувати посадами.", true);
       return;
     }
 
-    if (targetRank <= actorRank || newRank < actorRank) {
+    if (
+      targetRank <= actorRank ||
+      newRank < actorRank
+    ) {
       notify("Не можна змінювати цю посаду.", true);
       return;
     }
 
     const player = memberProfiles[targetId];
-    const playerName =
-      player?.display_name || player?.username || "цього учасника";
 
-    if (!window.confirm(`Змінити посаду ${playerName} на «${ROLE_NAMES[newRole]}»?`)) {
+    const playerName =
+      player?.display_name ||
+      player?.username ||
+      "цього учасника";
+
+    if (
+      !window.confirm(
+        `Змінити посаду ${playerName} на «${ROLE_NAMES[newRole]}»?`
+      )
+    ) {
       return;
     }
 
@@ -346,15 +486,21 @@ export default function ClanSettings({
     setSuccess("");
 
     try {
-      const { error } = await supabase.rpc("set_clan_member_role", {
-        p_clan_id: clanId,
-        p_target_user_id: targetId,
-        p_new_role: newRole,
-      });
+      const { error } = await supabase.rpc(
+        "set_clan_member_role",
+        {
+          p_clan_id: clanId,
+          p_target_user_id: targetId,
+          p_new_role: newRole,
+        }
+      );
 
       if (error) throw error;
 
-      notify(`Посаду учасника змінено: ${ROLE_NAMES[newRole]}.`);
+      notify(
+        `Посаду учасника змінено: ${ROLE_NAMES[newRole]}.`
+      );
+
       await loadData();
       onRefresh?.();
     } catch (err) {
@@ -364,10 +510,12 @@ export default function ClanSettings({
     }
   };
 
+  // Перейменування клану
   const renameClan = async () => {
     const name = newClanName.trim();
 
     if (!isLeaderOrDeputy || renaming) return;
+
     if (name.length < 3 || name.length > 40) {
       notify("Назва має містити від 3 до 40 символів.", true);
       return;
@@ -378,7 +526,11 @@ export default function ClanSettings({
       return;
     }
 
-    if (!window.confirm(`Перейменувати клан на «${name}» за 250 золота?`)) {
+    if (
+      !window.confirm(
+        `Перейменувати клан на «${name}» за 250 золота?`
+      )
+    ) {
       return;
     }
 
@@ -387,19 +539,28 @@ export default function ClanSettings({
     setSuccess("");
 
     try {
-      const { data, error } = await supabase.rpc("rename_clan", {
-        p_clan_id: clanId,
-        p_new_name: name,
-      });
+      const { data, error } = await supabase.rpc(
+        "rename_clan",
+        {
+          p_clan_id: clanId,
+          p_new_name: name,
+        }
+      );
 
       if (error) throw error;
+
       if (data?.success === false) {
-        throw new Error(data?.message || "Не вдалося перейменувати клан.");
+        throw new Error(
+          data?.message || "Не вдалося перейменувати клан."
+        );
       }
+
+      setNewClanName(data?.new_name || name);
 
       notify(
         `Клан перейменовано. Витрачено 250 золота. Залишок: ${data?.remaining_gold ?? "—"}.`
       );
+
       onRefresh?.();
     } catch (err) {
       notify(err?.message || "Помилка перейменування клану.", true);
@@ -408,9 +569,12 @@ export default function ClanSettings({
     }
   };
 
+  // Сортування учасників за званнями
   const visibleMembers = useMemo(() => {
     return [...members].sort(
-      (a, b) => (ROLE_RANK[a.role] ?? 99) - (ROLE_RANK[b.role] ?? 99)
+      (a, b) =>
+        (ROLE_RANK[a.role] ?? 99) -
+        (ROLE_RANK[b.role] ?? 99)
     );
   }, [members]);
 
@@ -419,9 +583,14 @@ export default function ClanSettings({
       <div style={s.page}>
         <div style={s.denied}>
           <Lock size={30} />
-          <h3>Доступ обмежено</h3>
-          <p>Ця сторінка доступна лідеру, заступнику, генералу та офіцеру.</p>
-          <Button onClick={onBack}><ArrowLeft size={16} /> Назад</Button>
+          <h3 style={{ margin: 0 }}>Доступ обмежено</h3>
+          <p style={s.muted}>
+            Ця сторінка доступна лідеру, заступнику, генералу та офіцеру.
+          </p>
+          <Button onClick={onBack}>
+            <ArrowLeft size={16} />
+            Назад
+          </Button>
         </div>
       </div>
     );
@@ -430,219 +599,361 @@ export default function ClanSettings({
   return (
     <div style={s.page}>
       <header style={s.header}>
-        <button type="button" style={s.back} onClick={onBack}>
+        <button
+          type="button"
+          style={s.back}
+          onClick={onBack}
+        >
           <ArrowLeft size={18} />
         </button>
-        <div style={s.headerIcon}><Settings size={22} /></div>
-        <div style={{ flex: 1 }}>
-          <h2 style={s.title}>Налаштування клану</h2>
-          <p style={s.subtitle}>{clan?.name || "Клан"}</p>
+
+        <div style={s.headerIcon}>
+          <Settings size={22} />
         </div>
-        <button type="button" style={s.back} onClick={loadData} title="Оновити">
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h2 style={s.title}>Налаштування клану</h2>
+          <p style={s.subtitle}>
+            {clan?.name || "Клан"} · {ROLE_NAMES[myRole] || myRole}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          style={s.back}
+          onClick={loadData}
+          title="Оновити"
+        >
           <RefreshCw size={17} />
         </button>
       </header>
 
       {error && (
-        <div style={s.noticeError}><AlertCircle size={16} />{error}</div>
+        <div style={s.noticeError}>
+          <AlertCircle size={16} />
+          <span>{error}</span>
+        </div>
       )}
+
       {success && (
-        <div style={s.noticeSuccess}><CheckCircle2 size={16} />{success}</div>
+        <div style={s.noticeSuccess}>
+          <CheckCircle2 size={16} />
+          <span>{success}</span>
+        </div>
       )}
 
       {loading ? (
-        <div style={s.loading}><RefreshCw className="clan-settings-spin" /> Завантаження...</div>
+        <div style={s.loading}>
+          <RefreshCw className="clan-settings-spin" />
+          Завантаження налаштувань...
+        </div>
       ) : (
         <>
+          {/* ОГОЛОШЕННЯ */}
           <Section icon={Megaphone} title="Оголошення клану">
             {canPublish ? (
-              <form onSubmit={publishAnnouncement} style={s.form}>
+              <form
+                onSubmit={publishAnnouncement}
+                style={s.form}
+              >
                 <Field label="Заголовок">
                   <input
                     value={announcementTitle}
-                    onChange={(e) => setAnnouncementTitle(e.target.value)}
+                    onChange={(event) =>
+                      setAnnouncementTitle(event.target.value)
+                    }
                     maxLength={100}
                     placeholder="Наприклад: Збір клану"
                     style={s.input}
                   />
                 </Field>
+
                 <Field label="Текст оголошення">
                   <textarea
                     value={announcementMessage}
-                    onChange={(e) => setAnnouncementMessage(e.target.value)}
+                    onChange={(event) =>
+                      setAnnouncementMessage(event.target.value)
+                    }
                     maxLength={3000}
                     rows={4}
                     placeholder="Напиши важливу інформацію для учасників..."
                     style={s.textarea}
                   />
                 </Field>
+
                 <Button disabled={sendingAnnouncement}>
-                  {sendingAnnouncement ? <RefreshCw size={15} /> : <Send size={15} />}
+                  {sendingAnnouncement ? (
+                    <RefreshCw size={15} />
+                  ) : (
+                    <Send size={15} />
+                  )}
                   Опублікувати
                 </Button>
               </form>
             ) : (
-              <p style={s.muted}>Публікувати оголошення можуть керівні посади.</p>
+              <p style={s.muted}>
+                Публікувати оголошення можуть керівні посади.
+              </p>
             )}
 
             <div style={s.announcementList}>
               {announcements.length === 0 ? (
-                <p style={s.muted}>Оголошень поки немає.</p>
-              ) : announcements.map((item) => {
-                const author = memberProfiles[item.author_id];
-                return (
-                  <article key={item.id} style={s.announcement}>
-                    <strong>{item.title}</strong>
-                    <p>{item.message}</p>
-                    <small>
-                      {author?.display_name || author?.username || "Керівництво"}
-                      {" · "}
-                      {new Date(item.created_at).toLocaleString("uk-UA")}
-                    </small>
-                  </article>
-                );
-              })}
+                <p style={s.muted}>
+                  Оголошень поки немає.
+                </p>
+              ) : (
+                announcements.map((item) => {
+                  const author = memberProfiles[item.author_id];
+
+                  return (
+                    <article
+                      key={item.id}
+                      style={s.announcement}
+                    >
+                      <div style={s.rowBetween}>
+                        <strong style={{ color: colors.gold }}>
+                          {item.title}
+                        </strong>
+
+                        {isLeaderOrDeputy && (
+                          <button
+                            type="button"
+                            onClick={() => deleteAnnouncement(item)}
+                            disabled={
+                              deletingAnnouncement === item.id
+                            }
+                            style={s.deleteButton}
+                            title="Видалити оголошення"
+                          >
+                            {deletingAnnouncement === item.id ? (
+                              <RefreshCw size={15} />
+                            ) : (
+                              <Trash2 size={15} />
+                            )}
+                          </button>
+                        )}
+                      </div>
+
+                      <p style={s.announcementText}>
+                        {item.message}
+                      </p>
+
+                      <small style={s.announcementMeta}>
+                        {author?.display_name ||
+                          author?.username ||
+                          "Керівництво"}
+                        {" · "}
+                        {new Date(item.created_at).toLocaleString("uk-UA")}
+                      </small>
+                    </article>
+                  );
+                })
+              )}
             </div>
           </Section>
 
+          {/* ОПИС КЛАНУ */}
           <Section icon={Pencil} title="Опис клану">
             <Field label="Опис">
               <textarea
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(event) =>
+                  setDescription(event.target.value)
+                }
                 maxLength={2000}
                 rows={4}
                 disabled={!isLeaderOrDeputy}
-                style={s.textarea}
+                style={{
+                  ...s.textarea,
+                  opacity: isLeaderOrDeputy ? 1 : 0.65,
+                }}
                 placeholder="Розкажи про свій клан..."
               />
             </Field>
+
             <div style={s.rowBetween}>
-              <small style={s.muted}>{description.length}/2000</small>
-              {isLeaderOrDeputy && (
-                <Button onClick={saveDescription} disabled={savingDescription}>
-                  <Save size={15} /> Зберегти опис
-                </Button>
-              )}
-            </div>
-            {!isLeaderOrDeputy && (
-              <p style={s.muted}>Редагувати опис можуть лідер і заступник.</p>
-            )}
-          </Section>
+              <small style={s.muted}>
+                {description.length}/2000
+              </small>
 
-          <Section icon={Users} title="Учасники та посади">
-            <p style={s.muted}>
-              Ти можеш змінювати посади лише тих учасників, які нижчі за тебе.
-              Максимальна посада для підвищення — твоя власна.
-            </p>
-            <div style={s.memberList}>
-              {visibleMembers.map((member) => {
-                const player = memberProfiles[member.user_id] || {};
-                const name =
-                  player.display_name || player.username || "Гравець";
-                const targetRank = ROLE_RANK[member.role] ?? 99;
-                const actorRank = ROLE_RANK[myRole] ?? 99;
-                const canManage =
-                  member.user_id !== myId &&
-                  member.role !== "leader" &&
-                  ["leader", "deputy", "general", "officer"].includes(myRole) &&
-                  targetRank > actorRank;
+              
+{isLeaderOrDeputy && (
+  <Button
+    onClick={saveDescription}
+    disabled={savingDescription}
+  >
+    <Save size={15} />
+    Зберегти опис
+  </Button>
+)}
+</div>
 
-                const allowedRoles = ROLE_OPTIONS.filter(
-                  (role) => (ROLE_RANK[role] ?? 99) >= actorRank
-                );
+{!isLeaderOrDeputy && (
+  <p style={s.muted}>
+    Редагувати опис можуть лідер і заступник.
+  </p>
+)}
+</Section>
 
-                return (
-                  <div key={member.user_id} style={s.memberRow}>
-                    <div style={s.memberInfo}>
-                      <strong>{name}</strong>
-                      <span>
-                        {ROLE_NAMES[member.role] || member.role}
-                        {player.level ? ` · Рівень ${player.level}` : ""}
-                      </span>
-                    </div>
-                    {canManage ? (
-                      <select
-                        value={member.role}
-                        disabled={changingRole === member.user_id}
-                        onChange={(e) => changeMemberRole(member.user_id, e.target.value)}
-                        style={s.roleSelect}
-                      >
-                        {allowedRoles.map((role) => (
-                          <option key={role} value={role}>
-                            {ROLE_NAMES[role]}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span style={s.roleBadge}>
-                        {ROLE_NAMES[member.role] || member.role}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </Section>
+{/* УЧАСНИКИ ТА ПОСАДИ */}
+<Section icon={Users} title="Учасники та посади">
+  <p style={s.muted}>
+    Ти можеш змінювати посади лише тих учасників,
+    які нижчі за тебе. Максимальна посада для підвищення —
+    твоя власна.
+  </p>
 
-          {isLeaderOrDeputy && (
-            <>
-              <Section icon={Shield} title="Права доступу">
-                <p style={s.muted}>
-                  Вибери найнижчу посаду, якій дозволено запрошувати або виключати учасників.
-                </p>
-                <Field label="Хто може запрошувати">
-                  <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} style={s.input}>
-                    {ACCESS_OPTIONS.map((item) => (
-                      <option key={item.value} value={item.value}>{item.label}</option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Хто може виключати">
-                  <select value={kickRole} onChange={(e) => setKickRole(e.target.value)} style={s.input}>
-                    {ACCESS_OPTIONS.map((item) => (
-                      <option key={item.value} value={item.value}>{item.label}</option>
-                    ))}
-                  </select>
-                </Field>
-                <Button onClick={saveAccess} disabled={savingAccess}>
-                  <Save size={15} /> Зберегти права
-                </Button>
-              </Section>
+  <div style={s.memberList}>
+    {visibleMembers.map((member) => {
+      const player = memberProfiles[member.user_id] || {};
+      const name =
+        player.display_name || player.username || "Гравець";
 
-              <Section icon={Crown} title="Перейменування клану">
-                <p style={s.muted}>
-                  Зміна назви коштує <strong style={{ color: colors.gold }}>250 золота</strong> зі скарбниці клану.
-                </p>
-                <Field label="Нова назва">
-                  <input
-                    value={newClanName}
-                    onChange={(e) => setNewClanName(e.target.value)}
-                    maxLength={40}
-                    minLength={3}
-                    style={s.input}
-                    placeholder="Назва клану"
-                  />
-                </Field>
-                <Button onClick={renameClan} disabled={renaming}>
-                  <Coins size={16} /> {renaming ? "Перейменування..." : "Перейменувати за 250 золота"}
-                </Button>
-              </Section>
-            </>
+      const targetRank = ROLE_RANK[member.role] ?? 99;
+      const actorRank = ROLE_RANK[myRole] ?? 99;
+
+      const canManage =
+        member.user_id !== myId &&
+        member.role !== "leader" &&
+        ["leader", "deputy", "general", "officer"].includes(myRole) &&
+        targetRank > actorRank;
+
+      const allowedRoles = ROLE_OPTIONS.filter(
+        (role) => (ROLE_RANK[role] ?? 99) >= actorRank
+      );
+
+      return (
+        <div key={member.user_id} style={s.memberRow}>
+          <div style={s.memberInfo}>
+            <strong>{name}</strong>
+            <span style={s.memberMeta}>
+              {ROLE_NAMES[member.role] || member.role}
+              {player.level ? ` · Рівень ${player.level}` : ""}
+            </span>
+          </div>
+
+          {canManage ? (
+            <select
+              value={member.role === "member" ? "newbie" : member.role}
+              disabled={changingRole === member.user_id}
+              onChange={(e) =>
+                changeMemberRole(member.user_id, e.target.value)
+              }
+              style={s.roleSelect}
+            >
+              {allowedRoles.map((role) => (
+                <option key={role} value={role}>
+                  {ROLE_NAMES[role]}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span style={s.roleBadge}>
+              {ROLE_NAMES[member.role] || member.role}
+            </span>
           )}
-        </>
-      )}
+        </div>
+      );
+    })}
+  </div>
+</Section>
 
-      <style>{`
-        @keyframes clanSettingsSpin {
-          to { transform: rotate(360deg); }
-        }
-        .clan-settings-spin {
-          animation: clanSettingsSpin 1s linear infinite;
-        }
-      `}</style>
+{/* ПРАВА ДОСТУПУ */}
+{isLeaderOrDeputy && (
+  <Section icon={Shield} title="Права доступу">
+    <p style={s.muted}>
+      Вибери найнижчу посаду, якій дозволено
+      запрошувати або виключати учасників.
+    </p>
+
+    <Field label="Хто може запрошувати">
+      <select
+        value={inviteRole}
+        onChange={(e) => setInviteRole(e.target.value)}
+        style={s.input}
+      >
+        {ACCESS_OPTIONS.map((item) => (
+          <option key={item.value} value={item.value}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+    </Field>
+
+    <Field label="Хто може виключати">
+      <select
+        value={kickRole}
+        onChange={(e) => setKickRole(e.target.value)}
+        style={s.input}
+      >
+        {ACCESS_OPTIONS.map((item) => (
+          <option key={item.value} value={item.value}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+    </Field>
+
+    <Button onClick={saveAccess} disabled={savingAccess}>
+      <Save size={15} />
+      Зберегти права
+    </Button>
+  </Section>
+)}
+
+{/* ПЕРЕЙМЕНУВАННЯ */}
+{isLeaderOrDeputy && (
+  <Section icon={Crown} title="Перейменування клану">
+    <p style={s.muted}>
+      Зміна назви коштує{" "}
+      <strong style={{ color: colors.gold }}>250 золота</strong>
+      {" "}зі скарбниці клану.
+    </p>
+
+    <Field label="Нова назва">
+      <input
+        value={newClanName}
+        onChange={(e) => setNewClanName(e.target.value)}
+        maxLength={40}
+        minLength={3}
+        style={s.input}
+        placeholder="Назва клану"
+      />
+    </Field>
+
+    <Button onClick={renameClan} disabled={renaming}>
+      <Coins size={16} />
+      {renaming ? "Перейменування..." : "Перейменувати за 250 золота"}
+    </Button>
+  </Section>
+)}
+
+{myRole === "leader" && (
+  <div style={s.leaderNotice}>
+    <Crown size={17} />
+    <div>
+      <strong>Панель лідера</strong>
+      <p>
+        Ти маєш найвищі права керування кланом.
+        Заступник не може змінювати твою посаду.
+      </p>
     </div>
-  );
+  </div>
+)}
+</>
+)}
+
+<style>{`
+  @keyframes clanSettingsSpin {
+    to { transform: rotate(360deg); }
+  }
+
+  .clan-settings-spin {
+    animation: clanSettingsSpin 1s linear infinite;
+  }
+`}</style>
+</div>
+);
 }
 
 const s = {
@@ -675,6 +986,7 @@ const s = {
   headerIcon: {
     width: 42,
     height: 42,
+    flexShrink: 0,
     display: "grid",
     placeItems: "center",
     borderRadius: 13,
@@ -682,8 +994,17 @@ const s = {
     background: "linear-gradient(145deg,#49321d,#2b1e14)",
     border: "1px solid #79572f",
   },
-  title: { margin: 0, fontSize: 19, fontWeight: 900, color: "#f2d6a5" },
-  subtitle: { margin: "4px 0 0", color: colors.muted, fontSize: 11 },
+  title: {
+    margin: 0,
+    fontSize: 19,
+    fontWeight: 900,
+    color: "#f2d6a5",
+  },
+  subtitle: {
+    margin: "4px 0 0",
+    color: colors.muted,
+    fontSize: 11,
+  },
   section: {
     display: "flex",
     flexDirection: "column",
@@ -699,8 +1020,17 @@ const s = {
     gap: 9,
     color: colors.gold,
   },
-  field: { display: "flex", flexDirection: "column", gap: 6, width: "100%" },
-  label: { color: "#c6aa81", fontSize: 11, fontWeight: 800 },
+  field: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    width: "100%",
+  },
+  label: {
+    color: "#c6aa81",
+    fontSize: 11,
+    fontWeight: 800,
+  },
   input: {
     width: "100%",
     boxSizing: "border-box",
@@ -728,7 +1058,11 @@ const s = {
     lineHeight: 1.5,
     outline: "none",
   },
-  form: { display: "flex", flexDirection: "column", gap: 10 },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
   button: {
     minHeight: 39,
     alignSelf: "flex-start",
@@ -745,44 +1079,80 @@ const s = {
     fontSize: 12,
     cursor: "pointer",
   },
-  dangerButton: { borderColor: "#784638", background: "#3b211a" },
+  dangerButton: {
+    borderColor: "#784638",
+    background: "#3b211a",
+  },
   rowBetween: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
   },
-  muted: { margin: 0, color: colors.muted, fontSize: 11, lineHeight: 1.5 },
-  announcementList: { display: "flex", flexDirection: "column", gap: 9 },
+  muted: {
+    margin: 0,
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 1.5,
+  },
+  announcementList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 9,
+  },
   announcement: {
     padding: 12,
     border: "1px solid #4b3927",
     borderRadius: 11,
     background: "#1a140f",
   },
-  "announcement p": {
-  margin: "7px 0",
-  color: "#e9d9c0",
-  fontSize: 12,
-  whiteSpace: "pre-wrap",
-},
-
-"announcement small": {
-  color: "#89765e",
-  fontSize: 10,
-},
-  memberList: { display: "flex", flexDirection: "column", gap: 8 },
+  announcementText: {
+    margin: "7px 0",
+    color: "#e9d9c0",
+    fontSize: 12,
+    whiteSpace: "pre-wrap",
+  },
+  announcementMeta: {
+    color: "#89765e",
+    fontSize: 10,
+  },
+  deleteButton: {
+    width: 30,
+    height: 30,
+    flexShrink: 0,
+    display: "grid",
+    placeItems: "center",
+    border: "1px solid #784638",
+    borderRadius: 8,
+    background: "#3b211a",
+    color: "#e6a18c",
+    cursor: "pointer",
+  },
+  memberList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
   memberRow: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
-    padding: "10px",
+    padding: 10,
     border: "1px solid #493622",
     borderRadius: 10,
     background: "#1a140f",
   },
-  memberInfo: { minWidth: 0, display: "flex", flexDirection: "column", gap: 4 },
+  memberInfo: {
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+  },
+  memberMeta: {
+    color: colors.muted,
+    fontSize: 10,
+  },
   roleSelect: {
     maxWidth: 130,
     minWidth: 105,
@@ -843,5 +1213,14 @@ const s = {
     textAlign: "center",
     color: colors.gold,
   },
+  leaderNotice: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 13,
+    border: "1px solid #79572f",
+    borderRadius: 12,
+    background: "linear-gradient(145deg,#392817,#211810)",
+    color: colors.gold,
+  },
 };
-    
