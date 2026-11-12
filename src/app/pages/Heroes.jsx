@@ -126,8 +126,77 @@ export default function Heroes({ profile, player, onNavigate }) {
   const [loadingEquipment, setLoadingEquipment] = useState(true);
   const [equipmentError, setEquipmentError] = useState("");
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const [clanInfo, setClanInfo] = useState(null);
+const [loadingClan, setLoadingClan] = useState(true);
 
   const heroName = hero.display_name || hero.username || "Аріан";
+  // Завантаження інформації про клан героя
+useEffect(() => {
+  let cancelled = false;
+
+  async function loadClanInfo() {
+    if (!userId) {
+      setClanInfo(null);
+      setLoadingClan(false);
+      return;
+    }
+
+    setLoadingClan(true);
+
+    try {
+      const { data: membership, error: membershipError } =
+        await supabase
+          .from("clan_members")
+          .select("clan_id, role, joined_at")
+          .eq("user_id", userId)
+          .order("joined_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+      if (membershipError) throw membershipError;
+
+      if (!membership) {
+        if (!cancelled) setClanInfo(null);
+        return;
+      }
+
+      const { data: clan, error: clanError } = await supabase
+        .from("clans")
+        .select("id, name, level, experience")
+        .eq("id", membership.clan_id)
+        .maybeSingle();
+
+      if (clanError) throw clanError;
+
+      if (!cancelled) {
+        setClanInfo(
+          clan
+            ? {
+                ...clan,
+                role: membership.role,
+              }
+            : null
+        );
+      }
+    } catch (error) {
+      console.error("Помилка завантаження клану героя:", error);
+
+      if (!cancelled) {
+        setClanInfo(null);
+      }
+    } finally {
+      if (!cancelled) {
+        setLoadingClan(false);
+      }
+    }
+  }
+
+  loadClanInfo();
+
+  return () => {
+    cancelled = true;
+  };
+}, [userId]);
   const level = Number(hero.level || 1);
   const experience = Number(hero.experience || 0);
   const gold = Number(hero.gold || 0);
@@ -382,7 +451,13 @@ export default function Heroes({ profile, player, onNavigate }) {
       <header style={styles.heroHeader}>
         <div style={styles.heroName}>⚔️ {heroName}</div>
         <div style={styles.heroLevel}>⬆️ {level} ур.</div>
-        <div style={styles.heroClan}>🛡️ Без клана</div>
+        <div style={styles.heroClan}>
+  {loadingClan
+    ? "🛡️ Завантаження клану..."
+    : clanInfo
+      ? `🛡️ ${clanInfo.name} • Рівень ${clanInfo.level}`
+      : "🛡️ Без клану"}
+</div>
 
         <div style={styles.power}>
           Міць: <span>⚔️ {formatNumber(power)}</span>
