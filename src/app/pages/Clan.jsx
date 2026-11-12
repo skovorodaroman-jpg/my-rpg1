@@ -1,6 +1,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import ClanSettings from "./ClanSettings";
 import {
   Shield, Users, Crown, RefreshCw, LogOut, Settings,
   ChevronLeft, ChevronRight, Plus, Search, UserPlus,
@@ -913,6 +914,15 @@ export default function Clan({ profile, player }) {
               <LogOut size={17} /> {isLeader ? "Лідер не може залишити клан" : "Залишити клан"}
             </button>
           </section>
+          {/* РОЗШИРЕНЕ КЕРУВАННЯ КЛАНОМ */}
+<ClanSettings
+  clan={clan}
+  membership={myMembership}
+  members={members}
+  profile={currentPlayer}
+  onBack={() => setActiveView("home")}
+  onRefresh={loadClan}
+/>
         </>
       ) : (
         <>
