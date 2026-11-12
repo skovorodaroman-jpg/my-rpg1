@@ -1,113 +1,238 @@
-import { useMemo, useState } from "react";
 
-const initialPets = [
-  {
-    id: 1,
-    name: "Вогник",
-    species: "Дракончик",
-    rarity: "Епічний",
-    icon: "🐉",
-    level: 5,
-    power: 180,
-    bonus: "+12% атаки",
-    bonusType: "attack",
-    unlocked: true,
-  },
-  {
-    id: 2,
-    name: "Місяць",
-    species: "Місячний вовк",
-    rarity: "Легендарний",
-    icon: "🐺",
-    level: 3,
-    power: 220,
-    bonus: "+15% швидкості",
-    bonusType: "speed",
-    unlocked: true,
-  },
-  {
-    id: 3,
-    name: "Крапля",
-    species: "Водяний дух",
-    rarity: "Рідкісний",
-    icon: "🦦",
-    level: 4,
-    power: 120,
-    bonus: "+10% здоров'я",
-    bonusType: "hp",
-    unlocked: true,
-  },
-  {
-    id: 4,
-    name: "Тінь",
-    species: "Темний фамільяр",
-    rarity: "Міфічний",
-    icon: "🦇",
-    level: 1,
-    power: 300,
-    bonus: "+20% критичного удару",
-    bonusType: "crit",
-    unlocked: false,
-  },
-  {
-    id: 5,
-    name: "Камінчик",
-    species: "Гірський голем",
-    rarity: "Рідкісний",
-    icon: "🪨",
-    level: 1,
-    power: 100,
-    bonus: "+8% захисту",
-    bonusType: "defense",
-    unlocked: false,
-  },
-  {
-    id: 6,
-    name: "Іскра",
-    species: "Вогняний дух",
-    rarity: "Епічний",
-    icon: "🦊",
-    level: 1,
-    power: 170,
-    bonus: "+10% атаки",
-    bonusType: "attack",
-    unlocked: false,
-  },
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabase";
+
+const PET_ICONS = {
+  "Дракон": "🐉",
+  "Гідра": "🐲",
+  "Цербер": "🐺",
+  "Фенікс": "🔥",
+  "Тигр і Пантера": "🐅",
+  "Грифон": "🦅",
+};
+
+const STAT_INFO = [
+  { key: "attack", label: "Атака", icon: "⚔️" },
+  { key: "hp", label: "Здоров'я", icon: "❤️" },
+  { key: "defense", label: "Захист", icon: "🛡️" },
+  { key: "crit", label: "Критичний шанс", icon: "🎯" },
 ];
 
-const rarityClass = {
-  "Рідкісний": "rarity-rare",
-  "Епічний": "rarity-epic",
-  "Легендарний": "rarity-legendary",
-  "Міфічний": "rarity-mythic",
-};
+const formatNumber = (value) =>
+  Number(value || 0).toLocaleString("uk-UA");
 
-const bonusIcons = {
-  attack: "⚔️",
-  defense: "🛡️",
-  hp: "❤️",
-  speed: "💨",
-  crit: "🎯",
-};
+const errorMessage = (error) =>
+  error?.message || "Сталася невідома помилка";
 
 export default function Pets() {
-  const [pets] = useState(initialPets);
-  const [selectedPet, setSelectedPet] = useState(pets[0]);
-  const [filter, setFilter] = useState("all");
+  const [pets, setPets] = useState([]);
+  const [ownedPets, setOwnedPets] = useState([]);
+  const [petLevels, setPetLevels] = useState([]);
+  const [bonuses, setBonuses] = useState({
+    pets_count: 0,
+    total_bonus: 0,
+    bonuses: { attack: 0, hp: 0, defense: 0, crit: 0 },
+    pets: [],
+  });
 
-  const unlockedPets = pets.filter((pet) => pet.unlocked);
+  const [profile, setProfile] = useState(null);
+  const [selectedPetId, setSelectedPetId] = useState(null);
+  const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+      if (!user) throw new Error("Увійди в гру, щоб переглянути вихованців.");
+
+      const [
+        petsResult,
+        ownedResult,
+        levelsResult,
+        profileResult,
+        bonusesResult,
+      ] = await Promise.all([
+        supabase
+          .from("pets")
+          .select("*")
+          .eq("is_active", true)
+          .order("name"),
+
+        supabase
+          .from("player_pets")
+          .select("*")
+          .eq("user_id", user.id),
+
+        supabase
+          .from("pet_levels")
+          .select("level, bonus, upgrade_amount, currency")
+          .order("level"),
+
+        supabase
+          .from("profiles")
+          .select("id, gold, silver, level")
+          .eq("id", user.id)
+          .single(),
+
+        supabase.rpc("get_player_pet_bonuses_v1"),
+      ]);
+
+      if (petsResult.error) throw petsResult.error;
+      if (ownedResult.error) throw ownedResult.error;
+      if (levelsResult.error) throw levelsResult.error;
+      if (profileResult.error) throw profileResult.error;
+      if (bonusesResult.error) throw bonusesResult.error;
+
+      setPets(petsResult.data || []);
+      setOwnedPets(ownedResult.data || []);
+      setPetLevels(levelsResult.data || []);
+      setProfile(profileResult.data);
+      setBonuses(
+        bonusesResult.data || {
+          pets_count: 0,
+          total_bonus: 0,
+          bonuses: { attack: 0, hp: 0, defense: 0, crit: 0 },
+          pets: [],
+        }
+      );
+
+      const activePet = (ownedResult.data || []).find(
+        (pet) => pet.is_active
+      );
+
+      const firstOwned = (ownedResult.data || [])[0];
+
+      setSelectedPetId(
+        activePet?.pet_id || firstOwned?.pet_id || null
+      );
+    } catch (error) {
+      console.error("Pets loading error:", error);
+      setMessage({
+        type: "error",
+        text: errorMessage(error),
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const ownedByPetId = useMemo(
+    () =>
+      new Map(
+        ownedPets.map((pet) => [pet.pet_id, pet])
+      ),
+    [ownedPets]
+  );
+
+  const selectedPet = pets.find(
+    (pet) => pet.id === selectedPetId
+  );
+
+  const selectedOwnedPet = selectedPet
+    ? ownedByPetId.get(selectedPet.id)
+    : null;
+
+  const unlockedCount = ownedPets.length;
+
+  const nextUpgrade = selectedOwnedPet
+    ? petLevels.find(
+        (item) => item.level === selectedOwnedPet.level
+      )
+    : null;
 
   const filteredPets = useMemo(() => {
     if (filter === "unlocked") {
-      return pets.filter((pet) => pet.unlocked);
+      return pets.filter((pet) => ownedByPetId.has(pet.id));
     }
 
     if (filter === "locked") {
-      return pets.filter((pet) => !pet.unlocked);
+      return pets.filter((pet) => !ownedByPetId.has(pet.id));
     }
 
     return pets;
-  }, [pets, filter]);
+  }, [pets, filter, ownedByPetId]);
+
+  const runAction = async (action, successText) => {
+    if (actionLoading) return;
+
+    setActionLoading(true);
+    setMessage(null);
+
+    try {
+      const { data, error } = await action();
+
+      if (error) throw error;
+
+      if (data?.success === false) {
+        throw new Error(data.message || "Операцію не виконано.");
+      }
+
+      setMessage({
+        type: "success",
+        text: data?.message || successText,
+      });
+
+      await loadData();
+    } catch (error) {
+      console.error("Pet action error:", error);
+      setMessage({
+        type: "error",
+        text: errorMessage(error),
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const purchasePet = (pet) =>
+    runAction(
+      () =>
+        supabase.rpc("game_purchase_pet_v1", {
+          p_pet_id: pet.id,
+        }),
+      `${pet.name} придбано!`
+    );
+
+  const activatePet = (playerPet) =>
+    runAction(
+      () =>
+        supabase.rpc("game_set_active_pet_v1", {
+          p_player_pet_id: playerPet.id,
+        }),
+      "Активного вихованця змінено!"
+    );
+
+  const upgradePet = (playerPet) =>
+    runAction(
+      () =>
+        supabase.rpc("game_upgrade_pet_v1", {
+          p_player_pet_id: playerPet.id,
+        }),
+      "Вихованця покращено!"
+    );
+
+  if (loading) {
+    return (
+      <div className="pets-page pets-loading">
+        <div className="pets-loading__icon">🐾</div>
+        <h2>Завантажуємо вихованців...</h2>
+      </div>
+    );
+  }
 
   return (
     <div className="pets-page">
@@ -116,231 +241,253 @@ export default function Pets() {
           <span className="page-header__eyebrow">
             Твої супутники
           </span>
-
-          <h1>🐾 Пети</h1>
-
+          <h1>🐾 Вихованці</h1>
           <p>
-            Пети допомагають героям у боях та дають постійні бонуси.
+            Вихованці допомагають герою та дають постійні бонуси.
           </p>
         </div>
 
         <div className="pets-counter">
-          <strong>{unlockedPets.length}</strong>
+          <strong>{unlockedCount}</strong>
           <span>/ {pets.length}</span>
         </div>
       </header>
 
-      <section className="active-pet-card">
-        <div className="active-pet-card__visual">
-          <div className="pet-element">
-            ✨
-          </div>
-
-          <div className="pet-placeholder">
-            {selectedPet.icon}
-          </div>
-
-          <span
-            className={`pet-rarity ${
-              rarityClass[selectedPet.rarity]
-            }`}
-          >
-            {selectedPet.rarity}
-          </span>
+      {message && (
+        <div
+          className={`pets-message pets-message--${message.type}`}
+          role="status"
+        >
+          {message.text}
         </div>
+      )}
 
-        <div className="active-pet-card__info">
-          <span>{selectedPet.species}</span>
-
-          <h2>{selectedPet.name}</h2>
-
-          <div className="pet-level">
-            Рівень {selectedPet.level}
-          </div>
-
-          <div className="pet-power">
-            <span>💪 Сила</span>
-            <strong>
-              {selectedPet.power.toLocaleString()}
-            </strong>
-          </div>
-
-          <div className="pet-bonus">
-            <span>
-              {bonusIcons[selectedPet.bonusType]}
-            </span>
-
-            <div>
-              <small>Активний бонус</small>
-              <strong>{selectedPet.bonus}</strong>
-            </div>
-          </div>
-
-          <div className="pet-actions">
-            <button type="button">
-              ⬆️ Покращити
-            </button>
-
-            <button type="button">
-              ⚔️ Призначити герою
-            </button>
-          </div>
+      <section className="pet-wallet">
+        <div>
+          <span>🪙 Золото</span>
+          <strong>{formatNumber(profile?.gold)}</strong>
+        </div>
+        <div>
+          <span>🥈 Срібло</span>
+          <strong>{formatNumber(profile?.silver)}</strong>
         </div>
       </section>
 
+      <section className="pet-total-bonuses">
+        <div className="section-heading">
+          <div>
+            <h2>✨ Загальні бонуси</h2>
+            <span>
+              Від усіх придбаних вихованців
+            </span>
+          </div>
+        </div>
+
+        <div className="pet-bonus-grid">
+          {STAT_INFO.map((stat) => (
+            <div className="pet-bonus-stat" key={stat.key}>
+              <span>{stat.icon}</span>
+              <small>{stat.label}</small>
+              <strong>
+                +{formatNumber(bonuses.bonuses?.[stat.key])}
+              </strong>
+            </div>
+          ))}
+        </div>
+
+        <div className="pet-total-bonuses__footer">
+          <span>Сумарний бонус вихованців</span>
+          <strong>
+            +{formatNumber(bonuses.total_bonus)}
+          </strong>
+        </div>
+      </section>
+
+      {selectedPet && selectedOwnedPet && (
+        <section className="active-pet-card">
+          <div className="active-pet-card__visual">
+            <div className="pet-element">✨</div>
+            <div className="pet-placeholder">
+              {PET_ICONS[selectedPet.name] || "🐾"}
+            </div>
+            <span className="pet-rarity">
+              {selectedPet.rarity}
+            </span>
+          </div>
+
+          <div className="active-pet-card__info">
+            <span>{selectedPet.description || "Твій супутник"}</span>
+            <h2>{selectedPet.name}</h2>
+
+            <div className="pet-level">
+              Рівень {selectedOwnedPet.level} / 80
+            </div>
+
+            {selectedOwnedPet.is_active && (
+              <div className="pet-active-label">
+                <span>●</span> Активний вихованець
+              </div>
+            )}
+
+            <div className="pet-bonus">
+              <span>✨</span>
+              <div>
+                <small>Особистий бонус</small>
+                <strong>
+                  +{formatNumber(
+                    bonuses.pets?.find(
+                      (pet) =>
+                        pet.player_pet_id === selectedOwnedPet.id
+                    )?.bonus
+                  )}
+                </strong>
+              </div>
+            </div>
+
+            {nextUpgrade && selectedOwnedPet.level < 80 && (
+              <div className="pet-upgrade-cost">
+                <span>Наступний рівень</span>
+                <strong>
+                  {nextUpgrade.currency === "gold" ? "🪙" : "🥈"}{" "}
+                  {formatNumber(nextUpgrade.upgrade_amount)}
+                </strong>
+              </div>
+            )}
+
+            {selectedOwnedPet.level >= 80 && (
+              <div className="pet-max-level">
+                Максимальний рівень досягнуто
+              </div>
+            )}
+
+            <div className="pet-actions">
+              {selectedOwnedPet.level < 80 && (
+                <button
+                  type="button"
+                  disabled={actionLoading || !nextUpgrade}
+                  onClick={() => upgradePet(selectedOwnedPet)}
+                >
+                  {actionLoading ? "Обробка..." : "⬆️ Покращити"}
+                </button>
+              )}
+
+              {!selectedOwnedPet.is_active && (
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={() => activatePet(selectedOwnedPet)}
+                >
+                  ⚔️ Зробити активним
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
       <section className="pet-filters">
-        <button
-          type="button"
-          className={
-            filter === "all"
-              ? "filter-button filter-button--active"
-              : "filter-button"
-          }
-          onClick={() => setFilter("all")}
-        >
-          🐾 Усі
-        </button>
-
-        <button
-          type="button"
-          className={
-            filter === "unlocked"
-              ? "filter-button filter-button--active"
-              : "filter-button"
-          }
-          onClick={() => setFilter("unlocked")}
-        >
-          🔓 Відкриті
-        </button>
-
-        <button
-          type="button"
-          className={
-            filter === "locked"
-              ? "filter-button filter-button--active"
-              : "filter-button"
-          }
-          onClick={() => setFilter("locked")}
-        >
-          🔒 Заблоковані
-        </button>
+        {[
+          ["all", "🐾 Усі"],
+          ["unlocked", "🔓 Придбані"],
+          ["locked", "🔒 Не придбані"],
+        ].map(([value, label]) => (
+          <button
+            type="button"
+            key={value}
+            className={
+              filter === value
+                ? "filter-button filter-button--active"
+                : "filter-button"
+            }
+            onClick={() => setFilter(value)}
+          >
+            {label}
+          </button>
+        ))}
       </section>
 
       <section className="pets-list">
         <div className="section-heading">
           <div>
-            <h2>Мої пети</h2>
-            <span>
-              {unlockedPets.length} відкрито
-            </span>
+            <h2>Мої вихованці</h2>
+            <span>{unlockedCount} придбано</span>
           </div>
         </div>
 
         <div className="pets-grid">
-          {filteredPets.map((pet) => (
-            <button
-              type="button"
-              key={pet.id}
-              className={`pet-card ${
-                selectedPet.id === pet.id
-                  ? "pet-card--selected"
-                  : ""
-              } ${
-                !pet.unlocked
-                  ? "pet-card--locked"
-                  : ""
-              }`}
-              onClick={() => {
-                if (pet.unlocked) {
-                  setSelectedPet(pet);
-                }
-              }}
-            >
-              <div className="pet-card__visual">
-                {pet.unlocked ? pet.icon : "🔒"}
-              </div>
+          {filteredPets.map((pet) => {
+            const owned = ownedByPetId.get(pet.id);
+            const isSelected = selectedPetId === pet.id;
 
-              <div className="pet-card__info">
-                <strong>{pet.name}</strong>
-
-                <span>{pet.species}</span>
-
-                <small
-                  className={rarityClass[pet.rarity]}
-                >
-                  {pet.rarity}
-                </small>
-              </div>
-
-              {pet.unlocked && (
-                <div className="pet-card__bottom">
-                  <span>Lv. {pet.level}</span>
-                  <strong>💪 {pet.power}</strong>
+            return (
+              <button
+                type="button"
+                key={pet.id}
+                className={`pet-card ${
+                  isSelected ? "pet-card--selected" : ""
+                } ${!owned ? "pet-card--locked" : ""}`}
+                onClick={() => {
+                  if (owned) setSelectedPetId(pet.id);
+                }}
+              >
+                <div className="pet-card__visual">
+                  {owned
+                    ? PET_ICONS[pet.name] || "🐾"
+                    : "🔒"}
                 </div>
-              )}
-            </button>
-          ))}
-        </div>
-      </section>
 
-      <section className="pet-slots-section">
-        <div className="section-heading">
-          <div>
-            <h2>🦸 Супутники героїв</h2>
-            <span>3 місця</span>
-          </div>
-        </div>
+                <div className="pet-card__info">
+                  <strong>{pet.name}</strong>
+                  <span>{pet.description || "Вихованець"}</span>
+                  <small>{pet.rarity}</small>
+                </div>
 
-        <div className="pet-slots">
-          <PetSlot pet={pets[0]} hero="Аріан" />
-          <PetSlot pet={pets[1]} hero="Луна" />
-          <PetSlot pet={null} hero="Рей" />
+                {owned ? (
+                  <div className="pet-card__bottom">
+                    <span>Lv. {owned.level}</span>
+                    <strong>
+                      {owned.is_active ? "✨ Активний" : "Придбано"}
+                    </strong>
+                  </div>
+                ) : (
+                  <div className="pet-card__bottom">
+                    <span>Придбати</span>
+                    <strong>
+                      🪙 {formatNumber(
+                        150 * Math.pow(2, unlockedCount)
+                      )}
+                    </strong>
+                  </div>
+                )}
+
+                {!owned && (
+                  <span
+                    className="pet-buy-action"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      purchasePet(pet);
+                    }}
+                  >
+                    Купити
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </section>
 
       <section className="pet-upgrade-info">
         <span>✨</span>
-
         <div>
-          <strong>Покращуй своїх супутників</strong>
-
+          <strong>Розвивай своїх вихованців</strong>
           <p>
-            Підвищуй рівень петів, відкривай нові бонуси та
-            збільшуй силу всієї команди.
+            Кожен придбаний вихованець додає постійні бонуси
+            до характеристик героя. Активний вихованець
+            визначає бойову підтримку.
           </p>
         </div>
       </section>
     </div>
   );
-}
-
-function PetSlot({ pet, hero }) {
-  return (
-    <div className="pet-slot">
-      <div className="pet-slot__hero">
-        🦸
-      </div>
-
-      <span className="pet-slot__arrow">
-        ←
-      </span>
-
-      <div className="pet-slot__pet">
-        {pet ? pet.icon : "+"}
-      </div>
-
-      <div className="pet-slot__info">
-        <strong>{hero}</strong>
-
-        {pet ? (
-          <>
-            <span>{pet.name}</span>
-            <small>+ {pet.bonus}</small>
-          </>
-        ) : (
-          <span>Обрати пета</span>
-        )}
-      </div>
-    </div>
-  );
-}
+    }
