@@ -177,10 +177,29 @@ export default function ClanSettings({
 
       if (authError) throw authError;
 
-      const currentUserId =
-        profile?.id ||
-        membership?.user_id ||
-        authData?.user?.id;
+      const currentUserId = authData?.user?.id;
+
+if (!currentUserId) {
+  throw new Error("Не вдалося визначити авторизованого користувача.");
+}
+
+setMyId(currentUserId);
+
+const { data: myMembership, error: myMembershipError } =
+  await supabase
+    .from("clan_members")
+    .select("user_id, clan_id, role")
+    .eq("clan_id", clanId)
+    .eq("user_id", currentUserId)
+    .maybeSingle();
+
+if (myMembershipError) throw myMembershipError;
+
+const actualRole =
+  myMembership?.role ||
+  (clan?.leader_id === currentUserId ? "leader" : "newbie");
+
+setMyRole(actualRole);
 
       if (!currentUserId) {
         throw new Error("Не вдалося визначити користувача.");
