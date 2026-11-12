@@ -123,6 +123,14 @@ export default function Heroes({ profile, player, onNavigate }) {
   const [runes, setRunes] = useState([]);
   const [sharpening, setSharpening] = useState([]);
   const [activeElixirs, setActiveElixirs] = useState([]);
+  const [petBonuses, setPetBonuses] = useState({
+  attack: 0,
+  hp: 0,
+  defense: 0,
+  crit: 0,
+});
+
+const [petBonusesLoading, setPetBonusesLoading] = useState(false);
   const [loadingEquipment, setLoadingEquipment] = useState(true);
   const [equipmentError, setEquipmentError] = useState("");
   const [currentTime, setCurrentTime] = useState(Date.now());
