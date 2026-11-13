@@ -22,6 +22,7 @@ import Cave from "./pages/Cave";
 import Training from "./pages/Training";
 import Skills from "./pages/Skills";
 import Sage from "./pages/Sage";
+import Mail from "./pages/Mail";
 
 const MAIN_PAGES = [
   { id: "hero", label: "Мій герой", icon: "⚔️" },
@@ -150,6 +151,7 @@ const PAGE_COMPONENTS = {
   sage: Sage,
   immortalKing: ComingSoon,
   getGold: ComingSoon,
+    mail: Mail,
 };
 
 function number(value, fallback = 0) {
@@ -394,7 +396,7 @@ useEffect(() => {
         {MAIN_PAGES.map((item) => {
           const active =
   section === item.id ||
-  (item.id === "hero" && section === "pets") ||
+(item.id === "hero" && ["pets", "mail"].includes(section)) ||
   (item.id === "home" &&
     HOME_MENU.some((menuItem) => menuItem.id === section));
           return (
