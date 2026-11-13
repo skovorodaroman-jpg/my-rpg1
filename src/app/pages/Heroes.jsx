@@ -754,6 +754,8 @@ export default function Heroes({ profile, player, onNavigate }) {
                 onNavigate?.("inventory", "bag");
               } else if (item.title === "Сундук") {
                 onNavigate?.("inventory", "chest");
+                } else if (item.title === "Вихованець") {
+  onNavigate?.("pets");
               } else {
                 showPlaceholder(item.title);
               }
