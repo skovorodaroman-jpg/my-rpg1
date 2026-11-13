@@ -393,10 +393,10 @@ useEffect(() => {
       <nav style={styles.bottomNav}>
         {MAIN_PAGES.map((item) => {
           const active =
-            section === item.id ||
-            (item.id === "home" &&
-              HOME_MENU.some((menuItem) => menuItem.id === section));
-
+  section === item.id ||
+  (item.id === "hero" && section === "pets") ||
+  (item.id === "home" &&
+    HOME_MENU.some((menuItem) => menuItem.id === section));
           return (
             <button
               key={item.id}
