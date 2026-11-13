@@ -1,0 +1,461 @@
+
+/* =========================================
+   PETS — СТИЛІ СТОРІНКИ ВИХОВАНЦІВ
+   Хроніки Згаслого Світанку
+========================================= */
+
+.pets-page {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 20px;
+  color: #eadcc4;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.pets-page *,
+.pets-page *::before,
+.pets-page *::after {
+  box-sizing: border-box;
+}
+
+/* Заголовок */
+
+.pets-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 0 10px;
+}
+
+.pets-back {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border: 1px solid #59452d;
+  border-radius: 10px;
+  background: #211912;
+  color: #e8c58d;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.pets-heading {
+  min-width: 0;
+  flex: 1;
+}
+
+.pets-title {
+  margin: 0;
+  color: #e8c58d;
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.pets-subtitle {
+  margin: 4px 0 0;
+  color: #a9987e;
+  font-size: 12px;
+}
+
+/* Загальна інформація */
+
+.pets-summary {
+  padding: 14px;
+  border: 1px solid #59452d;
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, #302216, #19120e);
+}
+
+.pets-summary-title {
+  margin: 0 0 12px;
+  color: #e8c58d;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.pets-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.pets-summary-item {
+  padding: 10px;
+  border: 1px solid #443421;
+  border-radius: 10px;
+  background: #211912;
+}
+
+.pets-summary-label {
+  display: block;
+  color: #a9987e;
+  font-size: 11px;
+}
+
+.pets-summary-value {
+  display: block;
+  margin-top: 5px;
+  color: #f0d29c;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+/* Бонуси */
+
+.pets-bonuses {
+  padding: 13px;
+  border: 1px solid #72532e;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #302316, #1d1712);
+}
+
+.pets-section-title {
+  margin: 0 0 12px;
+  color: #e8c58d;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.pets-bonus-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pets-bonus-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px;
+  border-radius: 9px;
+  background: #211912;
+  border: 1px solid #443421;
+}
+
+.pets-bonus-label {
+  color: #b9a88e;
+  font-size: 12px;
+}
+
+.pets-bonus-value {
+  color: #9bd28a;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+/* Список вихованців */
+
+.pets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pet-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid #59452d;
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, #30251b, #1b1511);
+  overflow: hidden;
+}
+
+.pet-card.active {
+  border-color: #c28b3f;
+  box-shadow: 0 0 12px #b47a3025;
+}
+
+.pet-card.locked {
+  border-color: #39312a;
+  background: linear-gradient(145deg, #241e19, #171310);
+}
+
+.pet-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pet-image-wrap {
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #715432;
+  border-radius: 12px;
+  background: radial-gradient(circle, #49331d, #1b1510);
+  overflow: hidden;
+}
+
+.pet-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pet-image-placeholder {
+  font-size: 43px;
+}
+
+.pet-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.pet-name {
+  margin: 0;
+  color: #f0d29c;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.pet-level {
+  margin-top: 5px;
+  color: #c4a77c;
+  font-size: 12px;
+}
+
+.pet-description {
+  margin: 7px 0 0;
+  color: #a9987e;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.pet-status {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 7px;
+  padding: 4px 8px;
+  border: 1px solid #72532e;
+  border-radius: 20px;
+  background: #3a2919;
+  color: #e8c58d;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.pet-status.active {
+  border-color: #68834b;
+  background: #24351f;
+  color: #a8dc8e;
+}
+
+/* Характеристики */
+
+.pet-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.pet-stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid #403225;
+  border-radius: 8px;
+  background: #211912;
+}
+
+.pet-stat-label {
+  color: #a9987e;
+  font-size: 11px;
+}
+
+.pet-stat-value {
+  color: #e8c58d;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* Прогрес */
+
+.pet-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pet-progress-header {
+  display: flex;
+  justify-content: space-between;
+  color: #b9a88e;
+  font-size: 11px;
+}
+
+.pet-progress-track {
+  height: 8px;
+  border: 1px solid #51402c;
+  border-radius: 20px;
+  background: #120e0b;
+  overflow: hidden;
+}
+
+.pet-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #96602a, #e8b85c);
+  transition: width 0.25s ease;
+}
+
+/* Кнопки */
+
+.pet-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.pet-button {
+  min-height: 40px;
+  flex: 1;
+  padding: 9px 10px;
+  border: 1px solid #8c6736;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #68451f, #3b2816);
+  color: #ffe1ad;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.pet-button:active {
+  transform: scale(0.97);
+}
+
+.pet-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pet-button.secondary {
+  border-color: #59452d;
+  background: #211912;
+  color: #d4bd99;
+}
+
+.pet-button.active-button {
+  border-color: #63844d;
+  background: linear-gradient(180deg, #36502b, #23351c);
+  color: #bce59f;
+}
+
+.pet-button.danger {
+  border-color: #75423a;
+  background: #38201b;
+  color: #e9a69a;
+}
+
+/* Ціни */
+
+.pet-price {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  color: #d7bd92;
+  font-size: 12px;
+}
+
+.pet-price span {
+  white-space: nowrap;
+}
+
+/* Порожній стан */
+
+.pets-empty {
+  padding: 25px 15px;
+  border: 1px dashed #59452d;
+  border-radius: 13px;
+  background: #1c1611;
+  text-align: center;
+}
+
+.pets-empty-icon {
+  font-size: 42px;
+}
+
+.pets-empty-title {
+  margin: 10px 0 5px;
+  color: #e8c58d;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.pets-empty-text {
+  margin: 0;
+  color: #a9987e;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Завантаження */
+
+.pets-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  gap: 12px;
+  color: #c5a778;
+  font-size: 13px;
+}
+
+.pets-loading-icon {
+  font-size: 36px;
+}
+
+/* Повідомлення */
+
+.pets-message {
+  padding: 11px;
+  border: 1px solid #72532e;
+  border-radius: 9px;
+  background: #302316;
+  color: #e8c58d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.pets-error {
+  border-color: #87483e;
+  background: #321d19;
+  color: #f0a69a;
+}
+
+/* Адаптація */
+
+@media (max-width: 380px) {
+  .pet-image-wrap {
+    width: 72px;
+    height: 72px;
+  }
+
+  .pet-name {
+    font-size: 15px;
+  }
+
+  .pet-button {
+    font-size: 11px;
+    padding: 8px 6px;
+  }
+
+  .pets-title {
+    font-size: 19px;
+  }
+}
