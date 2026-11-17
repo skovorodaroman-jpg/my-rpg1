@@ -24,11 +24,7 @@ import Skills from "./pages/Skills";
 import Sage from "./pages/Sage";
 import Mail from "./pages/Mail";
 import AncientAltars from "./pages/AncientAltars";
-import ImmortalsValley from "./pages/ImmortalsValley";
-import ImmortalKing from "./pages/ImmortalKing";
-import ClanTournament from "./pages/ClanTournament";
-import ClanColiseum from "./pages/ClanColiseum";
-import BattleSchedule from "./pages/BattleSchedule";
+
 
 const MAIN_PAGES = [
   { id: "hero", label: "Мій герой", icon: "⚔️" },
@@ -154,11 +150,7 @@ const PAGE_COMPONENTS = {
   getGold: ComingSoon,
     mail: Mail,
   ancientAltars: AncientAltars,
-immortalsValley: ImmortalsValley,
-immortalKing: ImmortalKing,
-clanTournament: ClanTournament,
-clanColiseum: ClanColiseum,
-battleSchedule: BattleSchedule,
+
 };
 
 function number(value, fallback = 0) {
