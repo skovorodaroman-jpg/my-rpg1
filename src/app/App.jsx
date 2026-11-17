@@ -23,6 +23,12 @@ import Training from "./pages/Training";
 import Skills from "./pages/Skills";
 import Sage from "./pages/Sage";
 import Mail from "./pages/Mail";
+import AncientAltars from "./pages/AncientAltars";
+import ImmortalsValley from "./pages/ImmortalsValley";
+import ImmortalKing from "./pages/ImmortalKing";
+import ClanTournament from "./pages/ClanTournament";
+import ClanColiseum from "./pages/ClanColiseum";
+import BattleSchedule from "./pages/BattleSchedule";
 
 const MAIN_PAGES = [
   { id: "hero", label: "Мій герой", icon: "⚔️" },
@@ -53,13 +59,7 @@ const SUBSECTIONS = {
     { id: "collections", label: "Колекції", icon: "📚" },
     { id: "relics", label: "Стародавні реліквії", icon: "🏺" },
   ],
-  battles: [
-    { id: "clan_tournament", label: "Клановий турнір", icon: "🛡️" },
-    { id: "ancient_altars", label: "Стародавні вівтарі", icon: "🗿" },
-    { id: "immortals_valley", label: "Долина безсмертних", icon: "🏔️" },
-    { id: "immortal_king", label: "Король безсмертних", icon: "👑" },
-    { id: "chosen_league", label: "Ліга обраних", icon: "⚔️" },
-  ],
+  
   equipmentShop: [
     { id: "titanic", label: "Титанічні речі", icon: "🔱" },
     { id: "legendary", label: "Легендарні речі", icon: "👑" },
@@ -152,6 +152,12 @@ const PAGE_COMPONENTS = {
   immortalKing: ComingSoon,
   getGold: ComingSoon,
     mail: Mail,
+  ancientAltars: AncientAltars,
+immortalsValley: ImmortalsValley,
+immortalKing: ImmortalKing,
+clanTournament: ClanTournament,
+clanColiseum: ClanColiseum,
+battleSchedule: BattleSchedule,
 };
 
 function number(value, fallback = 0) {
