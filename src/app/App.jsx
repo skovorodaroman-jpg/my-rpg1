@@ -44,6 +44,7 @@ const HOME_MENU = [
   { id: "immortalKing", label: "Король безсмертних", icon: "👑" },
   { id: "battles", label: "Битви", icon: "⚔️" },
   { id: "colosseum", label: "Колізей", icon: "🏟️" },
+  { id: "ancientAltars", label: "Древні алтарі", icon: "🏛️" },
   { id: "adventures", label: "Похід", icon: "🗺️" },
   { id: "getGold", label: "Отримати золото", icon: "🪙" },
   { id: "equipmentShop", label: "Магазин спорядження", icon: "🛒" },
