@@ -137,8 +137,15 @@ export default function AncientAltars({ profile, player }) {
         const { data: registered, error: participantError } =
           await supabase
             .from("altar_event_participants")
-            .select("id, event_id, user_id, clan_id, is_alive, control_mode")
-            .eq("event_id", currentEvent.id)
+            .select(`
+  id, event_id, user_id, clan_id,
+  is_alive, control_mode,
+  battle_hp, max_battle_hp,
+  attack, defense, speed, crit,
+  current_opponent_id,
+  hero_snapshot
+`)
+          .eq("event_id", currentEvent.id)
             .eq("user_id", currentUserId)
             .maybeSingle();
 
